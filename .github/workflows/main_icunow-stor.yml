@@ -86,7 +86,7 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'icunow-stor'
-          slot-name: 'Production'
-          package: .
+          app-name: "icunow-stor"
+          slot-name: "Production"
+          package: release.zip
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_2344D1C5FFAB45ACB0B1FAD67C634749 }}
