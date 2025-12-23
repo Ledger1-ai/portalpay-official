@@ -11,12 +11,10 @@ const nextConfig = {
 
   // Suppress source map warnings in development (Turbopack)
   experimental: {
-    turbo: {
-      resolveAlias: {
-        // Suppress source map parsing warnings
-        'source-map': false,
-      },
-    },
+    /* 
+       turbo key removed as it is invalid in this next version.
+       See: https://nextjs.org/docs/messages/invalid-next-config
+    */
   },
 
   // Ignore TypeScript errors during production builds (e.g., in Docker)
