@@ -13,7 +13,7 @@ import { TerminalViewBar } from "@/components/terminal-view-bar";
 function isCustomDomainHostname(hostname: string): boolean {
   const h = hostname.toLowerCase();
   return !(
-    h.endsWith("ledger1.ai") ||
+    h.endsWith("basalthq.com") ||
     h.endsWith("portalpay.io") ||
     h.includes("localhost") ||
     h === "127.0.0.1" ||
