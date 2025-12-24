@@ -110,7 +110,7 @@ function applySecurityHeaders(req: NextRequest, res: NextResponse) {
       }
     } catch { }
     // Explicitly allow pay.ledger1.ai
-    allowedAncestors.push("https://pay.ledger1.ai");
+    allowedAncestors.push("https://surge.basalthq.com");
     finalCsp = csp.replace(/frame-ancestors [^;]+/, `frame-ancestors ${allowedAncestors.join(" ")}`);
   }
   res.headers.set("Content-Security-Policy", finalCsp);
