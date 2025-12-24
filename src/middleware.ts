@@ -187,7 +187,7 @@ export function middleware(req: NextRequest) {
   faviconHostname = faviconHostname.split(":")[0].toLowerCase();
 
   const isFaviconMainDomain =
-    (faviconHostname.endsWith("ledger1.ai")) ||
+    (faviconHostname.endsWith("basalthq.com")) ||
     faviconHostname.endsWith("portalpay.io") ||
     faviconHostname.includes("localhost") ||
     faviconHostname === "127.0.0.1" ||
@@ -251,7 +251,7 @@ export function middleware(req: NextRequest) {
   hostname = hostname.split(":")[0].toLowerCase();
 
   const isMainDomain =
-    (hostname.endsWith("ledger1.ai")) ||
+    (hostname.endsWith("basalthq.com")) ||
     hostname.endsWith("portalpay.io") ||
     hostname.includes("localhost") ||
     hostname === "127.0.0.1" ||
