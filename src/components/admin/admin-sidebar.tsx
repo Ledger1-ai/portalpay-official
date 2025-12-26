@@ -280,8 +280,9 @@ export function AdminSidebar({ activeTab, onChangeTab, industryPack, canBranding
     if (bk) return bk;
     return String((brand as any)?.key || '').trim();
   })();
-  const titleizedKey = keyForDisplay ? keyForDisplay.charAt(0).toUpperCase() + keyForDisplay.slice(1) : 'PortalPay';
-  const displayBrandName = (!rawBrandName || isGenericBrandName) ? titleizedKey : rawBrandName;
+  const titleizedKey = keyForDisplay.toLowerCase() === 'basaltsurge' ? 'BasaltSurge' : (keyForDisplay ? keyForDisplay.charAt(0).toUpperCase() + keyForDisplay.slice(1) : 'PortalPay');
+  const finalName = (!rawBrandName || isGenericBrandName) ? titleizedKey : rawBrandName;
+  const displayBrandName = finalName.toLowerCase() === 'basaltsurge' ? 'BasaltSurge' : finalName;
 
   const groups: NavItem[] = [
     {

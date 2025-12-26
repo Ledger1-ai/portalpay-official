@@ -21,7 +21,7 @@ export default function AdminHero() {
         if (!cancelled && j && typeof j === 'object') {
           setContainer({ containerType: String(j.containerType || 'unknown').toLowerCase() });
         }
-      } catch {}
+      } catch { }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -32,8 +32,9 @@ export default function AdminHero() {
     /^partner\d*$/i.test(rawBrandName) ||
     /^default$/i.test(rawBrandName);
   const keyForDisplay = String((brand as any)?.key || '').trim();
-  const titleizedKey = keyForDisplay ? keyForDisplay.charAt(0).toUpperCase() + keyForDisplay.slice(1) : 'PortalPay';
-  const displayBrandName = (!rawBrandName || isGenericBrandName) ? titleizedKey : rawBrandName;
+  const titleizedKey = keyForDisplay.toLowerCase() === 'basaltsurge' ? 'BasaltSurge' : (keyForDisplay ? keyForDisplay.charAt(0).toUpperCase() + keyForDisplay.slice(1) : 'PortalPay');
+  const finalName = (!rawBrandName || isGenericBrandName) ? titleizedKey : rawBrandName;
+  const displayBrandName = finalName.toLowerCase() === 'basaltsurge' ? 'BasaltSurge' : finalName;
 
   const appLogo = String(brand?.logos?.app || '').trim();
   const symLogo = String(brand?.logos?.symbol || '').trim();
