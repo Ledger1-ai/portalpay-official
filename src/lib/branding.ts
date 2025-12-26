@@ -40,48 +40,17 @@ export function getDefaultBrandName(key?: string): string {
 
 /**
  * Resolves a logo source, falling back to the correct brand default.
- * Use this to replace `src || "/ppsymbol.png"` patterns.
+ * Two-state model: Trust the source URL if provided, otherwise return brand default.
+ * No blocking - the data source (site config or shop config) is responsible for correct values.
  */
 export function resolveBrandSymbol(src?: string | null, brandKey?: string): string {
-    const k = (brandKey || getEffectiveBrandKey()).toLowerCase();
     const s = String(src || "").trim();
-
-    if (k === "basaltsurge") {
-        const lower = s.toLowerCase();
-        // Check for known legacy/default asset filenames, including "portalpay" generic matches unless explicitly in /brands/
-        const isLegacyAsset = lower.includes("cblogod") ||
-            lower.includes("ppsymbol") ||
-            lower.includes("pplogo") ||
-            lower.includes("portalpay1") ||
-            (lower.includes("portalpay") && !lower.includes("/brands/") && !lower.includes("basalt"));
-
-        if (!s || isLegacyAsset) {
-            return "/bssymbol.png";
-        }
-    }
-
-    if (s) return s;
-    return getDefaultBrandSymbol(k);
+    if (s) return s; // Trust the source - no blocking
+    return getDefaultBrandSymbol(brandKey);
 }
 
 export function resolveBrandAppLogo(src?: string | null, brandKey?: string): string {
-    const k = (brandKey || getEffectiveBrandKey()).toLowerCase();
     const s = String(src || "").trim();
-
-    if (k === "basaltsurge") {
-        const lower = s.toLowerCase();
-        // Check for known legacy/default asset filenames, including "portalpay" generic matches unless explicitly in /brands/
-        const isLegacyAsset = lower.includes("cblogod") ||
-            lower.includes("ppsymbol") ||
-            lower.includes("pplogo") ||
-            lower.includes("portalpay1") ||
-            (lower.includes("portalpay") && !lower.includes("/brands/") && !lower.includes("basalt"));
-
-        if (!s || isLegacyAsset) {
-            return "/bssymbol.png";
-        }
-    }
-
-    if (s) return s;
-    return getDefaultBrandSymbol(k);
+    if (s) return s; // Trust the source - no blocking
+    return getDefaultBrandSymbol(brandKey);
 }

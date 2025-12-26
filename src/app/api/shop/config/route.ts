@@ -102,7 +102,9 @@ export type ShopConfig = {
 };
 
 function defaults(brandKey?: string): Required<Omit<ShopConfig, "wallet" | "id" | "type" | "slug" | "brandKey" | "industryPack" | "industryPackActivatedAt">> {
-  const isBasalt = brandKey === "basaltsurge" || brandKey === "portalpay" && (process.env.BRAND_KEY === "basaltsurge" || process.env.NEXT_PUBLIC_BRAND_KEY === "basaltsurge");
+  // Check if we're in BasaltSurge context - brandKey OR environment variable
+  const envBrandKey = (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase();
+  const isBasalt = brandKey === "basaltsurge" || envBrandKey === "basaltsurge";
 
   return {
     name: "",

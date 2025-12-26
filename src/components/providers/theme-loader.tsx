@@ -231,11 +231,12 @@ export function ThemeLoader() {
         let platformPrimary: string | undefined;
         let platformAccent: string | undefined;
         let isPartnerContainer = false;
+        let bk = ""; // Brand key - hoisted for use in brand override logic below
         console.log("[ThemeLoader] Fetching /api/site/container (cached)...");
         try {
           const ci = await cachedFetch("/api/site/container", { cache: "no-store" });
           console.log("[ThemeLoader] site/container response:", ci);
-          let bk = String(ci?.brandKey || "").trim();
+          bk = String(ci?.brandKey || "").trim();
           const ct = String(ci?.containerType || "").toLowerCase();
           isPartnerContainer = ct === "partner";
 
@@ -290,6 +291,20 @@ export function ThemeLoader() {
         // Site-config theme colors from logged-in user
         const siteConfigPrimary = t?.primaryColor;
         const siteConfigSecondary = t?.secondaryColor;
+
+        // CLIENT-SIDE BRAND OVERRIDE: When logged out on BasaltSurge, override stored logo with platform default
+        // This ensures the correct platform branding without affecting business data (splits, fees, etc.)
+        const isBasaltSurgeBrand = String(bk || "").toLowerCase() === "basaltsurge";
+        const isLoggedOut = !headers["x-wallet"]; // No wallet in headers means logged out
+
+        if (isBasaltSurgeBrand && isLoggedOut && !isPartnerContainer && t) {
+          console.log("[ThemeLoader] BasaltSurge logged-out override: forcing /bssymbol.png");
+          (t as any).brandLogoUrl = "/bssymbol.png";
+          if ((t as any).logos) {
+            (t as any).logos.symbol = "/bssymbol.png";
+            (t as any).logos.app = "/bssymbol.png";
+          }
+        }
 
         console.log("[ThemeLoader] siteConfigPrimary:", siteConfigPrimary, "siteConfigSecondary:", siteConfigSecondary);
 

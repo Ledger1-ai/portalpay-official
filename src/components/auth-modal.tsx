@@ -149,24 +149,25 @@ export function AuthModal({ isOpen, onClose, onSuccess, onError, isSocialLogin =
 
       {/* Modal (lower z-index so thirdweb connect modal can appear above) */}
       <div
-        className="fixed z-[901] w-full max-w-md glass-float rounded-xl border p-5 shadow-2xl"
+        className="fixed z-[901] glass-float rounded-xl border p-6 shadow-2xl"
         style={{
           left: '50%',
           top: '50%',
           transform: 'translate(-50%, -50%)',
-          maxWidth: 'min(28rem, calc(100vw-2rem))'
+          width: '90vw',
+          maxWidth: '440px'
         }}
       >
-        <div className="mb-4">
+        <div className="mb-5">
           {hasAccount ? (
             <>
-              <h2 className="microtext text-sm font-semibold mb-2 uppercase tracking-wide">Complete Authentication</h2>
-              <p className="microtext text-[10px] text-muted-foreground mb-3 leading-relaxed">
+              <h2 className="microtext text-base font-semibold mb-2 uppercase tracking-wide text-center">Complete Authentication</h2>
+              <p className="microtext text-xs text-muted-foreground mb-4 leading-relaxed text-center">
                 Please sign a message to verify your wallet ownership and complete the login process.
               </p>
-              <div className="p-3 rounded-lg bg-foreground/5 border microtext text-[10px] text-muted-foreground space-y-2">
+              <div className="p-4 rounded-lg bg-foreground/5 border microtext text-xs text-muted-foreground space-y-3">
                 <p className="font-semibold text-foreground uppercase tracking-wide">Web3 Payment Service Terms:</p>
-                <ul className="list-disc list-inside space-y-1 ml-2 leading-relaxed">
+                <ul className="list-disc list-inside space-y-1.5 ml-1 leading-relaxed">
                   <li>Trustless, permissionless smart contract execution</li>
                   <li>You maintain full custody of your wallet and keys</li>
                   <li>Cryptocurrency transactions are irreversible</li>
@@ -178,8 +179,8 @@ export function AuthModal({ isOpen, onClose, onSuccess, onError, isSocialLogin =
             </>
           ) : (
             <>
-              <h2 className="microtext text-sm font-semibold mb-2 uppercase tracking-wide">Login Required</h2>
-              <p className="microtext text-[10px] text-muted-foreground mb-3 leading-relaxed">
+              <h2 className="microtext text-base font-semibold mb-2 uppercase tracking-wide text-center">Login Required</h2>
+              <p className="microtext text-xs text-muted-foreground mb-4 leading-relaxed text-center">
                 Connect your wallet to continue.
               </p>
             </>
@@ -187,24 +188,24 @@ export function AuthModal({ isOpen, onClose, onSuccess, onError, isSocialLogin =
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-            <p className="microtext text-[10px] text-red-500">{error}</p>
+          <div className="mb-5 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+            <p className="microtext text-xs text-red-500 text-center">{error}</p>
           </div>
         )}
 
         {/* Actions: aligned, equal sizing */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {hasAccount ? (
             <>
               <button
                 onClick={handleSign}
                 disabled={signing}
-                className="w-full h-10 rounded-lg bg-[var(--pp-secondary)] text-primary-foreground microtext text-[10px] font-semibold uppercase tracking-wide hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-11 rounded-lg bg-[var(--pp-secondary)] text-primary-foreground microtext text-xs font-bold uppercase tracking-wide hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
               >
                 {signing ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg
-                      className="animate-spin h-3 w-3"
+                      className="animate-spin h-4 w-4"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -232,7 +233,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, onError, isSocialLogin =
               {!signing && (
                 <button
                   onClick={onClose}
-                  className="w-full h-10 rounded-lg border hover:bg-foreground/5 transition-colors microtext text-[10px] font-semibold uppercase tracking-wide"
+                  className="w-full h-11 rounded-lg border hover:bg-foreground/5 transition-colors microtext text-xs font-semibold uppercase tracking-wide"
                 >
                   Cancel
                 </button>
@@ -240,15 +241,15 @@ export function AuthModal({ isOpen, onClose, onSuccess, onError, isSocialLogin =
             </>
           ) : (
             <>
-              <div className="w-full h-10">
+              <div className="w-full h-11">
                 <ConnectButton
                   client={client}
                   chain={chain}
                   wallets={wallets}
                   connectButton={{
-                    label: <span className="microtext">Login</span>,
-                    className: connectButtonClass + " w-full h-10",
-                    style: { ...getConnectButtonStyle(), height: "40px", width: "100%" },
+                    label: <span className="microtext text-xs font-bold uppercase">Login</span>,
+                    className: connectButtonClass + " w-full h-11",
+                    style: { ...getConnectButtonStyle(), height: "44px", width: "100%" },
                   }}
                   detailsButton={{
                     displayBalanceToken: { [((chain as any)?.id ?? 8453)]: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
@@ -276,7 +277,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, onError, isSocialLogin =
               </div>
               <button
                 onClick={onClose}
-                className="w-full h-10 rounded-lg border hover:bg-foreground/5 transition-colors microtext text-[10px] font-semibold uppercase tracking-wide"
+                className="w-full h-11 rounded-lg border hover:bg-foreground/5 transition-colors microtext text-xs font-semibold uppercase tracking-wide"
               >
                 Cancel
               </button>
@@ -284,7 +285,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, onError, isSocialLogin =
           )}
         </div>
 
-        <p className="mt-3 microtext text-[9px] text-center text-muted-foreground uppercase tracking-wide">
+        <p className="mt-4 microtext text-[10px] text-center text-muted-foreground uppercase tracking-wide opacity-70">
           This signature is free and doesn't send a transaction
         </p>
       </div>

@@ -224,7 +224,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             const isOldAccent = !s || s === '#f54029' || s === '#2dd4bf' || s === '#22d3ee';
             if (isOldDefault) x.primaryColor = '#22C55E';
             if (isOldAccent) x.secondaryColor = '#16A34A';
-            if (!x.brandName || x.brandName === 'PortalPay' || x.brandName === 'Basaltsurge') {
+            if (!x.brandName || x.brandName === 'PortalPay' || x.brandName === 'Basaltsurge' || x.brandName === 'BasaltSurge') {
               x.brandName = 'BasaltSurge';
             }
           }

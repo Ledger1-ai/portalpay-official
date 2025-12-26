@@ -67,8 +67,26 @@ export function Navbar() {
     // Site branding from dynamic ThemeContext (which now includes Shop overrides)
     const { theme: ctxTheme } = useTheme();
     // Helper to resolve effective branding, prioritizing partner assets if in partner container
+    // CRITICAL: When logged out on BasaltSurge, use static defaults, NOT stored config data
     const effectiveTheme = useMemo(() => {
         const t = ctxTheme;
+        const effectiveBrandKey = (t.brandKey || container.brandKey || getEffectiveBrandKey()).toLowerCase();
+        const isBasalt = effectiveBrandKey === "basaltsurge";
+        const isLoggedIn = Boolean(account?.address);
+
+        // When logged out on BasaltSurge, force static platform defaults
+        if (isBasalt && !isLoggedIn) {
+            return {
+                brandLogoUrl: "/bssymbol.png",
+                brandFaviconUrl: t.brandFaviconUrl || "/favicon-32x32.png",
+                symbolLogoUrl: "/bssymbol.png",
+                brandName: "BasaltSurge",
+                brandLogoShape: t.brandLogoShape,
+                brandKey: "basaltsurge",
+                navbarMode: t.navbarMode
+            };
+        }
+
         return {
             brandLogoUrl: t.brandLogoUrl,
             brandFaviconUrl: t.brandFaviconUrl,

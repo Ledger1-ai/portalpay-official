@@ -13,7 +13,7 @@ import AcceptedServices from "@/components/landing/AcceptedServices";
 import TechnologyPartners from "@/components/landing/TechnologyPartners";
 import SiteFooter from "@/components/landing/SiteFooter";
 import { useBrand } from "@/contexts/BrandContext";
-import { resolveBrandSymbol, resolveBrandAppLogo } from "@/lib/branding";
+import { resolveBrandSymbol, resolveBrandAppLogo, getEffectiveBrandKey } from "@/lib/branding";
 import PortalPayVideo from "@/components/landing/PortalPayVideo";
 import { cachedFetch } from "@/lib/client-api-cache";
 
@@ -114,7 +114,27 @@ export default function HomeContent() {
     window.dispatchEvent(new CustomEvent("pp:auth:prompt"));
   };
 
-  const { theme: siteTheme } = useTheme();
+  const { theme: rawTheme } = useTheme();
+
+  // CRITICAL: When logged out on BasaltSurge, use static defaults for Live Preview
+  const siteTheme = React.useMemo(() => {
+    const t = rawTheme;
+    const effectiveBrandKey = (t.brandKey || (brand as any)?.key || getEffectiveBrandKey()).toLowerCase();
+    const isBasalt = effectiveBrandKey === "basaltsurge";
+    const isLoggedIn = Boolean(account?.address);
+
+    if (isBasalt && !isLoggedIn) {
+      return {
+        ...t,
+        brandLogoUrl: "/bssymbol.png",
+        brandFaviconUrl: t.brandFaviconUrl || "/favicon-32x32.png",
+        symbolLogoUrl: "/bssymbol.png",
+        brandName: "BasaltSurge",
+        brandKey: "basaltsurge",
+      };
+    }
+    return t;
+  }, [rawTheme, (brand as any)?.key, account?.address]);
 
   // Fetch container identity to get brandKey for partner containers
   React.useEffect(() => {
