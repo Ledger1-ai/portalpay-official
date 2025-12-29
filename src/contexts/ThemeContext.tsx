@@ -66,14 +66,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<SiteTheme>(() => ({
     ...defaultTheme,
     // Seed with container brand colors so landing page reflects merchant theme immediately
-    primaryColor: typeof (brand as any)?.colors?.primary === 'string' ? (brand as any).colors.primary : defaultTheme.primaryColor,
-    secondaryColor: typeof (brand as any)?.colors?.accent === 'string' ? (brand as any).colors.accent : defaultTheme.secondaryColor,
+    // FORCE overrides for BasaltSurge to prevent old DB values or defaults from showing
+    primaryColor: (brand as any)?.key?.toLowerCase() === 'basaltsurge' ? '#35ff7c' : (typeof (brand as any)?.colors?.primary === 'string' ? (brand as any).colors.primary : defaultTheme.primaryColor),
+    secondaryColor: (brand as any)?.key?.toLowerCase() === 'basaltsurge' ? '#FF6B35' : (typeof (brand as any)?.colors?.accent === 'string' ? (brand as any).colors.accent : defaultTheme.secondaryColor),
     brandName: brand.name,
     brandFaviconUrl: brand.logos.favicon,
-    symbolLogoUrl: String(brand.logos.symbol || brand.logos.app || ''),
-    brandLogoUrl: brand.logos.app,
+    symbolLogoUrl: (brand as any)?.key?.toLowerCase() === 'basaltsurge' ? '/BasaltSurgeD.png' : String(brand.logos.symbol || brand.logos.app || ''),
+    brandLogoUrl: (brand as any)?.key?.toLowerCase() === 'basaltsurge' ? '/BasaltSurgeWideD.png' : brand.logos.app,
     footerLogoUrl: (brand as any)?.logos?.footer || '',
-    navbarMode: (brand as any)?.logos?.navbarMode === 'logo' ? 'logo' : 'symbol',
+    navbarMode: (brand as any)?.key?.toLowerCase() === 'basaltsurge' ? 'logo' : ((brand as any)?.logos?.navbarMode === 'logo' ? 'logo' : 'symbol'),
     brandKey: (brand as any)?.key || '',
   }));
   const [isLoading, setIsLoading] = useState(true);
@@ -185,7 +186,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             secondaryColor: shopTheme.secondaryColor || mergedTheme.secondaryColor || defaultTheme.secondaryColor,
             brandLogoUrl: shopLogoToUse,
             brandFaviconUrl: shopTheme.brandFaviconUrl || shopTheme.symbolLogoUrl || shopTheme.brandLogoUrl || mergedTheme.brandFaviconUrl || '',
-            symbolLogoUrl: shopLogoToUse,
+            symbolLogoUrl: shopTheme.symbolLogoUrl || shopTheme.brandFaviconUrl || shopLogoToUse,
+            navbarMode: (/(basalt|portal\s*pay)/i.test(String(shopTheme.brandName || shopTheme.name || shopTheme.partName || ''))) ? 'logo' : (shopTheme.navbarMode || 'symbol'),
             brandName: shopTheme.brandName || shopTheme.name || shopTheme.partName || mergedTheme.brandName || brand.name || '',
             textColor: shopTheme.textColor || mergedTheme.textColor || defaultTheme.textColor,
             fontFamily: shopTheme.fontFamily || mergedTheme.fontFamily || defaultTheme.fontFamily,
@@ -199,7 +201,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         const t = (() => {
           const x: any = { ...mergedTheme };
           const bKey = String((brand as any)?.key || '').toLowerCase();
-          const isBS = bKey === 'basaltsurge';
+          const isBS = bKey === 'basaltsurge' || bKey === 'portalpay';
 
           // Determine container type from DOM attribute set by RootLayout
           let isPartner = false;
@@ -222,8 +224,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             // Force Basalt colors if it's the old defaults or empty
             const isOldDefault = !p || p === '#1f2937' || p === '#0d9488' || p === '#14b8a6' || p === '#10b981';
             const isOldAccent = !s || s === '#f54029' || s === '#2dd4bf' || s === '#22d3ee';
-            if (isOldDefault) x.primaryColor = '#22C55E';
-            if (isOldAccent) x.secondaryColor = '#16A34A';
+            if (isOldDefault) x.primaryColor = '#35ff7c';
+            if (isOldAccent) x.secondaryColor = '#FF6B35';
             if (!x.brandName || x.brandName === 'PortalPay' || x.brandName === 'Basaltsurge' || x.brandName === 'BasaltSurge') {
               x.brandName = 'BasaltSurge';
             }
@@ -256,6 +258,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             if (s === '#2dd4bf' || s === '#22d3ee') {
               x.secondaryColor = defaultAccent;
             }
+          }
+          // STRICT override for BasaltSurge: Always enforce new assets
+          // BUT only if we are NOT in a specific merchant context (i.e. no shopTheme loaded)
+          if (isBS && !shopTheme) {
+            x.primaryColor = '#35ff7c';
+            x.secondaryColor = '#FF6B35';
+            x.brandLogoUrl = '/BasaltSurgeWideD.png';
+            x.symbolLogoUrl = '/BasaltSurgeD.png';
+            if (x.logos) {
+              x.logos.app = '/BasaltSurgeWideD.png';
+              x.logos.symbol = '/BasaltSurgeD.png';
+              x.logos.navbarMode = 'logo';
+            }
+            x.navbarMode = 'logo';
           }
           return x;
         })();

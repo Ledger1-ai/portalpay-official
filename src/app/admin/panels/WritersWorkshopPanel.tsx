@@ -234,7 +234,7 @@ export default function WritersWorkshopPanel() {
 
             // The GET endpoint returns { items, total, page, pageSize } - not { ok, items }
             if (r.ok && Array.isArray(j.items)) {
-                const books = j.items.filter((x: any) => x.isBook === true);
+                const books = j.items.filter((x: any) => x.isBook === true || x.industryPack === "publishing");
                 console.log("[WritersWorkshop] Found books:", books.length);
                 setItems(books);
                 // Background fix

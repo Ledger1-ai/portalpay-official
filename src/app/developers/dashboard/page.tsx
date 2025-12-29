@@ -7,6 +7,7 @@ import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardTOC } from "@/components/dashboard/dashboard-toc";
 import { getBrandConfig } from "@/config/brands";
 import { getBaseUrl } from "@/lib/base-url";
+import { resolveBrandAppLogo } from "@/lib/branding";
 
 export const metadata = {
   title: "Developer Dashboard",
@@ -58,7 +59,7 @@ export default async function DashboardPage() {
     if (parts.length >= 3 && host.endsWith(".azurewebsites.net")) {
       brandKeyFromHost = parts[0].toLowerCase();
     }
-  } catch {}
+  } catch { }
   const baseBrand = getBrandConfig(brandKeyFromHost);
   let brand = baseBrand;
   try {
@@ -74,7 +75,7 @@ export default async function DashboardPage() {
         meta: b.meta && typeof b.meta === "object" ? b.meta : baseBrand.meta,
       };
     }
-  } catch {}
+  } catch { }
 
   return (
     <div className="min-h-screen bg-background">
@@ -82,16 +83,16 @@ export default async function DashboardPage() {
       <header className="fixed top-[84px] left-0 right-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center">
               <Image
-                src={brand?.logos?.symbol || brand?.logos?.app || brand?.logos?.favicon || "/ppsymbol.png"}
+                src={resolveBrandAppLogo(brand?.logos?.app, brand?.key || baseBrand.key)}
                 alt={brand?.name || "Brand"}
-                width={32}
-                height={32}
+                width={160}
+                height={40}
+                className="object-contain h-10 w-auto max-w-[200px]"
               />
-              <span className="font-bold text-lg">{brand?.name || "PortalPay"}</span>
             </Link>
-            <div className="h-6 w-px bg-border" />
+            <div className="h-6 w-px bg-border ml-4" />
             <nav className="flex items-center gap-1 text-sm">
               <Link
                 href="/developers/docs"

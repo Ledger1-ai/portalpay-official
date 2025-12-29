@@ -61,7 +61,7 @@ export default function PublicationsPanel() {
 
             // The GET endpoint returns { items, total } - not { ok, items }
             if (r.ok && Array.isArray(j.items)) {
-                const books = j.items.filter((x: any) => x.isBook === true);
+                const books = j.items.filter((x: any) => x.isBook === true || x.industryPack === "publishing");
 
                 // Filter for books pending approval
                 const pending = books.filter((x: any) => x.approvalStatus === "PENDING");

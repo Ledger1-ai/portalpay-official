@@ -12,6 +12,7 @@ import { wrapFetchWithPayment } from "thirdweb/x402";
 import { useActiveWallet, ConnectButton } from "thirdweb/react";
 import { useBrand } from "@/contexts/BrandContext";
 import { usePortalThirdwebTheme } from "@/lib/thirdweb/theme";
+import { resolveBrandAppLogo } from "@/lib/branding";
 
 type Product = {
   id: string;
@@ -596,16 +597,16 @@ export default function ProductsPage() {
       <header className="fixed top-[84px] left-0 right-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center">
               <Image
-                src={brand?.logos?.symbol || brand?.logos?.app || brand?.logos?.favicon || "/ppsymbol.png"}
+                src={resolveBrandAppLogo(brand?.logos?.app, brand?.key || "portalpay")}
                 alt={brand?.name || "Brand"}
-                width={32}
-                height={32}
+                width={160}
+                height={40}
+                className="object-contain h-10 w-auto max-w-[200px]"
               />
-              <span className="font-bold text-lg">{brand?.name || "PortalPay"}</span>
             </Link>
-            <div className="h-6 w-px bg-border" />
+            <div className="h-6 w-px bg-border ml-4" />
             <nav className="flex items-center gap-1 text-sm">
               <Link
                 href="/developers/docs"

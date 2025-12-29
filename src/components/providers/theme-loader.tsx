@@ -298,15 +298,22 @@ export function ThemeLoader() {
         const isLoggedOut = !headers["x-wallet"]; // No wallet in headers means logged out
 
         if (isBasaltSurgeBrand && isLoggedOut && !isPartnerContainer && t) {
-          console.log("[ThemeLoader] BasaltSurge logged-out override: forcing /bssymbol.png");
-          (t as any).brandLogoUrl = "/bssymbol.png";
+          console.log("[ThemeLoader] BasaltSurge logged-out override: forcing /BasaltSurgeWideD.png");
+          (t as any).brandLogoUrl = "/BasaltSurgeWideD.png";
+          (t as any).primaryColor = "#35ff7c";
+          (t as any).secondaryColor = "#FF6B35";
           if ((t as any).logos) {
-            (t as any).logos.symbol = "/bssymbol.png";
-            (t as any).logos.app = "/bssymbol.png";
+            (t as any).logos.symbol = "/BasaltSurgeD.png";
+            (t as any).logos.app = "/BasaltSurgeWideD.png";
+            (t as any).logos.navbarMode = "logo";
           }
         }
 
-        console.log("[ThemeLoader] siteConfigPrimary:", siteConfigPrimary, "siteConfigSecondary:", siteConfigSecondary);
+        // Re-read config colors in case they were overridden above (e.g. for BasaltSurge)
+        const effectiveSiteConfigPrimary = t?.primaryColor || siteConfigPrimary;
+        const effectiveSiteConfigSecondary = t?.secondaryColor || siteConfigSecondary;
+
+        console.log("[ThemeLoader] effectiveSiteConfigPrimary:", effectiveSiteConfigPrimary, "effectiveSiteConfigSecondary:", effectiveSiteConfigSecondary);
 
         // Effective colors resolution:
         // - For PARTNER containers: partner brand colors → user theme (if explicitly set) → defaults
@@ -316,8 +323,8 @@ export function ThemeLoader() {
         let effectiveSecondary: string;
 
         // Check if site-config colors are just defaults (not user-set)
-        const isSiteConfigDefaultPrimary = siteConfigPrimary === "#1f2937" || siteConfigPrimary === "#10b981" || siteConfigPrimary === "#14b8a6";
-        const isSiteConfigDefaultSecondary = siteConfigSecondary === "#F54029" || siteConfigSecondary === "#2dd4bf" || siteConfigSecondary === "#22d3ee";
+        const isSiteConfigDefaultPrimary = effectiveSiteConfigPrimary === "#1f2937" || effectiveSiteConfigPrimary === "#10b981" || effectiveSiteConfigPrimary === "#14b8a6";
+        const isSiteConfigDefaultSecondary = effectiveSiteConfigSecondary === "#F54029" || effectiveSiteConfigSecondary === "#2dd4bf" || effectiveSiteConfigSecondary === "#22d3ee";
 
         console.log("[ThemeLoader] isPartnerContainer:", isPartnerContainer, "isSiteConfigDefaultPrimary:", isSiteConfigDefaultPrimary, "isSiteConfigDefaultSecondary:", isSiteConfigDefaultSecondary);
 
@@ -326,19 +333,19 @@ export function ThemeLoader() {
           // Only use site-config if it's NOT a default value (user explicitly set it)
           effectivePrimary = String(
             platformPrimary ||
-            (!isSiteConfigDefaultPrimary && siteConfigPrimary ? siteConfigPrimary : "") ||
+            (!isSiteConfigDefaultPrimary && effectiveSiteConfigPrimary ? effectiveSiteConfigPrimary : "") ||
             defaultPrimary
           );
           effectiveSecondary = String(
             platformAccent ||
-            (!isSiteConfigDefaultSecondary && siteConfigSecondary ? siteConfigSecondary : "") ||
+            (!isSiteConfigDefaultSecondary && effectiveSiteConfigSecondary ? effectiveSiteConfigSecondary : "") ||
             defaultSecondary
           );
           console.log("[ThemeLoader] Partner container - effectivePrimary:", effectivePrimary, "effectiveSecondary:", effectiveSecondary);
         } else {
           // Platform container: user theme → platform colors → SSR data attrs → defaults
-          effectivePrimary = String(siteConfigPrimary || platformPrimary || (root.dataset.ppBrandPrimary || "").trim() || defaultPrimary);
-          effectiveSecondary = String(siteConfigSecondary || platformAccent || (root.dataset.ppBrandAccent || "").trim() || defaultSecondary);
+          effectivePrimary = String(effectiveSiteConfigPrimary || platformPrimary || (root.dataset.ppBrandPrimary || "").trim() || defaultPrimary);
+          effectiveSecondary = String(effectiveSiteConfigSecondary || platformAccent || (root.dataset.ppBrandAccent || "").trim() || defaultSecondary);
           console.log("[ThemeLoader] Platform container - effectivePrimary:", effectivePrimary, "effectiveSecondary:", effectiveSecondary);
         }
 

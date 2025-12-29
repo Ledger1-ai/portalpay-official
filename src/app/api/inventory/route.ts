@@ -262,7 +262,7 @@ export async function GET(req: NextRequest) {
       try {
         const container = await getContainer();
         const adminSpec = {
-          query: "SELECT * FROM c WHERE c.type='inventory_item' AND c.isBook=true ORDER BY c.updatedAt DESC",
+          query: "SELECT * FROM c WHERE c.type='inventory_item' AND (c.isBook=true OR c.industryPack='publishing') ORDER BY c.updatedAt DESC",
           parameters: []
         };
         const { resources } = await container.items.query(adminSpec).fetchAll();
@@ -440,12 +440,12 @@ export async function POST(req: NextRequest) {
       // Book specifics
       bookFileUrl: typeof body.bookFileUrl === "string" ? body.bookFileUrl : undefined,
       bookCoverUrl: typeof body.bookCoverUrl === "string" ? body.bookCoverUrl : undefined,
-      isBook: body.isBook === true,
+      isBook: body.isBook === true || body.industryPack === "publishing",
       releaseDate: typeof body.releaseDate === "number" ? body.releaseDate : undefined,
       previewUrl: typeof body.previewUrl === "string" ? body.previewUrl : undefined,
       allowDownload: body.allowDownload === true,
       drmEnabled: body.drmEnabled === true,
-      approvalStatus: body.approvalStatus || (body.isBook ? 'PENDING' : undefined),
+      approvalStatus: body.approvalStatus || ((body.isBook || body.industryPack === "publishing") ? 'PENDING' : undefined),
       contentDetails: body.contentDetails || undefined,
     };
 

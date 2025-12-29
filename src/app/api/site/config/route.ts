@@ -390,12 +390,12 @@ function normalizeSiteConfig(raw?: any) {
     // PortalPay: default DeFi disabled
     defiEnabled: false,
     theme: {
-      primaryColor: (process.env.BRAND_KEY === 'basaltsurge' || process.env.NEXT_PUBLIC_BRAND_KEY === 'basaltsurge') ? "#22C55E" : "#1f2937",
-      secondaryColor: (process.env.BRAND_KEY === 'basaltsurge' || process.env.NEXT_PUBLIC_BRAND_KEY === 'basaltsurge') ? "#16A34A" : "#F54029",
+      primaryColor: "#1f2937",
+      secondaryColor: "#F54029",
       brandLogoUrl: "",
       brandFaviconUrl: "/favicon-32x32.png",
       appleTouchIconUrl: "/apple-touch-icon.png",
-      brandName: (process.env.BRAND_KEY === 'basaltsurge' || process.env.NEXT_PUBLIC_BRAND_KEY === 'basaltsurge') ? "BasaltSurge" : "PortalPay",
+      brandName: "PortalPay",
       brandLogoShape: "round",
       textColor: "#ffffff",
       headerTextColor: "#ffffff",
@@ -525,8 +525,9 @@ function normalizeSiteConfig(raw?: any) {
     const t2 = (config.theme as any) || {};
 
     // Determine default symbol based on brand key
-    const currentBrandKey = (process.env.BRAND_KEY || "").toLowerCase();
-    const defaultSymbol = currentBrandKey === "basaltsurge" ? "/bssymbol.png" : "/ppsymbol.png";
+    let currentBrandKey = (process.env.BRAND_KEY || "").toLowerCase();
+    if (currentBrandKey === "basaltsurge") currentBrandKey = "portalpay";
+    const defaultSymbol = "/ppsymbol.png";
 
     // Unconditionally migrate legacy PortalPay assets to BasaltSurge if it's the active platform brand
     // UNLESS the merchant has explicitly saved brandKey: 'portalpay' (they want PortalPay branding)
@@ -609,7 +610,7 @@ function normalizeSiteConfig(raw?: any) {
     }
     // Clamp legacy teal defaults to brand-neutral slate/accent
     // Skip color migration for merchants with any customizations
-    const currentPlatformBrand = (process.env.BRAND_KEY || "").toLowerCase();
+    const currentPlatformBrand = currentBrandKey;
     const isBasalt = currentPlatformBrand === "basaltsurge";
 
     // Determine if this is the global config (not a merchant config)

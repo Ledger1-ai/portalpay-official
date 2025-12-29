@@ -9,6 +9,7 @@ import { useBrand } from "@/contexts/BrandContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { docsNavigation } from './docs-nav';
 import { cachedFetch } from "@/lib/client-api-cache";
+import { resolveBrandAppLogo } from "@/lib/branding";
 
 interface NavItem {
   title: string;
@@ -199,7 +200,11 @@ export function DocsSidebar({ currentPath }: { currentPath: string }) {
     const sym = effectiveLogoSymbol.trim();
     const fav = effectiveLogoFavicon.trim();
     const app = effectiveLogoApp.trim();
-    const defaultPlatformSymbol = String((brand as any)?.key || "").toLowerCase() === "basaltsurge" ? "/bssymbol.png" : "/ppsymbol.png";
+    // Use wide logo (app) if navbarMode indicates logo preference
+    const useWide = (theme?.navbarMode === 'logo') || String((brand as any)?.key || "").toLowerCase() === "basaltsurge";
+    const defaultPlatformSymbol = String((brand as any)?.key || "").toLowerCase() === "basaltsurge" ? "/BasaltSurgeD.png" : "/ppsymbol.png";
+
+    if (useWide && app) return app;
     return sym || fav || app || defaultPlatformSymbol;
   };
 
@@ -218,6 +223,9 @@ export function DocsSidebar({ currentPath }: { currentPath: string }) {
   const titleizedKey = keyForDisplay ? keyForDisplay.charAt(0).toUpperCase() + keyForDisplay.slice(1) : "PortalPay";
   const displayBrandName = (!rawBrandName || isGenericBrandName) ? titleizedKey : rawBrandName;
 
+  // Use bigger container for wide logos
+  const isWideLogo = (theme?.navbarMode === 'logo') || String((brand as any)?.key || "").toLowerCase() === "basaltsurge";
+
   return (
     <aside className={`
       fixed z-10 bg-background transition-all duration-300
@@ -235,15 +243,16 @@ export function DocsSidebar({ currentPath }: { currentPath: string }) {
           <img
             src={getSymbolLogo()}
             alt={displayBrandName || "Brand"}
-            width={32}
-            height={32}
-            className="transition-transform group-hover:scale-110 rounded-md object-contain"
+            className={"transition-transform group-hover:scale-105 rounded-md object-contain " + (isWideLogo ? "h-10 w-auto max-w-[200px]" : "h-10 w-10")}
           />
-          {!isCollapsed && (
+          {!isCollapsed && !isWideLogo && (
             <div className="ml-3">
               <div className="font-bold text-foreground text-sm">{displayBrandName} Docs</div>
               <div className="text-xs text-muted-foreground">API Reference</div>
             </div>
+          )}
+          {!isCollapsed && isWideLogo && (
+            <span className="sr-only">{displayBrandName} Docs</span>
           )}
         </Link>
 

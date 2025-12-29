@@ -6,7 +6,8 @@ import Image from 'next/image';
 import { ChevronDown, ChevronRight, LayoutDashboard, Box, ScrollText, KeyRound, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { Tooltip } from '../docs/tooltip';
 import { useBrand } from "@/contexts/BrandContext";
-import { resolveBrandSymbol, getDefaultBrandName } from "@/lib/branding";
+import { useTheme } from "@/contexts/ThemeContext";
+import { resolveBrandSymbol, getDefaultBrandName, resolveBrandAppLogo } from "@/lib/branding";
 
 interface NavItem {
   title: string;
@@ -89,20 +90,32 @@ function NavGroup({ item, currentPath }: { item: NavItem; currentPath: string })
 export function DashboardSidebar({ currentPath }: { currentPath: string }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const brand = useBrand();
+  const { theme } = useTheme();
+  const isWideLogo = theme?.navbarMode === 'logo';
 
   return (
     <aside className={`fixed top-[148px] bottom-0 left-0 border-r border-border bg-background z-10 transition-all duration-300 flex flex-col ${isCollapsed ? 'w-16' : 'w-64'}`}>
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {/* Logo */}
         <Link href="/developers/dashboard" className="flex items-center justify-center group p-2">
-          <Image
-            src={resolveBrandSymbol(brand?.logos?.symbol || brand?.logos?.app || brand?.logos?.favicon, (brand as any)?.key)}
-            alt={brand?.name || getDefaultBrandName((brand as any)?.key)}
-            width={32}
-            height={32}
-            className="transition-transform group-hover:scale-110"
-          />
-          {!isCollapsed && (
+          {isWideLogo ? (
+            <Image
+              src={resolveBrandAppLogo(theme?.brandLogoUrl || brand?.logos?.app, (brand as any)?.key)}
+              alt={theme?.brandName || brand?.name || "Dashboard"}
+              width={160}
+              height={40}
+              className="transition-transform group-hover:scale-105 rounded-md object-contain h-10 w-auto max-w-[200px]"
+            />
+          ) : (
+            <Image
+              src={resolveBrandSymbol(theme?.symbolLogoUrl || brand?.logos?.symbol || brand?.logos?.app || brand?.logos?.favicon, (brand as any)?.key)}
+              alt={theme?.brandName || brand?.name || getDefaultBrandName((brand as any)?.key)}
+              width={40}
+              height={40}
+              className="transition-transform group-hover:scale-110 h-10 w-10"
+            />
+          )}
+          {!isCollapsed && !isWideLogo && (
             <div className="ml-3">
               <div className="font-bold text-foreground text-sm">Dashboard</div>
               <div className="text-xs text-muted-foreground">API Management</div>

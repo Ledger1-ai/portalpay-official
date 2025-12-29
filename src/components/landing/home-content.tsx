@@ -57,6 +57,9 @@ type SiteTheme = {
   textColor?: string;
   headerTextColor?: string;
   bodyTextColor?: string;
+  symbolLogoUrl?: string;
+  brandKey?: string;
+  navbarMode?: "symbol" | "logo";
 };
 
 type SiteConfigResponse = {
@@ -126,11 +129,12 @@ export default function HomeContent() {
     if (isBasalt && !isLoggedIn) {
       return {
         ...t,
-        brandLogoUrl: "/bssymbol.png",
+        brandLogoUrl: "/BasaltSurgeWideD.png",
         brandFaviconUrl: t.brandFaviconUrl || "/favicon-32x32.png",
-        symbolLogoUrl: "/bssymbol.png",
+        symbolLogoUrl: "/BasaltSurgeD.png",
         brandName: "BasaltSurge",
         brandKey: "basaltsurge",
+        navbarMode: "logo" as const,
       };
     }
     return t;
@@ -332,6 +336,14 @@ export default function HomeContent() {
   return (
     <div className="min-h-screen p-6 md:p-8">
       <div className="max-w-6xl mx-auto">
+        <style dangerouslySetInnerHTML={{
+          __html: `
+          @keyframes bg-pan {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+          }
+        `}} />
+
         {/* Hero: Value Prop + Live Preview */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-stretch">
           {/* Left: Messaging + CTAs */}
@@ -387,9 +399,28 @@ export default function HomeContent() {
             <div className="mt-auto pt-2 flex flex-wrap items-center gap-3">
               <button
                 onClick={handleAdminClick}
-                className="px-5 py-3 rounded-md bg-pp-secondary text-[var(--primary-foreground)] font-medium transition-opacity hover:opacity-90"
+                className="group relative overflow-hidden px-5 py-3 rounded-md bg-pp-secondary text-[var(--primary-foreground)] font-medium transition-all hover:opacity-100 shadow-lg hover:shadow-xl"
               >
-                Start accepting crypto
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                  style={{
+                    backgroundImage: `radial-gradient(circle at 75% 10%, ${siteTheme.primaryColor}, transparent 55%), radial-gradient(circle at 25% 90%, ${siteTheme.primaryColor}, transparent 55%)`,
+                    backgroundColor: "#000000",
+                    backgroundSize: "400% 400%",
+                    animation: "bg-pan 15s ease infinite alternate",
+                  }}
+                />
+                {/* Deep Glow Overlay (Subtle) */}
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none mix-blend-screen"
+                  style={{
+                    background: `radial-gradient(circle at 60% -10%, ${siteTheme.primaryColor}40, transparent 70%), radial-gradient(circle at 0% 100%, ${siteTheme.primaryColor}20, transparent 60%)`
+                  }}
+                />
+
+                <span className="relative z-10 flex items-center gap-2">
+                  Start accepting crypto
+                </span>
               </button>
               <Link href="/terminal" className="px-5 py-3 rounded-md border hover:bg-foreground/5 transition-colors">
                 Try the portal

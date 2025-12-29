@@ -31,7 +31,7 @@ export function isBasaltSurge(key?: string): boolean {
 }
 
 export function getDefaultBrandSymbol(key?: string): string {
-    return isBasaltSurge(key) ? "/bssymbol.png" : "/ppsymbol.png";
+    return isBasaltSurge(key) ? "/BasaltSurgeD.png" : "/ppsymbol.png";
 }
 
 export function getDefaultBrandName(key?: string): string {

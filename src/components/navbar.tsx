@@ -77,13 +77,13 @@ export function Navbar() {
         // When logged out on BasaltSurge, force static platform defaults
         if (isBasalt && !isLoggedIn) {
             return {
-                brandLogoUrl: "/bssymbol.png",
+                brandLogoUrl: "/BasaltSurgeWideD.png",
                 brandFaviconUrl: t.brandFaviconUrl || "/favicon-32x32.png",
-                symbolLogoUrl: "/bssymbol.png",
+                symbolLogoUrl: "/BasaltSurgeD.png",
                 brandName: "BasaltSurge",
-                brandLogoShape: t.brandLogoShape,
+                brandLogoShape: "square",
                 brandKey: "basaltsurge",
-                navbarMode: t.navbarMode
+                navbarMode: "logo" as const
             };
         }
 
@@ -461,7 +461,7 @@ export function Navbar() {
                             })()}
                             alt={displayBrandName || (isPartnerContainer ? "" : getDefaultBrandName(effectiveBrandKey))}
                             className={
-                                "h-8 w-auto max-w-[360px] object-contain flex-shrink-0 rounded-none bg-transparent"
+                                "h-8 w-auto max-w-[360px] object-contain flex-shrink-0 rounded-none bg-transparent drop-shadow-md"
                             }
                         />
                     ) : (
@@ -475,7 +475,7 @@ export function Navbar() {
                             })()}
                             alt={displayBrandName || (isPartnerContainer ? "" : "PortalPay")}
                             className={
-                                "w-8 h-8 object-contain bg-foreground/5 flex-shrink-0 " +
+                                "w-8 h-8 object-contain bg-foreground/5 flex-shrink-0 drop-shadow-md " +
                                 (theme.brandLogoShape === "round"
                                     ? "rounded-full"
                                     : theme.brandLogoShape === "unmasked"

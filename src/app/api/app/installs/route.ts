@@ -143,20 +143,30 @@ export async function GET(req: NextRequest) {
         const roles = Array.isArray(caller?.roles) ? caller.roles : [];
 
         const containerType = getContainerType();
-        const brandKeyEnv = getBrandKey();
+        let brandKeyEnv = getBrandKey();
+        // Normalize basaltsurge to portalpay for unmigrated legacy data
+        if (brandKeyEnv === "basaltsurge") brandKeyEnv = "portalpay";
 
         const isPlatform = containerType === "platform";
         const isSuperadmin = roles.includes("superadmin");
         const isPartner = containerType === "partner";
 
-        const targetBrand = isPartner ? brandKeyEnv : (qBrandKey || brandKeyEnv);
+        let targetBrand = isPartner ? brandKeyEnv : (qBrandKey || brandKeyEnv);
+        // Normalize target brand as well
+        if (targetBrand === "basaltsurge") targetBrand = "portalpay";
 
         const dbId = String(process.env.COSMOS_PAYPORTAL_DB_ID || "payportal");
         const installsContainerId = "payportal_installs";
         const container = await getContainer(dbId, installsContainerId);
 
+        // For portalpay (platform/legacy), include items with missing/undefined brandKey
+        const isPlatformQuery = targetBrand === "portalpay";
+        const brandCondition = isPlatformQuery
+            ? "(c.brandKey = @brandKey OR NOT IS_DEFINED(c.brandKey) OR c.brandKey = null OR c.brandKey = '')"
+            : "c.brandKey = @brandKey";
+
         const querySpec = {
-            query: "SELECT TOP @top * FROM c WHERE c.type = 'app_install' AND c.app = @app AND c.brandKey = @brandKey ORDER BY c.ts DESC",
+            query: `SELECT TOP @top * FROM c WHERE c.type = 'app_install' AND c.app = @app AND ${brandCondition} ORDER BY c.ts DESC`,
             parameters: [
                 { name: "@top", value: limit },
                 { name: "@app", value: app },
@@ -166,7 +176,7 @@ export async function GET(req: NextRequest) {
 
         const { resources } = await container.items.query(querySpec as any).fetchAll();
         const totalCount = (await container.items.query({
-            query: "SELECT VALUE COUNT(1) FROM c WHERE c.type = 'app_install' AND c.app = @app AND c.brandKey = @brandKey",
+            query: `SELECT VALUE COUNT(1) FROM c WHERE c.type = 'app_install' AND c.app = @app AND ${brandCondition}`,
             parameters: [
                 { name: "@app", value: app },
                 { name: "@brandKey", value: targetBrand },

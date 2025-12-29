@@ -151,16 +151,17 @@ export default function PortalReceiptPage() {
       : (process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase() === "basaltsurge";
 
     return {
-      primaryColor: isBS ? "#22C55E" : "#10b981",
-      secondaryColor: isBS ? "#16A34A" : "#2dd4bf",
-      brandLogoUrl: isBS ? "/bssymbol.png" : "/ppsymbol.png",
+      primaryColor: isBS ? "#35ff7c" : "#10b981",
+      secondaryColor: isBS ? "#FF6B35" : "#2dd4bf",
+      brandLogoUrl: isBS ? "/BasaltSurgeWideD.png" : "/ppsymbol.png",
       brandFaviconUrl: "/favicon-32x32.png",
-      symbolLogoUrl: isBS ? "/bssymbol.png" : undefined,
+      symbolLogoUrl: isBS ? "/BasaltSurgeD.png" : undefined,
       brandName: isBS ? "BasaltSurge" : "PortalPay",
       fontFamily:
         "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
       receiptBackgroundUrl: "/watermark.png",
-      brandLogoShape: "round",
+      brandLogoShape: isBS ? "square" : "round",
+      navbarMode: isBS ? "logo" : undefined,
       textColor: "#ffffff",
       headerTextColor: "#ffffff",
       bodyTextColor: "#e5e7eb",
@@ -1592,7 +1593,7 @@ export default function PortalReceiptPage() {
             <img
               alt={effectiveBrandName || "Logo"}
               src={getHeaderLogo()}
-              className="h-9 w-auto max-w-[360px] object-contain rounded-none bg-transparent"
+              className="h-9 w-auto max-w-[360px] object-contain rounded-none bg-transparent drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]"
               style={{ fontFamily: theme.fontFamily }}
             />
           ) : (
@@ -1602,7 +1603,7 @@ export default function PortalReceiptPage() {
                 <img
                   alt="logo"
                   src={getSymbolLogo()}
-                  className="max-h-9 object-contain"
+                  className="max-h-9 object-contain drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]"
                 />
               </div>
               <div className="font-semibold truncate" style={{ fontFamily: theme.fontFamily }}>
@@ -1636,7 +1637,7 @@ export default function PortalReceiptPage() {
                 chain={chain}
                 wallets={wallets}
                 connectButton={{
-                  label: <span className="microtext">Login</span>,
+                  label: <span className="microtext drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]">Login</span>,
                   className: connectButtonClass,
                   style: getConnectButtonStyle(),
                 }}
@@ -1672,7 +1673,7 @@ export default function PortalReceiptPage() {
             chain={chain}
             wallets={wallets}
             connectButton={{
-              label: <span className="microtext">Login</span>,
+              label: <span className="microtext drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]">Login</span>,
               className: connectButtonClass,
               style: getConnectButtonStyle(),
             }}

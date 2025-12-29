@@ -12,6 +12,7 @@ import LoginGateLink from '@/components/login-gate-link';
 import { getBaseUrl } from '@/lib/base-url';
 import { getBrandConfig } from '@/config/brands';
 import { isPartnerContext } from '@/lib/env';
+import { resolveBrandAppLogo } from "@/lib/branding";
 
 export async function generateStaticParams() {
   return [
@@ -60,7 +61,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
       appUrl: (typeof b?.appUrl === "string" && b.appUrl) ? b.appUrl : runtimeBrand.appUrl,
       meta: (b?.meta && typeof b.meta === "object") ? b.meta : runtimeBrand.meta,
     };
-  } catch {}
+  } catch { }
   const { slug: slugParam } = await params;
   const slug = slugParam || [];
   const title = slug.length > 0
@@ -172,7 +173,7 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
       appUrl: (typeof b?.appUrl === "string" && b.appUrl) ? b.appUrl : brand.appUrl,
       meta: (b?.meta && typeof b.meta === "object") ? b.meta : brand.meta,
     };
-  } catch {}
+  } catch { }
   const { slug: slugParam } = await params;
   const slug = slugParam || [];
 
@@ -180,7 +181,7 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
   // No redirect; default route serves docs/README.md
 
   const content = await getMarkdownContent(slug);
-  
+
   if (!content) {
     notFound();
   }
@@ -189,13 +190,13 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
     if (processedContent && isPartnerContext()) {
       processedContent = processedContent.replaceAll('PortalPay', brand.name);
     }
-  } catch {}
+  } catch { }
 
   const currentPath = slug.length === 0 ? '/developers/docs' : `/developers/docs/${slug.join('/')}`;
   const pageTitle = slug.length > 0
     ? slug[slug.length - 1].split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : 'Introduction';
-  
+
   // Get previous and next pages for navigation
   const { prev, next } = getAdjacentPages(currentPath);
 
@@ -205,18 +206,23 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
   const keyForDisplay = String((brand as any)?.key || "").trim();
   const titleizedKey = keyForDisplay ? keyForDisplay.charAt(0).toUpperCase() + keyForDisplay.slice(1) : "PortalPay";
   const displayBrandName = (!rawName || isGenericName) ? titleizedKey : rawName;
-  
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header with Documentation | Dashboard tabs */}
       <header className="fixed top-[84px] left-0 right-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
-              <Image src={brand.logos?.symbol || brand.logos?.app || "/ppsymbol.png"} alt={displayBrandName} width={32} height={32} />
-              <span className="font-bold text-lg">{displayBrandName}</span>
+            <Link href="/" className="flex items-center">
+              <Image
+                src={resolveBrandAppLogo(brand?.logos?.app, brand?.key || "portalpay")}
+                alt={displayBrandName}
+                width={160}
+                height={40}
+                className="object-contain h-10 w-auto max-w-[200px]"
+              />
             </Link>
-            <div className="h-6 w-px bg-border" />
+            <div className="h-6 w-px bg-border ml-4" />
             <nav className="flex items-center gap-1 text-sm">
               <Link
                 href="/developers/docs"

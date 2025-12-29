@@ -24,10 +24,19 @@ export async function GET(req: NextRequest) {
   const correlationId = crypto.randomUUID();
   const url = new URL(req.url);
   const qBrand = String(url.searchParams.get("brandKey") || "").toLowerCase();
-  const currentBrandKey = getBrandKey();
-  const envBrandKey = String(process.env.BRAND_KEY || "").toLowerCase();
+  let currentBrandKey = getBrandKey();
+  // Normalize basaltsurge to portalpay for unmigrated legacy data
+  if (currentBrandKey === "basaltsurge") currentBrandKey = "portalpay";
+
+  let envBrandKey = String(process.env.BRAND_KEY || "").toLowerCase();
+  // Normalize basaltsurge to portalpay for unmigrated legacy data
+  if (envBrandKey === "basaltsurge") envBrandKey = "portalpay";
+
   const containerType = String(process.env.CONTAINER_TYPE || "platform").toLowerCase();
-  const effectiveBrand = (qBrand || envBrandKey || currentBrandKey).toLowerCase();
+  let effectiveBrand = (qBrand || envBrandKey || currentBrandKey).toLowerCase();
+  // Normalize basaltsurge to portalpay for unmigrated legacy data
+  if (effectiveBrand === "basaltsurge") effectiveBrand = "portalpay";
+
   const brandFilter = effectiveBrand;
   try {
     // Admin-only access via Thirdweb JWT

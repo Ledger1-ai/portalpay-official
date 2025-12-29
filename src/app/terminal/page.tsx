@@ -178,7 +178,7 @@ function TerminalPanel() {
       const sc = String((siteMeta as any)?.storeCurrency || "");
       if (sc) setTerminalCurrency(sc);
     } catch { }
-  }, [siteMeta?.storeCurrency]);
+  }, [(siteMeta as any)?.storeCurrency]);
 
   useEffect(() => {
     (async () => {
@@ -342,14 +342,14 @@ function TerminalPanel() {
   }
 
   // Compute effective logo URL using global theme
-  const terminalLogoUrl = theme.symbolLogoUrl || theme.brandLogoUrl || (isBasaltSurge(theme.brandKey || "") ? "/bssymbol.png" : "/ppsymbol.png");
+  const terminalLogoUrl = theme.symbolLogoUrl || theme.brandLogoUrl || (isBasaltSurge(theme.brandKey || "") ? "/BasaltSurgeD.png" : "/ppsymbol.png");
 
   return (
     <div className="glass-pane rounded-xl border p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-md bg-foreground/5 flex items-center justify-center overflow-hidden">
-            <img src={terminalLogoUrl} alt="Logo" className="max-h-8 max-w-8 object-contain" />
+            <img src={terminalLogoUrl} alt="Logo" className="max-h-8 max-w-8 object-contain drop-shadow-md" />
           </div>
           <h2 className={(isPricing ? "text-base md:text-xl " : "text-xl ") + "font-semibold"}>{theme.brandName || "Terminal"}</h2>
         </div>

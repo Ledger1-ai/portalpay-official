@@ -24,7 +24,7 @@ import {
 import { useBrand } from '@/contexts/BrandContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cachedFetch } from '@/lib/client-api-cache';
-import { getDefaultBrandSymbol, resolveBrandSymbol, getEffectiveBrandKey } from '@/lib/branding';
+import { getDefaultBrandSymbol, resolveBrandSymbol, getEffectiveBrandKey, resolveBrandAppLogo } from '@/lib/branding';
 
 type AdminTabKey =
   | 'terminal'
@@ -263,8 +263,13 @@ export function AdminSidebar({ activeTab, onChangeTab, industryPack, canBranding
     const sym = effectiveLogoSymbol.trim();
     const fav = effectiveLogoFavicon.trim();
     const app = effectiveLogoApp.trim();
+    // Use wide logo (app) if navbarMode indicates logo preference
+    const useWide = (theme?.navbarMode === 'logo');
     const defaultPlatformSymbol = getDefaultBrandSymbol(getEffectiveBrandKey());
     const effectiveKey = containerBrandKey || theme?.brandKey || getEffectiveBrandKey();
+
+    // Choose the right logo based on mode
+    if (useWide && app) return resolveBrandSymbol(app, effectiveKey);
     return resolveBrandSymbol(sym || fav || app || defaultPlatformSymbol, effectiveKey);
   };
 
@@ -283,6 +288,8 @@ export function AdminSidebar({ activeTab, onChangeTab, industryPack, canBranding
   const titleizedKey = keyForDisplay.toLowerCase() === 'basaltsurge' ? 'BasaltSurge' : (keyForDisplay ? keyForDisplay.charAt(0).toUpperCase() + keyForDisplay.slice(1) : 'PortalPay');
   const finalName = (!rawBrandName || isGenericBrandName) ? titleizedKey : rawBrandName;
   const displayBrandName = finalName.toLowerCase() === 'basaltsurge' ? 'BasaltSurge' : finalName;
+
+  const isWideLogo = (theme?.navbarMode === 'logo');
 
   const groups: NavItem[] = [
     {
@@ -398,15 +405,16 @@ export function AdminSidebar({ activeTab, onChangeTab, industryPack, canBranding
           <img
             src={getSymbolLogo()}
             alt={displayBrandName || 'Brand'}
-            width={32}
-            height={32}
-            className="transition-transform group-hover:scale-110 rounded-md object-contain"
+            className={"transition-transform group-hover:scale-105 rounded-md object-contain " + (isWideLogo ? "h-10 w-auto max-w-[200px]" : "h-10 w-10")}
           />
-          {!isCollapsed && (
+          {!isCollapsed && !isWideLogo && (
             <div className="ml-3">
               <div className="font-bold text-foreground text-sm">{displayBrandName}</div>
               <div className="text-xs text-muted-foreground">Admin Console</div>
             </div>
+          )}
+          {!isCollapsed && isWideLogo && (
+            <span className="sr-only">{displayBrandName} Admin</span>
           )}
         </div>
 

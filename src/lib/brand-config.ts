@@ -210,7 +210,7 @@ export function toEffectiveBrand(brandKey: string, overrides?: Partial<BrandConf
     key,
     name: key ? key.charAt(0).toUpperCase() + key.slice(1) : "", // Titleized key as placeholder
     colors: key === "basaltsurge" ? { primary: "#22C55E", accent: "#16A34A" } : { primary: "#0a0a0a", accent: "#6b7280" }, // Neutral dark colors
-    logos: { app: key === "basaltsurge" ? "/bssymbol.png" : "", favicon: "/api/favicon" }, // Use dynamic favicon endpoint
+    logos: { app: key === "basaltsurge" ? "/BasaltSurgeWideD.png" : "", favicon: "/api/favicon" }, // Use dynamic favicon endpoint
     meta: {},
     appUrl: undefined,
     platformFeeBps: 50,
@@ -257,6 +257,18 @@ export function toEffectiveBrand(brandKey: string, overrides?: Partial<BrandConf
     partnerWallet: typeof overrides.partnerWallet === "string" ? overrides.partnerWallet : (withDefaults as any).partnerWallet,
     apimCatalog: Array.isArray(overrides.apimCatalog) ? overrides.apimCatalog : withDefaults.apimCatalog,
   });
+
+  // FORCE override for BasaltSurge to ensure new branding assets are used
+  // This protections prevents old DB configs from reverting the hardcoded improvements
+  if (key === "basaltsurge") {
+    merged.colors.primary = "#35ff7c";
+    merged.colors.accent = "#FF6B35";
+    merged.logos.app = "/BasaltSurgeWideD.png";
+    merged.logos.symbol = "/BasaltSurgeD.png";
+    merged.logos.og = "/BasaltSurgeD.png";
+    merged.logos.twitter = "/BasaltSurgeD.png";
+    (merged.logos as any).navbarMode = "logo";
+  }
 
   return merged;
 }

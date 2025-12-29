@@ -117,6 +117,59 @@ export function PortalPreviewEmbedded({
   const account = useActiveAccount();
   const brandCtx = useBrand();
   const [wallets, setWallets] = useState<any[]>([]);
+
+  // Lightning Effect State
+  const [lightningCycle, setLightningCycle] = useState(0); // 0: Idle, 1: Bolt A, 2: Bolt B, 3: Bouquet
+  const [boltPaths, setBoltPaths] = useState<string[]>([]);
+
+  // Generate a random jagged path for lightning
+  const generateBoltPath = (startX: number, startY: number, endX: number, endY: number, segments: number = 6) => {
+    let d = `M ${startX} ${startY}`;
+    let currentX = startX;
+    let currentY = startY;
+    const dx = (endX - startX) / segments;
+    const dy = (endY - startY) / segments;
+
+    for (let i = 1; i <= segments; i++) {
+      // Add randomness to intermediate points
+      const noiseX = (Math.random() - 0.5) * 10;
+      const noiseY = (Math.random() - 0.5) * 20;
+
+      // Final point aligns exactly
+      if (i === segments) {
+        d += ` L ${endX} ${endY}`;
+      } else {
+        // Move towards target + noise
+        currentX += dx + noiseX;
+        currentY += dy + noiseY;
+        d += ` L ${currentX} ${currentY}`;
+      }
+    }
+    return d;
+  };
+
+  useEffect(() => {
+    const cycleInterval = setInterval(() => {
+      // Sequence: 
+      // 0ms: Start Intense Charge -> setCycle(1)
+      // 4500ms: Fire Massive Bouquet -> setCycle(2)
+      // 5800ms: Reset -> setCycle(0)
+
+      setLightningCycle(1);
+      setTimeout(() => setLightningCycle(2), 4500);
+      setTimeout(() => setLightningCycle(0), 5800);
+
+      // Regenerate paths for procedurally different look
+      const newPaths = Array.from({ length: 12 }).map(() => {
+        const distinctY = Math.random() * 50 - 10;
+        return generateBoltPath(26, 30, 150 + Math.random() * 60, distinctY);
+      });
+      setBoltPaths(newPaths);
+
+    }, 6000);
+
+    return () => clearInterval(cycleInterval);
+  }, []);
   useEffect(() => {
     let mounted = true;
     getWallets().then((w) => {
@@ -571,44 +624,79 @@ export function PortalPreviewEmbedded({
     >
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-4 py-3"
-        style={{ background: effectivePrimaryColor, color: (theme.headerTextColor || theme.textColor || "#ffffff") }}
+        className="flex items-center gap-3 px-4 py-3 relative overflow-hidden"
+        style={{
+          background: `radial-gradient(circle at 75% 10%, ${effectivePrimaryColor}, transparent 60%), radial-gradient(circle at 25% 90%, ${effectivePrimaryColor}, transparent 60%), #000000`, // Rich green contrast
+          backgroundSize: "400% 400%",
+          animation: "bg-pan 15s ease infinite alternate",
+          color: (theme.headerTextColor || theme.textColor || "#ffffff")
+        }}
       >
-        {effectiveNavbarMode === "logo" ? (
-          // Full-width logo (no text)
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            alt={effectiveBrandName || "Logo"}
-            src={getHeaderLogo()}
-            className="h-9 w-auto max-w-[360px] object-contain rounded-none bg-transparent"
-            style={{ fontFamily: theme.fontFamily }}
-          />
-        ) : (
-          <>
-            <div className={`w-9 h-9 ${theme.brandLogoShape === "round" ? "rounded-full" : (theme.brandLogoShape === "unmasked" ? "rounded-none" : "rounded-md")} bg-white/10 flex items-center justify-center overflow-hidden`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt={effectiveBrandName || "Logo"}
-                src={getSymbolLogo()}
-                className="max-h-9 object-contain"
-              />
-            </div>
-            <div className="font-semibold truncate" style={{ fontFamily: theme.fontFamily }}>
-              {effectiveBrandName}
-            </div>
-          </>
-        )}
-        <div className="ml-auto flex items-center gap-2">
+        <style dangerouslySetInnerHTML={{
+          __html: `
+          @keyframes bg-pan {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+          }
+        `}} />
+
+        {/* Mesh Gradient Background */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at 75% 10%, ${effectivePrimaryColor}, transparent 55%), radial-gradient(circle at 25% 90%, ${effectivePrimaryColor}, transparent 55%), #000000`,
+            backgroundSize: "400% 400%",
+            animation: "bg-pan 15s ease infinite alternate",
+          }}
+        />
+
+        {/* Deep Primary Glow Overlay */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at 60% -10%, ${effectivePrimaryColor}40, transparent 70%), radial-gradient(circle at 0% 100%, ${effectivePrimaryColor}20, transparent 60%)`,
+            mixBlendMode: 'screen'
+          }}
+        />
+
+        <div className="relative z-10 w-auto min-w-[200px]">
+          {effectiveNavbarMode === "logo" ? (
+            // Full-width logo (no text)
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={effectiveBrandName || "Logo"}
+              src={getHeaderLogo()}
+              className="h-9 w-auto max-w-[360px] object-contain rounded-none bg-transparent drop-shadow-md"
+              style={{ fontFamily: theme.fontFamily }}
+            />
+          ) : (
+            // Symbol + Text
+            <>
+              <div className={`w-9 h-9 relative z-10 ${theme.brandLogoShape === "round" ? "rounded-full" : (theme.brandLogoShape === "unmasked" ? "rounded-none" : "rounded-md")} bg-white/10 flex items-center justify-center overflow-visible`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt={effectiveBrandName || "Logo"}
+                  src={getSymbolLogo()}
+                  className="max-h-9 object-contain drop-shadow-md relative z-10"
+                />
+              </div>
+              <div className="font-semibold truncate z-10 relative pl-2" style={{ fontFamily: theme.fontFamily }}>
+                {effectiveBrandName}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-2 relative z-20">
           <ConnectButton
             client={client}
             chain={chain}
             wallets={wallets}
             connectButton={{
-              label: <span className="microtext">Login</span>,
+              label: <span className="microtext drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]">Login</span>,
               className: connectButtonClass,
               style: {
                 backgroundColor: "transparent",
-                border: `1px solid ${effectivePrimaryColor}`,
+                border: `1px solid ${effectiveSecondaryColor}`,
                 color: "#ffffff",
                 padding: "6px 10px",
                 lineHeight: "1",
@@ -847,9 +935,9 @@ export function PortalPreviewEmbedded({
                     primaryText: "#ffffff",
                     secondaryText: "#ffffff",
                     accentText: "#ffffff",
-                    accentButtonBg: effectivePrimaryColor,
+                    accentButtonBg: effectiveSecondaryColor,
                     accentButtonText: theme.headerTextColor || theme.textColor || "#ffffff",
-                    primaryButtonBg: effectivePrimaryColor,
+                    primaryButtonBg: effectiveSecondaryColor,
                     primaryButtonText: theme.headerTextColor || theme.textColor || "#ffffff",
                     connectedButtonBg: "rgba(255,255,255,0.04)",
                     connectedButtonBgHover: "rgba(255,255,255,0.08)",
@@ -891,8 +979,13 @@ export function PortalPreviewEmbedded({
 
         {/* Footer note */}
         <div
-          className="mt-2 px-4 py-2 text-[11px] opacity-80 rounded-xl"
-          style={{ background: effectivePrimaryColor, color: (theme.headerTextColor || theme.textColor || "#ffffff") }}
+          className="mt-2 px-4 py-3 text-[11px] font-medium rounded-xl drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)] relative overflow-hidden"
+          style={{
+            background: `radial-gradient(circle at 75% 10%, ${effectivePrimaryColor}, transparent 55%), radial-gradient(circle at 25% 90%, ${effectivePrimaryColor}, transparent 55%), #000000`,
+            backgroundSize: "400% 400%",
+            animation: "bg-pan 15s ease infinite alternate",
+            color: "#ffffff"
+          }}
         >
           This embedded preview mirrors the mobile portal. Content scrolls if it exceeds the container.
         </div>
