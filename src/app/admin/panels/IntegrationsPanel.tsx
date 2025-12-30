@@ -68,7 +68,9 @@ export default function IntegrationsPanel() {
       try {
         setLoading(true);
         setError("");
-        const bk = String(brand?.key || "").toLowerCase();
+        const rawBk = String(brand?.key || "").toLowerCase();
+        const bk = rawBk === "basaltsurge" ? "portalpay" : rawBk;
+
         if (!bk) {
           setError("brandKey unavailable");
           setLoading(false);

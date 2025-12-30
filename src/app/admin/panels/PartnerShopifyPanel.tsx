@@ -14,6 +14,12 @@ import { useActiveAccount } from "thirdweb/react";
 export default function PartnerShopifyPanel() {
   const account = useActiveAccount();
 
+  // Helper to resolve effective brand key (basaltsurge -> portalpay)
+  const getEffectiveBrandKey = (key: string) => {
+    const k = key.trim().toLowerCase();
+    return k === "basaltsurge" ? "portalpay" : k;
+  };
+
   // Brand selection (partners typically know their brand key)
   const [brandKey, setBrandKey] = React.useState<string>("");
 
@@ -119,7 +125,8 @@ export default function PartnerShopifyPanel() {
     setError(""); setInfo(""); setLoading(true);
     try {
       if (!brandKey) { setError("Enter brandKey"); return; }
-      const r = await fetch(`/api/admin/shopify/brands/${encodeURIComponent(brandKey)}/plugin-config`, { cache: "no-store" });
+      const targetBrand = getEffectiveBrandKey(brandKey);
+      const r = await fetch(`/api/admin/shopify/brands/${encodeURIComponent(targetBrand)}/plugin-config`, { cache: "no-store" });
       const j = await r.json().catch(() => ({}));
       const ok = r.ok && j?.plugin;
       setShopifyEnabled(!!ok);
@@ -232,7 +239,8 @@ export default function PartnerShopifyPanel() {
     setError(""); setInfo(""); setSaving(true);
     try {
       if (!brandKey) { setError("Enter brandKey"); return; }
-      const r = await fetch(`/api/admin/shopify/brands/${encodeURIComponent(brandKey)}/plugin-config`, {
+      const targetBrand = getEffectiveBrandKey(brandKey);
+      const r = await fetch(`/api/admin/shopify/brands/${encodeURIComponent(targetBrand)}/plugin-config`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(plugin)
@@ -249,7 +257,8 @@ export default function PartnerShopifyPanel() {
     setError(""); setInfo("");
     try {
       if (!brandKey) { setError("Enter brandKey"); return; }
-      const r = await fetch(`/api/admin/shopify/apps/package`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey, palette: plugin?.extension?.palette }) });
+      const targetBrand = getEffectiveBrandKey(brandKey);
+      const r = await fetch(`/api/admin/shopify/apps/package`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey: targetBrand, palette: plugin?.extension?.palette }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.ok) { setError(j?.error || "Package failed"); return; }
       setInfo(`Package ready: ${j?.sasUrl || j?.packageUrl || "blob"}`);
@@ -260,7 +269,8 @@ export default function PartnerShopifyPanel() {
     setError(""); setInfo("");
     try {
       if (!brandKey) { setError("Enter brandKey"); return; }
-      const r = await fetch(`/api/admin/shopify/apps/deploy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey }) });
+      const targetBrand = getEffectiveBrandKey(brandKey);
+      const r = await fetch(`/api/admin/shopify/apps/deploy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey: targetBrand }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.ok) { setError(j?.error || "Deploy failed"); return; }
       setInfo("Deploy initiated.");
@@ -271,8 +281,8 @@ export default function PartnerShopifyPanel() {
   async function getStatus() {
     setError("");
     try {
-      if (!brandKey) { setError("Enter brandKey"); return; }
-      const r = await fetch(`/api/admin/shopify/apps/status?brandKey=${encodeURIComponent(brandKey)}`, { cache: "no-store" });
+      const targetBrand = getEffectiveBrandKey(brandKey);
+      const r = await fetch(`/api/admin/shopify/apps/status?brandKey=${encodeURIComponent(targetBrand)}`, { cache: "no-store" });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.ok) { setError(j?.error || "Status failed"); return; }
       setStatusDoc(j);
@@ -283,7 +293,8 @@ export default function PartnerShopifyPanel() {
     setError(""); setInfo("");
     try {
       if (!brandKey) { setError("Enter brandKey"); return; }
-      const r = await fetch(`/api/admin/shopify/apps/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey, listingUrl: plugin?.listingUrl || undefined, shopifyAppId: plugin?.shopifyAppId || undefined, shopifyAppSlug: plugin?.shopifyAppSlug || undefined }) });
+      const targetBrand = getEffectiveBrandKey(brandKey);
+      const r = await fetch(`/api/admin/shopify/apps/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey: targetBrand, listingUrl: plugin?.listingUrl || undefined, shopifyAppId: plugin?.shopifyAppId || undefined, shopifyAppSlug: plugin?.shopifyAppSlug || undefined }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.ok) { setError(j?.error || "Publish failed"); return; }
       setInfo("Published.");
