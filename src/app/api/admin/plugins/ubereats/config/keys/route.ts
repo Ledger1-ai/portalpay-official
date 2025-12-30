@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
 
         console.log("[Uber Keys] Generated new credentials:", {
             clientIdPrefix: clientId.slice(0, 10),
+            secretPrefix: clientSecret.slice(0, 10),
             secretLength: clientSecret.length
         });
 
