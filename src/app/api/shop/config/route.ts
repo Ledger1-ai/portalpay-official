@@ -45,7 +45,11 @@ type ShopTheme = {
   fontFamily?: string;
   logoShape?: "square" | "circle";
   heroFontSize?: "microtext" | "small" | "medium" | "large" | "xlarge";
+  layoutMode?: "minimalist" | "balanced" | "maximalist";
+  maximalistBannerUrl?: string;
+  galleryImages?: string[];
 };
+
 
 type InventoryArrangement =
   | "grid"              // simple grid (default)
@@ -121,6 +125,9 @@ function defaults(brandKey?: string): Required<Omit<ShopConfig, "wallet" | "id" 
         "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
       logoShape: "square",
       heroFontSize: "medium",
+      layoutMode: "balanced",
+      maximalistBannerUrl: "",
+      galleryImages: [],
     },
     arrangement: "grid",
     xpPerDollar: 1,
@@ -192,6 +199,9 @@ function normalize(raw?: any, brandKey?: string): Omit<ShopConfig, "wallet" | "i
       fontFamily: typeof t.fontFamily === "string" ? t.fontFamily : d.theme.fontFamily,
       logoShape: (t.logoShape === "square" || t.logoShape === "circle") ? t.logoShape : d.theme.logoShape,
       heroFontSize: (t.heroFontSize === "microtext" || t.heroFontSize === "small" || t.heroFontSize === "medium" || t.heroFontSize === "large" || t.heroFontSize === "xlarge") ? t.heroFontSize : d.theme.heroFontSize,
+      layoutMode: (t.layoutMode === "minimalist" || t.layoutMode === "balanced" || t.layoutMode === "maximalist") ? t.layoutMode : "balanced",
+      maximalistBannerUrl: isValidUrl(t.maximalistBannerUrl) ? String(t.maximalistBannerUrl) : "",
+      galleryImages: Array.isArray(t.galleryImages) ? t.galleryImages.filter((x: any) => isValidUrl(x)) : [],
     };
 
     const arr = String(raw.arrangement || "").toLowerCase();
@@ -264,6 +274,8 @@ function normalize(raw?: any, brandKey?: string): Omit<ShopConfig, "wallet" | "i
     if (typeof raw.customDomainVerified === "boolean") {
       out.customDomainVerified = raw.customDomainVerified;
     }
+
+
   }
 
   // Clamp colors to strings

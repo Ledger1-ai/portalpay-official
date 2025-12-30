@@ -18,6 +18,7 @@ export type ImageUploadFieldProps = {
   // Size hints for previews (in pixels)
   previewSize?: number;
   className?: string;
+  compact?: boolean;
 };
 
 /**
@@ -40,6 +41,7 @@ export default function ImageUploadField(props: ImageUploadFieldProps) {
     max = 10,
     previewSize = 112,
     className = "",
+    compact = false,
   } = props;
 
   const [uploading, setUploading] = React.useState(false);
@@ -126,15 +128,15 @@ export default function ImageUploadField(props: ImageUploadFieldProps) {
       {label && <label className="microtext">{label}</label>}
 
       <div
-        onDragOver={(e)=>{e.preventDefault(); setDragging(true);}}
-        onDragLeave={()=>setDragging(false)}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         className={`rounded-md border-2 border-dashed p-4 text-center transition ${dragging ? 'border-primary bg-primary/5' : 'border-muted'} bg-background`}
       >
-        <div className="microtext text-muted-foreground">Drag & drop image{multiple? 's':''} here, or</div>
+        <div className="microtext text-muted-foreground">Drag & drop image{multiple ? 's' : ''} here, or</div>
         <div className="mt-2 inline-flex items-center gap-2 flex-wrap justify-center">
           <input id={fileId} type="file" accept="image/*" multiple={multiple} onChange={handleSelect} className="hidden" />
-          <button type="button" className="px-3 py-1.5 rounded-md border text-sm" onClick={() => { const el = document.getElementById(fileId) as HTMLInputElement | null; el?.click(); }}>Select image{multiple? 's':''}</button>
+          <button type="button" className="px-3 py-1.5 rounded-md border text-sm" onClick={() => { const el = document.getElementById(fileId) as HTMLInputElement | null; el?.click(); }}>Select image{multiple ? 's' : ''}</button>
           {!multiple && (
             <button type="button" className="px-3 py-1.5 rounded-md border text-sm" onClick={clearSingle} disabled={!values.length}>Clear</button>
           )}
@@ -161,7 +163,7 @@ export default function ImageUploadField(props: ImageUploadFieldProps) {
             {values.map((u, idx) => (
               <div key={`${u}-${idx}`} className="rounded-md border overflow-hidden relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={u} alt={`image ${idx+1}`} className="w-full" style={{ height: previewSize, objectFit: "cover" }} />
+                <img src={u} alt={`image ${idx + 1}`} className="w-full" style={{ height: previewSize, objectFit: "cover" }} />
                 <button type="button" className="absolute top-1 right-1 px-2 py-0.5 rounded-md border text-xs bg-background/80 hover:bg-background transition opacity-0 group-hover:opacity-100" onClick={() => removeAt(idx)}>Remove</button>
               </div>
             ))}

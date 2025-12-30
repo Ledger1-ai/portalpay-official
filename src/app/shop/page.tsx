@@ -9,8 +9,11 @@ import { usePortalThirdwebTheme, getConnectButtonStyle, connectButtonClass } fro
 import { ShopThemeAuditor } from "@/components/providers/shop-theme-auditor";
 import { getAllIndustryPacks, IndustryPack, IndustryPackType } from "@/lib/industry-packs";
 import { Utensils, ShoppingBag, Hotel, Briefcase, BookOpen } from "lucide-react";
+import ImageUploadField from "@/components/forms/ImageUploadField";
+import ShopWizard from "@/components/shop/ShopWizard";
+import ShopClient from "@/app/shop/[slug]/ShopClient";
 
-type ShopTheme = {
+export type ShopTheme = {
   primaryColor?: string;
   secondaryColor?: string;
   textColor?: string;
@@ -20,17 +23,20 @@ type ShopTheme = {
   fontFamily?: string;
   logoShape?: "square" | "circle";
   heroFontSize?: "microtext" | "small" | "medium" | "large" | "xlarge";
+  layoutMode?: "balanced" | "minimalist" | "maximalist";
+  maximalistBannerUrl?: string; // Specific for maximalist layout
+  galleryImages?: string[]; // Up to 5 images for maximalist carousel
 };
 
-type InventoryArrangement =
+export type InventoryArrangement =
   | "grid"
   | "featured_first"
   | "groups"
   | "carousel";
 
-type LinkItem = { label: string; url: string };
+export type LinkItem = { label: string; url: string };
 
-type ShopConfig = {
+export type ShopConfig = {
   name: string;
   description?: string;
   bio?: string;
@@ -125,6 +131,7 @@ export default function ShopBuilderPage() {
   useEffect(() => {
     if (!isConnected) setLoading(false);
   }, [isConnected]);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [slugChecking, setSlugChecking] = useState(false);
@@ -151,6 +158,7 @@ export default function ShopBuilderPage() {
       coverPhotoUrl: "",
       fontFamily:
         "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+      layoutMode: "balanced",
     },
     arrangement: "grid",
     links: [],
@@ -159,6 +167,32 @@ export default function ShopBuilderPage() {
     customDomainVerified: false,
     setupComplete: false,
   });
+
+  // Update browser tab title and favicon with merchant's shop info when loaded
+  useEffect(() => {
+    if (!loading && cfg.name) {
+      document.title = `${cfg.name} • Shop`;
+      // Update favicon to shop logo if available
+      if (cfg.theme.brandLogoUrl) {
+        const links = document.querySelectorAll("link[rel*='icon']");
+        links.forEach((link: any) => {
+          if (link.href !== cfg.theme.brandLogoUrl) {
+            link.href = cfg.theme.brandLogoUrl;
+          }
+        });
+      }
+    }
+  }, [loading, cfg.name, cfg.theme.brandLogoUrl]);
+
+  // Mock data for preview, ensure consistent IDs
+  const mockItems = React.useMemo(() => {
+    const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack) || getAllIndustryPacks()[0];
+    return (pack?.sampleItems || []).map((item, idx) => ({
+      ...item,
+      id: `mock-item-main-${idx}`,
+      stockQty: item.stockQty ?? 999
+    }));
+  }, [cfg.industryPack]);
 
   // Track last deployed/saved snapshot to compute unpublished changes
   const [snapshot, setSnapshot] = useState<ShopConfig | null>(null);
@@ -750,322 +784,509 @@ export default function ShopBuilderPage() {
     <div className="max-w-5xl mx-auto px-4 py-10 space-y-6">
       <ShopThemeAuditor expected={cfg.theme} />
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Shop</h1>
-        <span className="microtext badge-soft">Merchant setup</span>
+        <div>
+          <h1 className="text-3xl font-bold">Shop</h1>
+          <span className="microtext badge-soft">Merchant setup</span>
+        </div>
+        <button
+          onClick={() => setShowWizard(true)}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:shadow-md transition-all active:scale-95"
+        >
+          Open Setup Wizard
+        </button>
       </div>
 
-      {/* Industry Pack Selector */}
-      {isConnected && !loading && (
-        <div className="glass-pane rounded-xl border p-6">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-xl font-semibold">Industry Packs</h2>
-              <p className="microtext text-muted-foreground mt-1">
-                Optimize your shop for a specific industry with pre-configured themes and sample inventory
-              </p>
-            </div>
-            <button
-              className="px-3 py-1.5 rounded-md border text-sm"
-              onClick={() => setShowIndustryPacks(true)}
-            >
-              Browse Packs
-            </button>
-          </div>
-          {cfg.industryPack && (
-            <div className="mt-2 flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg" style={{
-                backgroundColor: (() => {
-                  const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack);
-                  return pack ? pack.theme.primaryColor + '20' : '#0ea5e920';
-                })(), border: `2px solid ${(() => {
-                  const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack);
-                  return pack?.theme.primaryColor || '#0ea5e9';
-                })()}`
-              }}>
-                {cfg.industryPack && (
-                  <IndustryPackIcon
-                    packId={cfg.industryPack}
-                    primaryColor={(() => {
-                      const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack);
-                      return pack?.theme.primaryColor || '#0ea5e9';
-                    })()}
-                  />
-                )}
-              </div>
-              <div>
-                <div className="text-sm font-medium">
-                  Active Pack: {(() => {
-                    const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack);
-                    return pack?.name || cfg.industryPack;
-                  })()}
-                </div>
-                {cfg.industryPackActivatedAt && (
-                  <div className="microtext text-muted-foreground">
-                    Activated {new Date(cfg.industryPackActivatedAt).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* First-visit prompt */}
-      {(!cfg.setupComplete) && !loading && (
-        <div className="glass-pane rounded-xl border p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Deploy your storefront</h2>
-            <div className="flex items-center gap-2">
-              <button
-                className="px-3 py-1.5 rounded-md border text-sm"
-                onClick={() => setShowWizard(true)}
-              >
-                Start Wizard
-              </button>
-            </div>
-          </div>
+      {/* Shop Design Section */}
+      <div className="glass-pane rounded-xl border p-6 space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold">Shop Design</h2>
           <p className="microtext text-muted-foreground mt-1">
-            Start the shop builder wizard to configure name, branding, colors, images, bio, and inventory layout. Reserve your public link.
+            Customize the look and feel of your storefront.
           </p>
         </div>
-      )}
 
-      {/* Industry Pack Selection Modal */}
-      {showIndustryPacks && !loading && typeof window !== "undefined" && (
-        <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center p-4">
-          <div className="absolute inset-0" onClick={() => setShowIndustryPacks(false)} />
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto glass-float rounded-xl border p-6">
-            <button
-              onClick={() => setShowIndustryPacks(false)}
-              className="absolute right-2 top-2 h-8 w-8 rounded-full border bg-white text-black shadow-sm flex items-center justify-center"
-              title="Close"
-              aria-label="Close industry packs"
-            >
-              ✕
-            </button>
-            <h2 className="text-xl font-semibold mb-2">Choose Your Industry Pack</h2>
-            <p className="microtext text-muted-foreground mb-2">
-              Each pack includes a tailored theme, sample inventory, and analytics configuration
-            </p>
+        {/* Layout Mode Slider */}
+        <div>
+          <label className="text-sm font-medium">Layout Style</label>
+          <div className="relative mt-4 mb-8 mx-2">
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={1}
+              value={cfg.theme.layoutMode === "minimalist" ? 1 : cfg.theme.layoutMode === "maximalist" ? 3 : 2}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                const mode = v === 1 ? "minimalist" : v === 3 ? "maximalist" : "balanced";
+                setCfg((prev) => ({ ...prev, theme: { ...prev.theme, layoutMode: mode } }));
+              }}
+              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+            />
+            <div className="flex justify-between mt-2 text-xs font-medium text-muted-foreground">
+              <span className={cfg.theme.layoutMode === "minimalist" ? "text-primary" : ""}>Minimalist</span>
+              <span className={!cfg.theme.layoutMode || cfg.theme.layoutMode === "balanced" ? "text-primary" : ""}>Balanced</span>
+              <span className={cfg.theme.layoutMode === "maximalist" ? "text-primary" : ""}>Maximalist</span>
+            </div>
+            {/* Visual description of current mode */}
+            <div className="mt-2 text-xs text-muted-foreground text-center bg-muted/30 p-2 rounded">
+              {cfg.theme.layoutMode === "minimalist" && "Clean grid view. Focus purely on products. No hero, no sidebar."}
+              {(!cfg.theme.layoutMode || cfg.theme.layoutMode === "balanced") && "Standard e-commerce layout. Header, basic filters, and substantial product grid."}
+              {cfg.theme.layoutMode === "maximalist" && "Rich experience. Full-width immersive hero, collection banners, and featured sections."}
+            </div>
+          </div>
+        </div>
 
-            <div className="mb-4 rounded-md border p-3 bg-foreground/5">
-              <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={applyPackTheme}
-                  onChange={(e) => setApplyPackTheme(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span>Apply pack color theme and font</span>
-              </label>
-              <div className="microtext text-muted-foreground mt-1">
-                When checked, activating a pack will update your shop colors and font. When unchecked, only the inventory pack will be set (your current branding will be preserved).
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Logo Upload */}
+          <div>
+            <ImageUploadField
+              label="Brand Logo"
+              value={cfg.theme.brandLogoUrl || ""}
+              onChange={(url) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, brandLogoUrl: Array.isArray(url) ? url[0] : url } }))}
+              target="brand_logo"
+              guidance="Square PNG/WebP recommended. 256x256."
+              previewSize={80}
+            />
+          </div>
+
+          {/* Cover Photo Upload */}
+          <div>
+            <ImageUploadField
+              label="Cover Photo"
+              value={cfg.theme.coverPhotoUrl || ""}
+              onChange={(url) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, coverPhotoUrl: Array.isArray(url) ? url[0] : url } }))}
+              target="cover_photo"
+              guidance="Wide banner image. 1920x400 recommended."
+              previewSize={160}
+            />
+          </div>
+        </div>
+
+        {/* Maximalist Layout Assets */}
+        {cfg.theme.layoutMode === "maximalist" && (
+          <div className="space-y-6 pt-4 border-t">
+            <div>
+              <h3 className="text-lg font-medium mb-1">Maximalist Layout Assets</h3>
+              <p className="microtext text-muted-foreground">
+                These images are used in the immersive maximalist layout mode.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {getAllIndustryPacks().map((pack) => (
-                <div
-                  key={pack.id}
-                  className="glass-pane rounded-lg border p-4 hover:border-foreground/30 transition-colors flex flex-col"
+            {/* Maximalist Banner */}
+            <ImageUploadField
+              label="Maximalist Banner"
+              value={cfg.theme.maximalistBannerUrl || ""}
+              onChange={(url) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, maximalistBannerUrl: Array.isArray(url) ? url[0] : url } }))}
+              target="maximalist_banner"
+              guidance="Ultra-wide banner (32:9 aspect ratio recommended). This appears as the hero background."
+              previewSize={160}
+            />
+
+            {/* Rotating Gallery */}
+            <div>
+              <label className="text-sm font-medium block mb-2">Rotating Gallery (5 Slots)</label>
+              <p className="microtext text-muted-foreground mb-3">
+                These images rotate in the gallery section of your maximalist storefront.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                {[0, 1, 2, 3, 4].map((idx) => (
+                  <ImageUploadField
+                    key={idx}
+                    label={`Slot ${idx + 1}`}
+                    value={cfg.theme.galleryImages?.[idx] || ""}
+                    onChange={(url) => {
+                      const newImages = [...(cfg.theme.galleryImages || [])];
+                      newImages[idx] = Array.isArray(url) ? url[0] : url;
+                      setCfg((prev) => ({ ...prev, theme: { ...prev.theme, galleryImages: newImages } }));
+                    }}
+                    target={`gallery_${idx}`}
+                    guidance="16:9 ratio"
+                    previewSize={80}
+                    compact
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Colors & Fonts */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
+          <div>
+            <label className="microtext text-muted-foreground">Primary Color</label>
+            <div className="flex gap-2 mt-1">
+              <input
+                type="color"
+                className="h-9 w-12 p-0 border rounded overflow-hidden"
+                value={clampColor(cfg.theme.primaryColor || "#0ea5e9", "#0ea5e9")}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setCfg((prev) => ({ ...prev, theme: { ...prev.theme, primaryColor: v } }));
+                }}
+              />
+              <input
+                className="flex-1 px-3 py-1 text-sm border rounded-md"
+                value={cfg.theme.primaryColor}
+                onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, primaryColor: e.target.value } }))}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="microtext text-muted-foreground">Secondary / Accent</label>
+            <div className="flex gap-2 mt-1">
+              <input
+                type="color"
+                className="h-9 w-12 p-0 border rounded overflow-hidden"
+                value={clampColor(cfg.theme.secondaryColor || "#22c55e", "#22c55e")}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setCfg((prev) => ({ ...prev, theme: { ...prev.theme, secondaryColor: v } }));
+                }}
+              />
+              <input
+                className="flex-1 px-3 py-1 text-sm border rounded-md"
+                value={cfg.theme.secondaryColor}
+                onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, secondaryColor: e.target.value } }))}
+              />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="microtext text-muted-foreground">Font Family</label>
+            <select
+              className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+              value={cfg.theme.fontFamily || ""}
+              onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, fontFamily: e.target.value } }))}
+            >
+              {FONT_PRESETS.map(f => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Industry Pack Selector (Collapsed by default in new design, or below) */}
+      {
+        isConnected && !loading && (
+          <div className="glass-pane rounded-xl border p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-xl font-semibold">Industry Packs</h2>
+                <p className="microtext text-muted-foreground mt-1">
+                  Optimize your shop for a specific industry with pre-configured themes and sample inventory
+                </p>
+              </div>
+              <button
+                className="px-3 py-1.5 rounded-md border text-sm"
+                onClick={() => setShowIndustryPacks(true)}
+              >
+                Browse Packs
+              </button>
+            </div>
+            {cfg.industryPack && (
+              <div className="mt-2 flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg" style={{
+                  backgroundColor: (() => {
+                    const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack);
+                    return pack ? pack.theme.primaryColor + '20' : '#0ea5e920';
+                  })(), border: `2px solid ${(() => {
+                    const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack);
+                    return pack?.theme.primaryColor || '#0ea5e9';
+                  })()}`
+                }}>
+                  {cfg.industryPack && (
+                    <IndustryPackIcon
+                      packId={cfg.industryPack}
+                      primaryColor={(() => {
+                        const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack);
+                        return pack?.theme.primaryColor || '#0ea5e9';
+                      })()}
+                    />
+                  )}
+                </div>
+                <div>
+                  <div className="text-sm font-medium">
+                    Active Pack: {(() => {
+                      const pack = getAllIndustryPacks().find(p => p.id === cfg.industryPack);
+                      return pack?.name || cfg.industryPack;
+                    })()}
+                  </div>
+                  {cfg.industryPackActivatedAt && (
+                    <div className="microtext text-muted-foreground">
+                      Activated {new Date(cfg.industryPackActivatedAt).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      {/* First-visit prompt */}
+      {
+        (!cfg.setupComplete) && !loading && (
+          <div className="glass-pane rounded-xl border p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Deploy your storefront</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  className="px-3 py-1.5 rounded-md border text-sm"
+                  onClick={() => setShowWizard(true)}
                 >
+                  Start Wizard
+                </button>
+              </div>
+            </div>
+            <p className="microtext text-muted-foreground mt-1">
+              Start the shop builder wizard to configure name, branding, colors, images, bio, and inventory layout. Reserve your public link.
+            </p>
+          </div>
+        )
+      }
+
+      {/* Industry Pack Selection Modal */}
+      {
+        showIndustryPacks && !loading && typeof window !== "undefined" && (
+          <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center p-4">
+            <div className="absolute inset-0" onClick={() => setShowIndustryPacks(false)} />
+            <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto glass-float rounded-xl border p-6">
+              <button
+                onClick={() => setShowIndustryPacks(false)}
+                className="absolute right-2 top-2 h-8 w-8 rounded-full border bg-white text-black shadow-sm flex items-center justify-center"
+                title="Close"
+                aria-label="Close industry packs"
+              >
+                ✕
+              </button>
+              <h2 className="text-xl font-semibold mb-2">Choose Your Industry Pack</h2>
+              <p className="microtext text-muted-foreground mb-2">
+                Each pack includes a tailored theme, sample inventory, and analytics configuration
+              </p>
+
+              <div className="mb-4 rounded-md border p-3 bg-foreground/5">
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyPackTheme}
+                    onChange={(e) => setApplyPackTheme(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span>Apply pack color theme and font</span>
+                </label>
+                <div className="microtext text-muted-foreground mt-1">
+                  When checked, activating a pack will update your shop colors and font. When unchecked, only the inventory pack will be set (your current branding will be preserved).
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {getAllIndustryPacks().map((pack) => (
+                  <div
+                    key={pack.id}
+                    className="glass-pane rounded-lg border p-4 hover:border-foreground/30 transition-colors flex flex-col"
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex items-center justify-center w-14 h-14 rounded-lg" style={{ backgroundColor: pack.theme.primaryColor + '20', border: `2px solid ${pack.theme.primaryColor}` }}>
+                        <IndustryPackIcon packId={pack.id} primaryColor={pack.theme.primaryColor} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-semibold">{pack.name}</h3>
+                        <p className="text-sm text-muted-foreground">{pack.appDescription || pack.description}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mb-3 flex-grow">
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Theme Colors</div>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-6 w-6 rounded border"
+                            style={{ backgroundColor: pack.theme.primaryColor }}
+                            title="Primary"
+                          />
+                          <div
+                            className="h-6 w-6 rounded border"
+                            style={{ backgroundColor: pack.theme.secondaryColor }}
+                            title="Secondary"
+                          />
+                          <div
+                            className="h-6 w-6 rounded border"
+                            style={{ backgroundColor: pack.theme.accentColor }}
+                            title="Accent"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Sample Items ({pack.sampleItems.length})
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {pack.sampleItems.slice(0, 3).map((item: any) => item.name).join(", ")}
+                          {pack.sampleItems.length > 3 && ` +${pack.sampleItems.length - 3} more`}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Categories</div>
+                        <div className="text-xs text-muted-foreground">
+                          {pack.categories.slice(0, 4).join(", ")}
+                          {pack.categories.length > 4 && ` +${pack.categories.length - 4} more`}
+                        </div>
+                      </div>
+
+                      {pack.id === 'restaurant' && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <div className="text-xs font-medium text-orange-600 mb-1">🍳 Includes Kitchen Display System</div>
+                          <div className="text-xs text-muted-foreground">
+                            Real-time order management with kitchen display for efficient food preparation and service
+                          </div>
+                        </div>
+                      )}
+
+                      {pack.id === 'hotel' && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <div className="text-xs font-medium text-purple-600 mb-1">🏨 Includes Full PMS</div>
+                          <div className="text-xs text-muted-foreground">
+                            Property Management System with front desk, housekeeping, reservations, folios, split payments, and dashboard analytics
+                          </div>
+                        </div>
+                      )}
+
+                      {pack.id === 'publishing' && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <div className="text-xs font-medium text-pink-600 mb-1">📖 Includes Writer's Workshop</div>
+                          <div className="text-xs text-muted-foreground">
+                            Complete publishing workflow with manuscript management, reader app integration, and series tracking
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      className="w-full px-3 py-2 rounded-md border text-sm font-medium hover:bg-foreground/5"
+                      onClick={() => activateIndustryPack(pack.id)}
+                      disabled={activatingPack}
+                    >
+                      {activatingPack ? "Activating..." : cfg.industryPack === pack.id ? "Active" : "Activate Pack"}
+                    </button>
+                  </div>
+                ))}
+
+                {/* Coming Soon Card */}
+                <div className="glass-pane rounded-lg border p-4 border-dashed border-foreground/20 flex flex-col">
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="flex items-center justify-center w-14 h-14 rounded-lg" style={{ backgroundColor: pack.theme.primaryColor + '20', border: `2px solid ${pack.theme.primaryColor}` }}>
-                      <IndustryPackIcon packId={pack.id} primaryColor={pack.theme.primaryColor} />
+                    <div className="flex items-center justify-center w-14 h-14 rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-dashed border-foreground/20">
+                      <div className="flex items-center gap-1 text-lg">
+                        <span>◉</span>
+                        <span>⚑</span>
+                        <span>◆</span>
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold">{pack.name}</h3>
-                      <p className="text-sm text-muted-foreground">{pack.appDescription || pack.description}</p>
+                      <h3 className="text-lg font-semibold">More Packs Coming</h3>
+                      <p className="text-sm text-muted-foreground">Additional industry templates in development</p>
                     </div>
                   </div>
 
                   <div className="space-y-2 mb-3 flex-grow">
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">Theme Colors</div>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-6 w-6 rounded border"
-                          style={{ backgroundColor: pack.theme.primaryColor }}
-                          title="Primary"
-                        />
-                        <div
-                          className="h-6 w-6 rounded border"
-                          style={{ backgroundColor: pack.theme.secondaryColor }}
-                          title="Secondary"
-                        />
-                        <div
-                          className="h-6 w-6 rounded border"
-                          style={{ backgroundColor: pack.theme.accentColor }}
-                          title="Accent"
-                        />
+                    <div className="text-center py-8">
+                      <div className="flex items-center justify-center gap-2 text-3xl mb-3 opacity-50">
+                        <span>◉</span>
+                        <span>⚑</span>
+                        <span>◆</span>
+                        <span>▣</span>
+                        <span>◈</span>
                       </div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        More Industry Packs Available Soon!
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        We're working on additional packs for more industries
+                      </p>
                     </div>
-
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">
-                        Sample Items ({pack.sampleItems.length})
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {pack.sampleItems.slice(0, 3).map((item: any) => item.name).join(", ")}
-                        {pack.sampleItems.length > 3 && ` +${pack.sampleItems.length - 3} more`}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">Categories</div>
-                      <div className="text-xs text-muted-foreground">
-                        {pack.categories.slice(0, 4).join(", ")}
-                        {pack.categories.length > 4 && ` +${pack.categories.length - 4} more`}
-                      </div>
-                    </div>
-
-                    {pack.id === 'restaurant' && (
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <div className="text-xs font-medium text-orange-600 mb-1">🍳 Includes Kitchen Display System</div>
-                        <div className="text-xs text-muted-foreground">
-                          Real-time order management with kitchen display for efficient food preparation and service
-                        </div>
-                      </div>
-                    )}
-
-                    {pack.id === 'hotel' && (
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <div className="text-xs font-medium text-purple-600 mb-1">🏨 Includes Full PMS</div>
-                        <div className="text-xs text-muted-foreground">
-                          Property Management System with front desk, housekeeping, reservations, folios, split payments, and dashboard analytics
-                        </div>
-                      </div>
-                    )}
-
-                    {pack.id === 'publishing' && (
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <div className="text-xs font-medium text-pink-600 mb-1">📖 Includes Writer's Workshop</div>
-                        <div className="text-xs text-muted-foreground">
-                          Complete publishing workflow with manuscript management, reader app integration, and series tracking
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   <button
-                    className="w-full px-3 py-2 rounded-md border text-sm font-medium hover:bg-foreground/5"
-                    onClick={() => activateIndustryPack(pack.id)}
-                    disabled={activatingPack}
+                    className="w-full px-3 py-2 rounded-md border text-sm font-medium bg-foreground/5 cursor-not-allowed opacity-60"
+                    disabled
                   >
-                    {activatingPack ? "Activating..." : cfg.industryPack === pack.id ? "Active" : "Activate Pack"}
+                    Coming Soon
                   </button>
                 </div>
-              ))}
-
-              {/* Coming Soon Card */}
-              <div className="glass-pane rounded-lg border p-4 border-dashed border-foreground/20 flex flex-col">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="flex items-center justify-center w-14 h-14 rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-dashed border-foreground/20">
-                    <div className="flex items-center gap-1 text-lg">
-                      <span>◉</span>
-                      <span>⚑</span>
-                      <span>◆</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold">More Packs Coming</h3>
-                    <p className="text-sm text-muted-foreground">Additional industry templates in development</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 mb-3 flex-grow">
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center gap-2 text-3xl mb-3 opacity-50">
-                      <span>◉</span>
-                      <span>⚑</span>
-                      <span>◆</span>
-                      <span>▣</span>
-                      <span>◈</span>
-                    </div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      More Industry Packs Available Soon!
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      We're working on additional packs for more industries
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  className="w-full px-3 py-2 rounded-md border text-sm font-medium bg-foreground/5 cursor-not-allowed opacity-60"
-                  disabled
-                >
-                  Coming Soon
-                </button>
               </div>
-            </div>
 
-            {packError && (
-              <div className="mt-4 rounded-md border border-red-500/50 bg-red-500/10 p-3">
-                <div className="text-sm text-red-500">{packError}</div>
-              </div>
-            )}
+              {packError && (
+                <div className="mt-4 rounded-md border border-red-500/50 bg-red-500/10 p-3">
+                  <div className="text-sm text-red-500">{packError}</div>
+                </div>
+              )}
 
 
-          </div>
-        </div>
-      )}
-
-      {/* Wizard Modal */}
-      {showWizard && !loading && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => {
-            try {
-              const w = (account?.address || "").toLowerCase();
-              if (w) localStorage.setItem(`shop:wizard:dismissed:${w}`, "1");
-            } catch { }
-            setShowWizard(false);
-          }} />
-          <div className="relative w-[min(520px,calc(100vw-24px))] glass-float rounded-xl border p-6">
-            <h2 className="text-xl font-semibold">Deploy your storefront</h2>
-            <p className="microtext text-muted-foreground mt-2">
-              Start the shop builder wizard to configure name, branding, colors, images, bio, and inventory layout. Reserve your public link.
-            </p>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                className="px-3 py-1.5 rounded-md border text-sm"
-                onClick={() => {
-                  try {
-                    const w = (account?.address || "").toLowerCase();
-                    if (w) localStorage.setItem(`shop:wizard:dismissed:${w}`, "1");
-                  } catch { }
-                  setShowWizard(false);
-                }}
-              >
-                Not now
-              </button>
-              <button
-                className="px-3 py-1.5 rounded-md border text-sm"
-                onClick={() => setShowWizard(false)}
-              >
-                Start Wizard
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* Builder Wizard */}
+      {
+        showWizard && !loading && (
+          <ShopWizard
+            initialConfig={cfg}
+            onSave={async (newCfg) => {
+              // Update local state instantly
+              setCfg(newCfg);
+
+              // Persist
+              try {
+                const r = await fetch("/api/shop/config", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "x-wallet": account?.address || "" },
+                  body: JSON.stringify({
+                    ...newCfg,
+                    setupComplete: true
+                  }),
+                });
+                if (r.ok) {
+                  setDeployOk(true);
+                  setCfg(prev => ({ ...prev, setupComplete: true }));
+                  const w = (account?.address || "").toLowerCase();
+                  if (w) localStorage.setItem(`shop:wizard:dismissed:${w}`, "1");
+                }
+              } catch (e) {
+                console.error(e);
+                setError("Failed to save wizard config");
+              }
+            }}
+            onClose={() => {
+              try {
+                const w = (account?.address || "").toLowerCase();
+                if (w) localStorage.setItem(`shop:wizard:dismissed:${w}`, "1");
+              } catch { }
+              setShowWizard(false);
+            }}
+          />
+        )
+      }
 
       {/* Deployment Status */}
-      {!loading && cfg.slug && (
-        <div className="glass-pane rounded-xl border p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`inline-block w-2.5 h-2.5 rounded-full ${dirty ? "bg-amber-500" : (cfg.setupComplete ? "bg-green-500" : "bg-gray-400")}`} />
-            <span className="text-sm font-medium">
-              {cfg.setupComplete ? (dirty ? "Unpublished changes" : "Storefront is live") : "Storefront not deployed"}
-            </span>
+      {
+        !loading && cfg.slug && (
+          <div className="glass-pane rounded-xl border p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${dirty ? "bg-amber-500" : (cfg.setupComplete ? "bg-green-500" : "bg-gray-400")}`} />
+              <span className="text-sm font-medium">
+                {cfg.setupComplete ? (dirty ? "Unpublished changes" : "Storefront is live") : "Storefront not deployed"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="microtext text-muted-foreground">{`${typeof window !== "undefined" ? window.location.host : ""}/shop/${cfg.slug}`}</span>
+              <button className="px-2 py-1 rounded-md border text-xs" onClick={copyShopUrl}>{copied ? "Copied" : "Copy"}</button>
+              <a className="px-2 py-1 rounded-md border text-xs" href={`/shop/${encodeURIComponent(cfg.slug)}`} target="_blank" rel="noopener noreferrer">Open</a>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="microtext text-muted-foreground">{`${typeof window !== "undefined" ? window.location.host : ""}/shop/${cfg.slug}`}</span>
-            <button className="px-2 py-1 rounded-md border text-xs" onClick={copyShopUrl}>{copied ? "Copied" : "Copy"}</button>
-            <a className="px-2 py-1 rounded-md border text-xs" href={`/shop/${encodeURIComponent(cfg.slug)}`} target="_blank" rel="noopener noreferrer">Open</a>
-          </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Custom Domain */}
       <div className="glass-pane rounded-xl border p-6">
@@ -1119,527 +1340,527 @@ export default function ShopBuilderPage() {
       </div>
 
       {/* Domain Verification Modal */}
-      {verifyingDomain && (
-        <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center p-4">
-          <div className="absolute inset-0" onClick={() => setVerifyingDomain(false)} />
-          <div className="relative w-full max-w-2xl glass-float rounded-xl border p-6">
-            <button
-              onClick={() => setVerifyingDomain(false)}
-              className="absolute right-4 top-4 h-8 w-8 rounded-full border bg-white text-black shadow-sm flex items-center justify-center"
-            >
-              ✕
-            </button>
-            <h2 className="text-xl font-semibold mb-4">Connect Your Domain</h2>
+      {
+        verifyingDomain && (
+          <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center p-4">
+            <div className="absolute inset-0" onClick={() => setVerifyingDomain(false)} />
+            <div className="relative w-full max-w-2xl glass-float rounded-xl border p-6">
+              <button
+                onClick={() => setVerifyingDomain(false)}
+                className="absolute right-4 top-4 h-8 w-8 rounded-full border bg-white text-black shadow-sm flex items-center justify-center"
+              >
+                ✕
+              </button>
+              <h2 className="text-xl font-semibold mb-4">Connect Your Domain</h2>
 
-            <div className="space-y-4">
-              <div className="rounded-md border bg-foreground/5 p-4">
-                <p className="text-sm font-medium mb-2">DNS Configuration Required</p>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Add the following records to your domain's DNS settings to verify ownership and point to our servers.
-                </p>
+              <div className="space-y-4">
+                <div className="rounded-md border bg-foreground/5 p-4">
+                  <p className="text-sm font-medium mb-2">DNS Configuration Required</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Add the following records to your domain's DNS settings to verify ownership and point to our servers.
+                  </p>
 
-                <div className="space-y-3">
-                  {/* CNAME Record */}
-                  <div className="grid grid-cols-12 gap-2 text-xs items-center p-2 bg-background rounded border">
-                    <div className="col-span-2 font-semibold">CNAME</div>
-                    <div className="col-span-3 font-mono text-muted-foreground">@ (or subdomain)</div>
-                    <div className="col-span-5 font-mono break-all">{typeof window !== "undefined" ? window.location.host : "pay.ledger1.ai"}</div>
-                    <div className="col-span-2 text-right">
-                      <button
-                        className="text-xs text-blue-500 hover:underline"
-                        onClick={() => navigator.clipboard.writeText(typeof window !== "undefined" ? window.location.host : "pay.ledger1.ai")}
-                      >
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* PortalPay Verification TXT */}
-                  <div className="grid grid-cols-12 gap-2 text-xs items-center p-2 bg-background rounded border">
-                    <div className="col-span-2 font-semibold">TXT</div>
-                    <div className="col-span-3 font-mono text-muted-foreground">@ (or subdomain)</div>
-                    <div className="col-span-5 font-mono break-all truncate" title={verificationResult?.expectedTxtRecord || ""}>
-                      {verificationResult?.expectedTxtRecord || "Loading..."}
-                    </div>
-                    <div className="col-span-2 text-right">
-                      <button
-                        className="text-xs text-blue-500 hover:underline"
-                        onClick={() => verificationResult?.expectedTxtRecord && navigator.clipboard.writeText(verificationResult.expectedTxtRecord)}
-                      >
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Azure Verification TXT (asuid) */}
-                  {(verificationResult as any)?.azureVerificationId && (
+                  <div className="space-y-3">
+                    {/* CNAME Record */}
                     <div className="grid grid-cols-12 gap-2 text-xs items-center p-2 bg-background rounded border">
-                      <div className="col-span-2 font-semibold">TXT</div>
-                      <div className="col-span-3 font-mono text-muted-foreground">asuid (or asuid.{cfg.customDomain?.split('.')[0] || "sub"})</div>
-                      <div className="col-span-5 font-mono break-all truncate" title={(verificationResult as any)?.azureVerificationId}>
-                        {(verificationResult as any)?.azureVerificationId}
-                      </div>
+                      <div className="col-span-2 font-semibold">CNAME</div>
+                      <div className="col-span-3 font-mono text-muted-foreground">@ (or subdomain)</div>
+                      <div className="col-span-5 font-mono break-all">{typeof window !== "undefined" ? window.location.host : "pay.ledger1.ai"}</div>
                       <div className="col-span-2 text-right">
                         <button
                           className="text-xs text-blue-500 hover:underline"
-                          onClick={() => (verificationResult as any)?.azureVerificationId && navigator.clipboard.writeText((verificationResult as any)?.azureVerificationId)}
+                          onClick={() => navigator.clipboard.writeText(typeof window !== "undefined" ? window.location.host : "pay.ledger1.ai")}
                         >
                           Copy
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              {verificationResult?.message && !verificationResult.verified && (
-                <div className="text-xs text-red-500 flex items-center gap-2 bg-red-500/5 p-3 rounded border border-red-500/20">
-                  <span>⚠️</span>
-                  <span>{verificationResult.message}</span>
-                </div>
-              )}
+                    {/* PortalPay Verification TXT */}
+                    <div className="grid grid-cols-12 gap-2 text-xs items-center p-2 bg-background rounded border">
+                      <div className="col-span-2 font-semibold">TXT</div>
+                      <div className="col-span-3 font-mono text-muted-foreground">@ (or subdomain)</div>
+                      <div className="col-span-5 font-mono break-all truncate" title={verificationResult?.expectedTxtRecord || ""}>
+                        {verificationResult?.expectedTxtRecord || "Loading..."}
+                      </div>
+                      <div className="col-span-2 text-right">
+                        <button
+                          className="text-xs text-blue-500 hover:underline"
+                          onClick={() => verificationResult?.expectedTxtRecord && navigator.clipboard.writeText(verificationResult.expectedTxtRecord)}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
 
-              <div className="flex justify-end gap-2 mt-6">
-                <button
-                  className="px-4 py-2 rounded-md border text-sm"
-                  onClick={() => setVerifyingDomain(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium disabled:opacity-50"
-                  onClick={verifyDomain}
-                  disabled={loading}
-                >
-                  {loading ? "Verifying..." : "Verify Connection"}
-                </button>
+                    {/* Azure Verification TXT (asuid) */}
+                    {(verificationResult as any)?.azureVerificationId && (
+                      <div className="grid grid-cols-12 gap-2 text-xs items-center p-2 bg-background rounded border">
+                        <div className="col-span-2 font-semibold">TXT</div>
+                        <div className="col-span-3 font-mono text-muted-foreground">asuid (or asuid.{cfg.customDomain?.split('.')[0] || "sub"})</div>
+                        <div className="col-span-5 font-mono break-all truncate" title={(verificationResult as any)?.azureVerificationId}>
+                          {(verificationResult as any)?.azureVerificationId}
+                        </div>
+                        <div className="col-span-2 text-right">
+                          <button
+                            className="text-xs text-blue-500 hover:underline"
+                            onClick={() => (verificationResult as any)?.azureVerificationId && navigator.clipboard.writeText((verificationResult as any)?.azureVerificationId)}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {verificationResult?.message && !verificationResult.verified && (
+                  <div className="text-xs text-red-500 flex items-center gap-2 bg-red-500/5 p-3 rounded border border-red-500/20">
+                    <span>⚠️</span>
+                    <span>{verificationResult.message}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    className="px-4 py-2 rounded-md border text-sm"
+                    onClick={() => setVerifyingDomain(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium disabled:opacity-50"
+                    onClick={verifyDomain}
+                    disabled={loading}
+                  >
+                    {loading ? "Verifying..." : "Verify Connection"}
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+        )
+      }
+
+      {/* Main Layout Grid */}
+      {/* Main Layout Grid - Single Column for "Row" Effect */}
+      <div className="flex flex-col gap-12 items-start relative z-10 w-full max-w-[1920px] mx-auto">
+
+        {/* Top Row: Sleek Futuristic Preview (Scrollable) */}
+        <div className="w-full flex flex-col gap-4">
+          <div className="relative group rounded-3xl overflow-hidden border border-white/10 shadow-[0_0_60px_-20px_rgba(var(--primary-rgb),0.3)] bg-[#050510] ring-1 ring-white/5 transition-all duration-500 hover:shadow-[0_0_80px_-20px_rgba(var(--primary-rgb),0.5)]">
+            {/* Browser Frame Header */}
+            <div className="h-12 bg-white/5 backdrop-blur-md border-b border-white/10 flex items-center px-4 gap-4 select-none">
+              <div className="flex gap-2">
+                <div className="w-3 h-3 rounded-full bg-[#ff5f57] border border-black/10 shadow-[0_0_10px_rgba(255,95,87,0.5)]"></div>
+                <div className="w-3 h-3 rounded-full bg-[#febc2e] border border-black/10 shadow-[0_0_10px_rgba(254,188,46,0.5)]"></div>
+                <div className="w-3 h-3 rounded-full bg-[#28c840] border border-black/10 shadow-[0_0_10px_rgba(40,200,64,0.5)]"></div>
+              </div>
+
+              {/* URL Bar */}
+              <div className="flex-1 max-w-[400px] mx-auto h-7 rounded-lg bg-black/40 border border-white/5 flex items-center justify-center text-[10px] font-mono tracking-wide text-white/50 shadow-inner gap-2">
+                <span className="text-emerald-500">🔒</span>
+                {typeof window !== 'undefined' ? window.location.host : 'surge.basalthq.com'}/shop/<span className="text-white/90">{cfg.slug || "your-slug"}</span>
+              </div>
+
+              <div className="flex gap-3 text-white/20">
+                <div className="w-4 h-4 rounded-full border border-current opacity-50"></div>
+                <div className="w-4 h-4 rounded-full border border-current opacity-50"></div>
+              </div>
+            </div>
+
+            {/* Preview Viewport - Scrollable & Contained - Black BG */}
+            <div className="relative h-[800px] w-full bg-[#050510] isolate transform-gpu overflow-y-auto scrollbar-hide">
+              <ShopClient
+                config={cfg}
+                items={mockItems}
+                reviews={[]}
+                merchantWallet={account?.address || ""}
+                cleanSlug={cfg.slug || "preview"}
+                isPreview={true}
+              />
+            </div>
+          </div>
+
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground/50 uppercase tracking-widest font-mono">Live Interactive Preview</p>
           </div>
         </div>
-      )}
 
-      {/* Builder Wizard */}
-      <div className="glass-pane rounded-xl border p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Input label="Shop Name" value={cfg.name} onChange={(e) => setCfg((prev) => ({ ...prev, name: e.target.value }))} />
-          <div>
-            <label className="microtext text-muted-foreground">Public Link (slug)</label>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                className="h-9 flex-1 px-3 py-1 border rounded-md bg-background"
-                placeholder="e.g., krishnastore"
-                value={cfg.slug || ""}
-                onChange={(e) => {
-                  const v = cleanSlug(e.target.value);
-                  setCfg((prev) => ({ ...prev, slug: v }));
-                  setSlugAvailable(null);
-                }}
-                onBlur={(e) => checkSlugAvailability(e.target.value)}
-              />
-              <button
-                className="h-9 px-2 rounded-md border text-sm"
-                onClick={() => reserveSlug(cfg.slug || "")}
-                disabled={slugChecking || !cfg.slug}
-              >
-                {slugChecking ? "Checking…" : "Reserve"}
-              </button>
-            </div>
-            <div className="microtext text-muted-foreground mt-1">
-              {slugAvailable === false ? (<span className="text-red-500">Slug is taken</span>) : slugAvailable === true ? (<span className="text-green-600">Available</span>) : "Enter a slug to check availability"}
-            </div>
-          </div>
-
-          <TextArea label="Short Description" value={cfg.description || ""} onChange={(e) => setCfg((prev) => ({ ...prev, description: e.target.value }))} />
-          <TextArea label="Bio (Longer)" value={cfg.bio || ""} onChange={(e) => setCfg((prev) => ({ ...prev, bio: e.target.value }))} />
-
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Links</label>
-              <button type="button" onClick={addLink} className="px-2 py-1 rounded-md border text-xs">Add</button>
-            </div>
-            <div className="space-y-2 mt-2">
-              {(Array.isArray(cfg.links) ? cfg.links : []).map((l, i) => (
-                <div key={i} className="grid grid-cols-12 gap-2">
-                  <select className="col-span-3 h-9 px-2 border rounded-md bg-background" value={l.label} onChange={(e) => setLink(i, "label", e.target.value)}>
-                    {(() => {
-                      const options = [
-                        "Website",
-                        "X (Twitter)",
-                        "YouTube",
-                        "Twitch",
-                        "Discord",
-                        "GitHub",
-                        "LinkedIn",
-                        "Instagram",
-                        "Telegram",
-                        "Email",
-                        "Suno",
-                        "SoundCloud",
-                      ] as const;
-                      return options.map((v) => <option key={v} value={v}>{v}</option>);
-                    })()}
-                  </select>
-                  <input className="col-span-8 h-9 px-3 py-1 border rounded-md bg-background" placeholder="https://…" value={l.url} onChange={(e) => setLink(i, "url", e.target.value)} />
-                  <button type="button" onClick={() => removeLink(i)} className="col-span-1 px-2 rounded-md border">×</button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Theme */}
-          <div className="rounded-md border p-3 md:col-span-2">
-            <div className="text-sm font-medium mb-2">Theme</div>
-
-            {/* Color input mode (HEX/RGB) */}
-            <div className="flex items-center gap-3 mb-2">
-              <span className="microtext text-muted-foreground">Color input</span>
-              <div className="inline-flex rounded-md border overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setColorMode("hex")}
-                  className={`px-2 py-1 text-xs ${colorMode === "hex" ? "bg-foreground/10 border-foreground/20" : "hover:bg-foreground/5"}`}
-                  title="Use HEX format"
-                >
-                  HEX
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setColorMode("rgb")}
-                  className={`px-2 py-1 text-xs ${colorMode === "rgb" ? "bg-foreground/10 border-foreground/20" : "hover:bg-foreground/5"}`}
-                  title="Use RGB format"
-                >
-                  RGB
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Primary Color */}
+        {/* Bottom Row: Configuration Form */}
+        <div className="w-full space-y-6">
+          <div className="glass-pane rounded-xl border p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input label="Shop Name" value={cfg.name} onChange={(e) => setCfg((prev) => ({ ...prev, name: e.target.value }))} />
               <div>
-                <label className="text-sm font-medium">Primary Color</label>
-                <div className="flex items-start gap-3 mt-1 min-w-0">
-                  <input
-                    type="color"
-                    className="w-10 h-10 rounded-md border shadow-sm shrink-0"
-                    value={cfg.theme.primaryColor || "#0ea5e9"}
-                    onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, primaryColor: e.target.value } }))}
-                    title="Pick primary color"
-                  />
-                  <input
-                    className="h-9 px-3 py-1 border rounded-md bg-background"
-                    style={{ width: colorMode === "hex" ? "104px" : "160px" }}
-                    value={colorMode === "hex" ? (cfg.theme.primaryColor || "#0ea5e9") : hexToRgbString(cfg.theme.primaryColor || "#0ea5e9")}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const hex = colorMode === "hex"
-                        ? clampColor(v, "#0ea5e9")
-                        : (rgbStringToHex(v) || "#0ea5e9");
-                      setCfg((prev) => ({ ...prev, theme: { ...prev.theme, primaryColor: hex } }));
-                    }}
-                    placeholder={colorMode === "hex" ? "#0ea5e9" : "rgb(14, 165, 233)"}
-                    maxLength={colorMode === "hex" ? 7 : 18}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Used for header accents and borders.</p>
-              </div>
-
-              {/* Secondary Color */}
-              <div>
-                <label className="text-sm font-medium">Secondary Color</label>
-                <div className="flex items-start gap-3 mt-1 min-w-0">
-                  <input
-                    type="color"
-                    className="w-10 h-10 rounded-md border shadow-sm shrink-0"
-                    value={cfg.theme.secondaryColor || "#22c55e"}
-                    onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, secondaryColor: e.target.value } }))}
-                    title="Pick secondary color"
-                  />
-                  <input
-                    className="h-9 px-3 py-1 border rounded-md bg-background"
-                    style={{ width: colorMode === "hex" ? "104px" : "160px" }}
-                    value={colorMode === "hex" ? (cfg.theme.secondaryColor || "#22c55e") : hexToRgbString(cfg.theme.secondaryColor || "#22c55e")}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const hex = colorMode === "hex"
-                        ? clampColor(v, "#22c55e")
-                        : (rgbStringToHex(v) || "#22c55e");
-                      setCfg((prev) => ({ ...prev, theme: { ...prev.theme, secondaryColor: hex } }));
-                    }}
-                    placeholder={colorMode === "hex" ? "#22c55e" : "rgb(34, 197, 94)"}
-                    maxLength={colorMode === "hex" ? 7 : 18}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Used for buttons and highlights.</p>
-              </div>
-
-              {/* Text Color */}
-              <div>
-                <label className="text-sm font-medium">Text Color</label>
-                <div className="flex items-start gap-3 mt-1 min-w-0">
-                  <input
-                    type="color"
-                    className="w-10 h-10 rounded-md border shadow-sm shrink-0"
-                    value={cfg.theme.textColor || "#0b1020"}
-                    onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, textColor: clampColor(e.target.value, "#0b1020") } }))}
-                    title="Pick text color"
-                  />
-                  <input
-                    className="h-9 px-3 py-1 border rounded-md bg-background"
-                    style={{ width: colorMode === "hex" ? "104px" : "160px" }}
-                    value={colorMode === "hex" ? (cfg.theme.textColor || "#0b1020") : hexToRgbString(cfg.theme.textColor || "#0b1020")}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const hex = colorMode === "hex"
-                        ? clampColor(v, "#0b1020")
-                        : (rgbStringToHex(v) || "#0b1020");
-                      setCfg((prev) => ({ ...prev, theme: { ...prev.theme, textColor: hex } }));
-                    }}
-                    placeholder={colorMode === "hex" ? "#0b1020" : "rgb(11, 16, 32)"}
-                    maxLength={colorMode === "hex" ? 7 : 18}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Used for text on banners and details.</p>
-              </div>
-
-              {/* Accent Color (optional) */}
-              <div>
-                <label className="text-sm font-medium">Accent Color (optional)</label>
-                <div className="flex items-start gap-3 mt-1 min-w-0">
-                  <input
-                    type="color"
-                    className="w-10 h-10 rounded-md border shadow-sm shrink-0"
-                    value={cfg.theme.accentColor || "#f59e0b"}
-                    onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, accentColor: e.target.value } }))}
-                    title="Pick accent color"
-                  />
-                  <input
-                    className="h-9 px-3 py-1 border rounded-md bg-background"
-                    style={{ width: colorMode === "hex" ? "104px" : "160px" }}
-                    value={colorMode === "hex" ? (cfg.theme.accentColor || "#f59e0b") : hexToRgbString(cfg.theme.accentColor || "#f59e0b")}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const hex = colorMode === "hex"
-                        ? clampColor(v, "#f59e0b")
-                        : (rgbStringToHex(v) || "#f59e0b");
-                      setCfg((prev) => ({ ...prev, theme: { ...prev.theme, accentColor: hex } }));
-                    }}
-                    placeholder={colorMode === "hex" ? "#f59e0b" : "rgb(245, 158, 11)"}
-                    maxLength={colorMode === "hex" ? 7 : 18}
-                  />
-                </div>
-              </div>
-
-              {/* Font Family */}
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium">Font Family</label>
-                <select
-                  className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
-                  value={cfg.theme.fontFamily || FONT_PRESETS[0].value}
-                  onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, fontFamily: e.target.value } }))}
-                >
-                  {FONT_PRESETS.map((f) => (
-                    <option key={f.label} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">Applied to all shop text.</p>
-              </div>
-            </div>
-
-            {/* Contrast Preview */}
-            <div className="mt-3">
-              <div className="text-xs font-medium mb-1">Contrast Preview</div>
-              <div className="flex gap-3">
-                <div className="rounded-md px-3 py-2 text-xs" style={{ background: cfg.theme.primaryColor || "#0ea5e9", color: "#ffffff" }}>
-                  Text on Primary
-                </div>
-                <div className="rounded-md px-3 py-2 text-xs" style={{ background: cfg.theme.secondaryColor || "#22c55e", color: "#ffffff" }}>
-                  Text on Secondary
-                </div>
-              </div>
-            </div>
-
-            {/* Logo & Cover unchanged */}
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="microtext text-muted-foreground">Logo</label>
+                <label className="microtext text-muted-foreground">Public Link (slug)</label>
                 <div className="mt-1 flex items-center gap-2">
                   <input
-                    ref={fileLogoRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (f) {
-                        const url = await uploadImage(f);
-                        if (url) setCfg((prev) => ({ ...prev, theme: { ...prev.theme, brandLogoUrl: url } }));
-                      }
-                    }}
-                  />
-                  <button className="h-9 px-2 rounded-md border text-sm" onClick={() => fileLogoRef.current?.click()}>Upload Logo</button>
-                  <input
                     className="h-9 flex-1 px-3 py-1 border rounded-md bg-background"
-                    placeholder="or paste image URL"
-                    value={cfg.theme.brandLogoUrl || ""}
-                    onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, brandLogoUrl: e.target.value } }))}
+                    placeholder="e.g., krishnastore"
+                    value={cfg.slug || ""}
+                    onChange={(e) => {
+                      const v = cleanSlug(e.target.value);
+                      setCfg((prev) => ({ ...prev, slug: v }));
+                      setSlugAvailable(null);
+                    }}
+                    onBlur={(e) => checkSlugAvailability(e.target.value)}
                   />
+                  <button
+                    className="h-9 px-2 rounded-md border text-sm"
+                    onClick={() => reserveSlug(cfg.slug || "")}
+                    disabled={slugChecking || !cfg.slug}
+                  >
+                    {slugChecking ? "Checking…" : "Reserve"}
+                  </button>
                 </div>
-                <div className="mt-2">
-                  <label className="text-xs font-medium text-muted-foreground">Logo Shape</label>
-                  <div className="flex items-center gap-2 mt-1">
+                <div className="microtext text-muted-foreground mt-1">
+                  {slugAvailable === false ? (<span className="text-red-500">Slug is taken</span>) : slugAvailable === true ? (<span className="text-green-600">Available</span>) : "Enter a slug to check availability"}
+                </div>
+              </div>
+
+              <TextArea label="Short Description" value={cfg.description || ""} onChange={(e) => setCfg((prev) => ({ ...prev, description: e.target.value }))} />
+              <TextArea label="Bio (Longer)" value={cfg.bio || ""} onChange={(e) => setCfg((prev) => ({ ...prev, bio: e.target.value }))} />
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Links</label>
+                  <button type="button" onClick={addLink} className="px-2 py-1 rounded-md border text-xs">Add</button>
+                </div>
+                <div className="space-y-2 mt-2">
+                  {(Array.isArray(cfg.links) ? cfg.links : []).map((l, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-2">
+                      <select className="col-span-3 h-9 px-2 border rounded-md bg-background" value={l.label} onChange={(e) => setLink(i, "label", e.target.value)}>
+                        {(() => {
+                          const options = [
+                            "Website",
+                            "X (Twitter)",
+                            "YouTube",
+                            "Twitch",
+                            "Discord",
+                            "GitHub",
+                            "LinkedIn",
+                            "Instagram",
+                            "Telegram",
+                            "Email",
+                            "Suno",
+                            "SoundCloud",
+                          ] as const;
+                          return options.map((v) => <option key={v} value={v}>{v}</option>);
+                        })()}
+                      </select>
+                      <input className="col-span-8 h-9 px-3 py-1 border rounded-md bg-background" placeholder="https://…" value={l.url} onChange={(e) => setLink(i, "url", e.target.value)} />
+                      <button type="button" onClick={() => removeLink(i)} className="col-span-1 px-2 rounded-md border">×</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Theme */}
+              <div className="rounded-md border p-3 md:col-span-2">
+                <div className="text-sm font-medium mb-2">Theme</div>
+
+                {/* Color input mode (HEX/RGB) */}
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="microtext text-muted-foreground">Color input</span>
+                  <div className="inline-flex rounded-md border overflow-hidden">
                     <button
                       type="button"
-                      onClick={() => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, logoShape: "square" } }))}
-                      className={`h-9 px-3 rounded-md border text-sm ${(cfg.theme.logoShape || "square") === "square" ? "bg-foreground/10 border-foreground/30" : ""}`}
+                      onClick={() => setColorMode("hex")}
+                      className={`px-2 py-1 text-xs ${colorMode === "hex" ? "bg-foreground/10 border-foreground/20" : "hover:bg-foreground/5"}`}
+                      title="Use HEX format"
                     >
-                      Rounded Square
+                      HEX
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, logoShape: "circle" } }))}
-                      className={`h-9 px-3 rounded-md border text-sm ${cfg.theme.logoShape === "circle" ? "bg-foreground/10 border-foreground/30" : ""}`}
+                      onClick={() => setColorMode("rgb")}
+                      className={`px-2 py-1 text-xs ${colorMode === "rgb" ? "bg-foreground/10 border-foreground/20" : "hover:bg-foreground/5"}`}
+                      title="Use RGB format"
                     >
-                      Circle
+                      RGB
                     </button>
                   </div>
                 </div>
-                <div className="mt-2">
-                  <label className="text-xs font-medium text-muted-foreground">Hero Text Size</label>
-                  <select
-                    className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
-                    value={cfg.theme.heroFontSize || "medium"}
-                    onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, heroFontSize: e.target.value as ShopTheme["heroFontSize"] } }))}
-                  >
-                    <option value="microtext">Microtext (Original)</option>
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                    <option value="xlarge">Extra Large</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-1">Controls the text size in your shop's hero section</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Primary Color */}
+                  <div>
+                    <label className="text-sm font-medium">Primary Color</label>
+                    <div className="flex items-start gap-3 mt-1 min-w-0">
+                      <input
+                        type="color"
+                        className="w-10 h-10 rounded-md border shadow-sm shrink-0"
+                        value={cfg.theme.primaryColor || "#0ea5e9"}
+                        onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, primaryColor: e.target.value } }))}
+                        title="Pick primary color"
+                      />
+                      <input
+                        className="h-9 px-3 py-1 border rounded-md bg-background"
+                        style={{ width: colorMode === "hex" ? "104px" : "160px" }}
+                        value={colorMode === "hex" ? (cfg.theme.primaryColor || "#0ea5e9") : hexToRgbString(cfg.theme.primaryColor || "#0ea5e9")}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const hex = colorMode === "hex"
+                            ? clampColor(v, "#0ea5e9")
+                            : (rgbStringToHex(v) || "#0ea5e9");
+                          setCfg((prev) => ({ ...prev, theme: { ...prev.theme, primaryColor: hex } }));
+                        }}
+                        placeholder={colorMode === "hex" ? "#0ea5e9" : "rgb(14, 165, 233)"}
+                        maxLength={colorMode === "hex" ? 7 : 18}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Used for header accents and borders.</p>
+                  </div>
+
+                  {/* Secondary Color */}
+                  <div>
+                    <label className="text-sm font-medium">Secondary Color</label>
+                    <div className="flex items-start gap-3 mt-1 min-w-0">
+                      <input
+                        type="color"
+                        className="w-10 h-10 rounded-md border shadow-sm shrink-0"
+                        value={cfg.theme.secondaryColor || "#22c55e"}
+                        onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, secondaryColor: e.target.value } }))}
+                        title="Pick secondary color"
+                      />
+                      <input
+                        className="h-9 px-3 py-1 border rounded-md bg-background"
+                        style={{ width: colorMode === "hex" ? "104px" : "160px" }}
+                        value={colorMode === "hex" ? (cfg.theme.secondaryColor || "#22c55e") : hexToRgbString(cfg.theme.secondaryColor || "#22c55e")}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const hex = colorMode === "hex"
+                            ? clampColor(v, "#22c55e")
+                            : (rgbStringToHex(v) || "#22c55e");
+                          setCfg((prev) => ({ ...prev, theme: { ...prev.theme, secondaryColor: hex } }));
+                        }}
+                        placeholder={colorMode === "hex" ? "#22c55e" : "rgb(34, 197, 94)"}
+                        maxLength={colorMode === "hex" ? 7 : 18}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Used for buttons and highlights.</p>
+                  </div>
+
+                  {/* Text Color */}
+                  <div>
+                    <label className="text-sm font-medium">Text Color</label>
+                    <div className="flex items-start gap-3 mt-1 min-w-0">
+                      <input
+                        type="color"
+                        className="w-10 h-10 rounded-md border shadow-sm shrink-0"
+                        value={cfg.theme.textColor || "#0b1020"}
+                        onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, textColor: clampColor(e.target.value, "#0b1020") } }))}
+                        title="Pick text color"
+                      />
+                      <input
+                        className="h-9 px-3 py-1 border rounded-md bg-background"
+                        style={{ width: colorMode === "hex" ? "104px" : "160px" }}
+                        value={colorMode === "hex" ? (cfg.theme.textColor || "#0b1020") : hexToRgbString(cfg.theme.textColor || "#0b1020")}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const hex = colorMode === "hex"
+                            ? clampColor(v, "#0b1020")
+                            : (rgbStringToHex(v) || "#0b1020");
+                          setCfg((prev) => ({ ...prev, theme: { ...prev.theme, textColor: hex } }));
+                        }}
+                        placeholder={colorMode === "hex" ? "#0b1020" : "rgb(11, 16, 32)"}
+                        maxLength={colorMode === "hex" ? 7 : 18}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Used for text on banners and details.</p>
+                  </div>
+
+                  {/* Accent Color (optional) */}
+                  <div>
+                    <label className="text-sm font-medium">Accent Color (optional)</label>
+                    <div className="flex items-start gap-3 mt-1 min-w-0">
+                      <input
+                        type="color"
+                        className="w-10 h-10 rounded-md border shadow-sm shrink-0"
+                        value={cfg.theme.accentColor || "#f59e0b"}
+                        onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, accentColor: e.target.value } }))}
+                        title="Pick accent color"
+                      />
+                      <input
+                        className="h-9 px-3 py-1 border rounded-md bg-background"
+                        style={{ width: colorMode === "hex" ? "104px" : "160px" }}
+                        value={colorMode === "hex" ? (cfg.theme.accentColor || "#f59e0b") : hexToRgbString(cfg.theme.accentColor || "#f59e0b")}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const hex = colorMode === "hex"
+                            ? clampColor(v, "#f59e0b")
+                            : (rgbStringToHex(v) || "#f59e0b");
+                          setCfg((prev) => ({ ...prev, theme: { ...prev.theme, accentColor: hex } }));
+                        }}
+                        placeholder={colorMode === "hex" ? "#f59e0b" : "rgb(245, 158, 11)"}
+                        maxLength={colorMode === "hex" ? 7 : 18}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Font Family */}
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium">Font Family</label>
+                    <select
+                      className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
+                      value={cfg.theme.fontFamily || FONT_PRESETS[0].value}
+                      onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, fontFamily: e.target.value } }))}
+                    >
+                      {FONT_PRESETS.map((f) => (
+                        <option key={f.label} value={f.value}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">Applied to all shop text.</p>
+                  </div>
+                </div>
+
+                {/* Contrast Preview */}
+                <div className="mt-3">
+                  <div className="text-xs font-medium mb-1">Contrast Preview</div>
+                  <div className="flex gap-3">
+                    <div className="rounded-md px-3 py-2 text-xs" style={{ background: cfg.theme.primaryColor || "#0ea5e9", color: "#ffffff" }}>
+                      Text on Primary
+                    </div>
+                    <div className="rounded-md px-3 py-2 text-xs" style={{ background: cfg.theme.secondaryColor || "#22c55e", color: "#ffffff" }}>
+                      Text on Secondary
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logo & Cover unchanged */}
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="microtext text-muted-foreground">Logo</label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        ref={fileLogoRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            const url = await uploadImage(f);
+                            if (url) setCfg((prev) => ({ ...prev, theme: { ...prev.theme, brandLogoUrl: url } }));
+                          }
+                        }}
+                      />
+                      <button className="h-9 px-2 rounded-md border text-sm" onClick={() => fileLogoRef.current?.click()}>Upload Logo</button>
+                      <input
+                        className="h-9 flex-1 px-3 py-1 border rounded-md bg-background"
+                        placeholder="or paste image URL"
+                        value={cfg.theme.brandLogoUrl || ""}
+                        onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, brandLogoUrl: e.target.value } }))}
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <label className="text-xs font-medium text-muted-foreground">Logo Shape</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, logoShape: "square" } }))}
+                          className={`h-9 px-3 rounded-md border text-sm ${(cfg.theme.logoShape || "square") === "square" ? "bg-foreground/10 border-foreground/30" : ""}`}
+                        >
+                          Rounded Square
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, logoShape: "circle" } }))}
+                          className={`h-9 px-3 rounded-md border text-sm ${cfg.theme.logoShape === "circle" ? "bg-foreground/10 border-foreground/30" : ""}`}
+                        >
+                          Circle
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <label className="text-xs font-medium text-muted-foreground">Hero Text Size</label>
+                      <select
+                        className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
+                        value={cfg.theme.heroFontSize || "medium"}
+                        onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, heroFontSize: e.target.value as ShopTheme["heroFontSize"] } }))}
+                      >
+                        <option value="microtext">Microtext (Original)</option>
+                        <option value="small">Small</option>
+                        <option value="medium">Medium</option>
+                        <option value="large">Large</option>
+                        <option value="xlarge">Extra Large</option>
+                      </select>
+                      <p className="text-xs text-muted-foreground mt-1">Controls the text size in your shop's hero section</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="microtext text-muted-foreground">Cover Photo</label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        ref={fileCoverRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            const url = await uploadImage(f);
+                            if (url !== null) setCfg((prev) => ({ ...prev, theme: { ...prev.theme, coverPhotoUrl: url } }));
+                          }
+                        }}
+                      />
+                      <button className="h-9 px-2 rounded-md border text-sm" onClick={() => fileCoverRef.current?.click()}>Upload Cover</button>
+                      <input
+                        className="h-9 flex-1 px-3 py-1 border rounded-md bg-background"
+                        placeholder="or paste image URL"
+                        value={cfg.theme.coverPhotoUrl || ""}
+                        onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, coverPhotoUrl: e.target.value } }))}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="microtext text-muted-foreground">Cover Photo</label>
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    ref={fileCoverRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (f) {
-                        const url = await uploadImage(f);
-                        if (url !== null) setCfg((prev) => ({ ...prev, theme: { ...prev.theme, coverPhotoUrl: url } }));
-                      }
-                    }}
-                  />
-                  <button className="h-9 px-2 rounded-md border text-sm" onClick={() => fileCoverRef.current?.click()}>Upload Cover</button>
-                  <input
-                    className="h-9 flex-1 px-3 py-1 border rounded-md bg-background"
-                    placeholder="or paste image URL"
-                    value={cfg.theme.coverPhotoUrl || ""}
-                    onChange={(e) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, coverPhotoUrl: e.target.value } }))}
-                  />
+
+              {/* Inventory Arrangement */}
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium">Inventory Arrangement</label>
+                <select
+                  className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
+                  value={cfg.arrangement}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, arrangement: e.target.value as InventoryArrangement }))}
+                >
+                  <option value="grid">Grid</option>
+                  <option value="featured_first">Featured First</option>
+                  <option value="groups">Groups by Category</option>
+                  <option value="carousel">Carousel</option>
+                </select>
+                <div className="microtext text-muted-foreground mt-1">
+                  Featured First expects items tagged "featured" to show at the top. Groups displays items under their category headers. Carousel renders horizontal lists.
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Inventory Arrangement */}
-          <div className="md:col-span-2">
-            <label className="text-sm font-medium">Inventory Arrangement</label>
-            <select
-              className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
-              value={cfg.arrangement}
-              onChange={(e) => setCfg((prev) => ({ ...prev, arrangement: e.target.value as InventoryArrangement }))}
-            >
-              <option value="grid">Grid</option>
-              <option value="featured_first">Featured First</option>
-              <option value="groups">Groups by Category</option>
-              <option value="carousel">Carousel</option>
-            </select>
-            <div className="microtext text-muted-foreground mt-1">
-              Featured First expects items tagged "featured" to show at the top. Groups displays items under their category headers. Carousel renders horizontal lists.
+            {error && <div className="microtext text-red-500">{error}</div>}
+            <div className="flex items-center justify-end gap-2">
+              <button className="px-3 py-1.5 rounded-md border text-sm" onClick={saveConfig} disabled={saving}>
+                {saving ? "Saving…" : "Save & Deploy"}
+              </button>
             </div>
           </div>
-        </div>
-
-        {error && <div className="microtext text-red-500">{error}</div>}
-        <div className="flex items-center justify-end gap-2">
-          <button className="px-3 py-1.5 rounded-md border text-sm" onClick={saveConfig} disabled={saving}>
-            {saving ? "Saving…" : "Save & Deploy"}
-          </button>
         </div>
       </div>
 
-      {/* Live Preview */}
-      <div className="glass-pane rounded-xl border p-6">
-        <div className="text-sm font-semibold mb-3 flex items-center justify-between">
-          <span>Preview</span>
-          <span className="px-2 py-1 rounded-md text-xs" style={{ background: cfg.theme.secondaryColor || "#22c55e", color: "#fff" }}>
-            Live
-          </span>
-        </div>
-        <div className="rounded-xl overflow-hidden border" style={{ borderColor: cfg.theme.primaryColor || "#0ea5e9" }}>
-          <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-200" style={cfg.theme.coverPhotoUrl ? { backgroundImage: `url(${cfg.theme.coverPhotoUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' } : {}} />
-          <div className="p-4" style={{ background: cfg.theme.primaryColor || "#0ea5e9", color: contrastTextFor(cfg.theme.primaryColor || "#0ea5e9", "#ffffff") }}>
-            <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 ${cfg.theme.logoShape === "circle" ? "rounded-full" : "rounded-lg"} overflow-hidden border bg-white flex items-center justify-center flex-shrink-0 transition-all duration-300`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={cfg.theme.brandLogoUrl || "/cblogod.png"} alt="Logo" className="max-w-full max-h-full object-contain" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-base font-semibold truncate">{cfg.name || "Your Shop"}</div>
-                <div className="text-xs truncate">{cfg.description || "Short description..."}</div>
-              </div>
-            </div>
-            {cfg.bio && (
-              <div className="mt-3">
-                <div className={`font-semibold ${(() => {
-                  const size = cfg.theme.heroFontSize || "medium";
-                  switch (size) {
-                    case "microtext": return "microtext";
-                    case "small": return "text-sm";
-                    case "medium": return "text-sm";
-                    case "large": return "text-base";
-                    case "xlarge": return "text-lg";
-                    default: return "text-sm";
-                  }
-                })()}`}>About</div>
-                <div className={`mt-1 line-clamp-2 ${(() => {
-                  const size = cfg.theme.heroFontSize || "medium";
-                  switch (size) {
-                    case "microtext": return "microtext";
-                    case "small": return "text-xs";
-                    case "medium": return "text-xs";
-                    case "large": return "text-sm";
-                    case "xlarge": return "text-base";
-                    default: return "text-xs";
-                  }
-                })()}`}>{cfg.bio}</div>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="mt-3 text-xs text-muted-foreground text-center">
-          Preview matches your public shop appearance
-        </div>
-      </div>
+
 
       {/* Success & Link */}
-      {deployOk && cfg.slug && (
-        <div className="glass-pane rounded-xl border p-6">
-          <div className="text-sm font-medium mb-2">Your storefront is live</div>
-          <div className="microtext text-muted-foreground">
-            Public link: <a className="underline" href={`/shop/${encodeURIComponent(cfg.slug)}`}>{typeof window !== "undefined" ? window.location.host : ""}/shop/{cfg.slug}</a>
+      {
+        deployOk && cfg.slug && (
+          <div className="glass-pane rounded-xl border p-6">
+            <div className="text-sm font-medium mb-2">Your storefront is live</div>
+            <div className="microtext text-muted-foreground">
+              Public link: <a className="underline" href={`/shop/${encodeURIComponent(cfg.slug)}`}>{typeof window !== "undefined" ? window.location.host : ""}/shop/{cfg.slug}</a>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }

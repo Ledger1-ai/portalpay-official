@@ -36,6 +36,9 @@ type ShopTheme = {
     fontFamily?: string;
     logoShape?: "square" | "circle";
     heroFontSize?: "microtext" | "small" | "medium" | "large" | "xlarge";
+    layoutMode?: "balanced" | "minimalist" | "maximalist";
+    maximalistBannerUrl?: string; // Specific for maximalist layout
+    galleryImages?: string[]; // Up to 5 images for maximalist carousel
 };
 
 type InventoryArrangement = "grid" | "featured_first" | "groups" | "carousel";
@@ -320,9 +323,10 @@ interface ShopClientProps {
     reviews: any[];
     merchantWallet: string;
     cleanSlug: string;
+    isPreview?: boolean;
 }
 
-export default function ShopClient({ config: cfg, items: initialItems, reviews: initialReviews, merchantWallet, cleanSlug }: ShopClientProps) {
+export default function ShopClient({ config: cfg, items: initialItems, reviews: initialReviews, merchantWallet, cleanSlug, isPreview = false }: ShopClientProps) {
     const twTheme = usePortalThirdwebTheme();
     const brand = useBrand();
     const account = useActiveAccount();
@@ -338,6 +342,8 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
         if (!account?.address || !merchantWallet) return false;
         return account.address.toLowerCase() === merchantWallet.toLowerCase();
     }, [account?.address, merchantWallet]);
+
+    const layoutMode = cfg.theme.layoutMode || "balanced";
 
     // State
     const [items, setItems] = useState<InventoryItem[]>(initialItems);
@@ -368,6 +374,13 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
 
     const [selectedModifiers, setSelectedModifiers] = useState<SelectedModifier[]>([]);
     const [heroCollapsed, setHeroCollapsed] = useState(false);
+
+    // Force collapsed state for minimalist mode
+    useEffect(() => {
+        if (layoutMode === "minimalist") {
+            setHeroCollapsed(true);
+        }
+    }, [layoutMode]);
 
     // Modals
     const [showDescModal, setShowDescModal] = useState(false);
@@ -563,12 +576,12 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
         img.src = coverUrl;
     }, [coverUrl]);
 
-    // Use side layout for square or vertical images (aspect ratio <= 1)
     const useSideLayout = useMemo(() => {
+        if (layoutMode === "minimalist") return false;
         if (coverAspectRatio === null) return false;
         // Square or vertical (portrait) images use side layout
         return coverAspectRatio <= 1;
-    }, [coverAspectRatio]);
+    }, [coverAspectRatio, layoutMode]);
 
     const shopAvgRating = useMemo(() => {
         if (!reviews.length) return 0;
@@ -1716,7 +1729,7 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
                 {/* Coupon Code Input */}
                 <div className="space-y-2">
                     <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 min-w-0">
                             <input
                                 type="text"
                                 placeholder="Coupon code"
@@ -1824,7 +1837,7 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
                 <div className="max-w-7xl mx-auto px-4 py-6 md:py-10 space-y-6 pb-24 md:pb-10" style={varStyle}>
                     <ShopThemeAuditor expected={cfg?.theme || {}} />
                     <div className={`rounded-t-2xl border shadow transition-all duration-500 ${heroCollapsed ? "h-auto" : ""}`} style={{ borderColor: "var(--shop-primary)" }}>
-                        {!heroCollapsed && coverUrl && !useSideLayout && (
+                        {!heroCollapsed && coverUrl && !useSideLayout && layoutMode !== "minimalist" && (
                             <div className="w-full overflow-hidden rounded-t-2xl">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
@@ -1839,13 +1852,15 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
                         {!heroCollapsed && !cfg?.theme?.coverPhotoUrl && <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden rounded-t-2xl" />}
                         <div className={`p-4 relative ${heroCollapsed ? "rounded-t-2xl" : ""}`} style={{ background: shopPrimary, color: poweredTextColor }}>
                             <div className="absolute inset-0 flex items-end pointer-events-none z-0">
-                                <HeroVisualizer
-                                    primaryColor={shopPrimary}
-                                    secondaryColor={cfg?.theme?.secondaryColor || "#22c55e"}
-                                    bars={48}
-                                    height="100%"
-                                    borderRadius={heroCollapsed ? "1rem" : 0}
-                                />
+                                {layoutMode !== "minimalist" && (
+                                    <HeroVisualizer
+                                        primaryColor={shopPrimary}
+                                        secondaryColor={cfg?.theme?.secondaryColor || "#22c55e"}
+                                        bars={48}
+                                        height="100%"
+                                        borderRadius={heroCollapsed ? "1rem" : 0}
+                                    />
+                                )}
                             </div>
                             {!heroCollapsed && !useSideLayout && (
                                 <button
@@ -2148,112 +2163,187 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
                     </div>
 
                     {activeTab === "shop" && (
-                        <div className="glass-pane rounded-xl border p-3 md:p-4">
-                            <div className="flex flex-col md:flex-row gap-3">
-                                <div className="flex-1 relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                                    <input type="text" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-10 pl-10 pr-3 border rounded-lg bg-background" />
+                        <>
+                            {cfg.theme.layoutMode === "maximalist" && (
+                                <div className="space-y-6 mb-6">
+                                    {/* Maximalist Banner - Always show placeholder or image */}
+                                    <div className="w-full aspect-[21/9] md:aspect-[32/9] rounded-xl overflow-hidden shadow-2xl relative group bg-zinc-900 border border-white/5">
+                                        {cfg.theme.maximalistBannerUrl ? (
+                                            <>
+                                                <img
+                                                    src={cfg.theme.maximalistBannerUrl}
+                                                    alt="Shop Banner"
+                                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+                                            </>
+                                        ) : (
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground bg-white/5">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
+                                                <span className="text-4xl font-thin opacity-20 relative z-10">BANNER AREA</span>
+                                                <span className="text-sm opacity-40 mt-2 relative z-10">Upload a banner in settings</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Maximalist Gallery Carousel - Auto-scrolling Marquee */}
+                                    <div className="relative overflow-hidden mask-linear-fade">
+                                        <div className="flex gap-4 animate-marquee hover:pause-animation">
+                                            {/* Duplicate array for smooth infinite scroll */}
+                                            {[...Array(2)].map((_, i) => (
+                                                <div key={i} className="flex gap-4 flex-nowrap">
+                                                    {[0, 1, 2, 3, 4].map((idx) => {
+                                                        const img = cfg.theme.galleryImages?.[idx];
+                                                        return (
+                                                            <div key={`${i}-${idx}`} className="flex-shrink-0 w-[280px] md:w-[360px] aspect-video rounded-lg overflow-hidden border border-white/10 shadow-lg relative group bg-zinc-900/50 backdrop-blur-sm">
+                                                                {img ? (
+                                                                    <>
+                                                                        <img
+                                                                            src={img}
+                                                                            alt={`Gallery ${idx + 1}`}
+                                                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground bg-white/5">
+                                                                        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 via-teal-500/5 to-emerald-500/5"></div>
+                                                                        <span className="text-2xl font-thin opacity-20">SLOT {idx + 1}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent z-10"></div>
+                                        <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent z-10"></div>
+                                    </div>
+
+                                    <style jsx>{`
+                                        @keyframes marquee {
+                                            0% { transform: translateX(0); }
+                                            100% { transform: translateX(-50%); }
+                                        }
+                                        .animate-marquee {
+                                            animation: marquee 30s linear infinite;
+                                        }
+                                        .pause-animation:hover {
+                                            animation-play-state: paused;
+                                        }
+                                    `}</style>
                                 </div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <button onClick={() => setViewMode("grid")} className={`h-10 w-10 rounded-md border flex items-center justify-center ${viewMode === "grid" ? "bg-foreground/10" : ""}`} aria-label="Grid view">
-                                        <Grid3x3 size={18} />
-                                    </button>
-                                    <button onClick={() => setViewMode("list")} className={`h-10 w-10 rounded-md border flex items-center justify-center ${viewMode === "list" ? "bg-foreground/10" : ""}`} aria-label="List view">
-                                        <List size={18} />
-                                    </button>
-                                    <button onClick={() => setViewMode("category")} className={`h-10 w-10 rounded-md border flex items-center justify-center ${viewMode === "category" ? "bg-foreground/10" : ""}`} aria-label="Category view">
-                                        <Tag size={18} />
-                                    </button>
-                                    {(viewMode === "grid" || viewMode === "category") && (
-                                        <select value={cardSize} onChange={(e) => setCardSize(e.target.value as "small" | "medium" | "large")} className="h-10 px-3 border rounded-md bg-background text-sm">
-                                            <option value="small">Small Cards</option>
-                                            <option value="medium">Medium Cards</option>
-                                            <option value="large">Large Cards</option>
-                                        </select>
-                                    )}
-                                    <select value={sortOption} onChange={(e) => setSortOption(e.target.value as SortOption)} className="h-10 px-3 border rounded-md bg-background">
-                                        <option value="name-asc">Name (A-Z)</option>
-                                        <option value="name-desc">Name (Z-A)</option>
-                                        <option value="price-asc">Price (Low)</option>
-                                        <option value="price-desc">Price (High)</option>
-                                        <option value="recent">Recently Added</option>
-                                    </select>
-                                    <button onClick={() => setShowFilters(!showFilters)} className={`h-10 px-3 rounded-md border flex items-center gap-2 ${showFilters ? "bg-foreground/10" : ""}`}>
-                                        <SlidersHorizontal size={18} />
-                                        <span className="hidden md:inline">Filters</span>
-                                    </button>
-                                </div>
-                            </div>
-                            {/* Category Tabs */}
-                            {allCategories.length > 0 && (
-                                <div className="mt-3 overflow-x-auto">
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            className={`px-3 py-2 rounded-full border text-sm font-medium whitespace-nowrap ${selectedCategories.length === 0 ? "bg-foreground/10" : ""}`}
-                                            onClick={() => setSelectedCategories([])}
-                                            style={selectedCategories.length === 0 ? { borderColor: shopPrimary, color: shopPrimary } : {}}
-                                        >
-                                            All
+                            )}
+
+                            <div className="glass-pane rounded-xl border p-3 md:p-4">
+                                <div className="flex flex-col md:flex-row gap-3">
+                                    <div className="flex-1 relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                                        <input type="text" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-10 pl-10 pr-3 border rounded-lg bg-background" />
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <button onClick={() => setViewMode("grid")} className={`h-10 w-10 rounded-md border flex items-center justify-center ${viewMode === "grid" ? "bg-foreground/10" : ""}`} aria-label="Grid view">
+                                            <Grid3x3 size={18} />
                                         </button>
-                                        {allCategories.map((cat, index, array) => {
-                                            const c = getCategoryColor(index, array.length);
-                                            const active = selectedCategories.length === 1 && selectedCategories[0] === cat;
-                                            return (
-                                                <button
-                                                    key={cat}
-                                                    className="px-3 py-2 rounded-full border text-sm font-medium whitespace-nowrap"
-                                                    onClick={() => setSelectedCategories([cat])}
-                                                    style={{ borderColor: c, color: active ? "#fff" : c, background: active ? c : "transparent" }}
-                                                >
-                                                    {cat}
-                                                </button>
-                                            );
-                                        })}
+                                        <button onClick={() => setViewMode("list")} className={`h-10 w-10 rounded-md border flex items-center justify-center ${viewMode === "list" ? "bg-foreground/10" : ""}`} aria-label="List view">
+                                            <List size={18} />
+                                        </button>
+                                        <button onClick={() => setViewMode("category")} className={`h-10 w-10 rounded-md border flex items-center justify-center ${viewMode === "category" ? "bg-foreground/10" : ""}`} aria-label="Category view">
+                                            <Tag size={18} />
+                                        </button>
+                                        {(viewMode === "grid" || viewMode === "category") && (
+                                            <select value={cardSize} onChange={(e) => setCardSize(e.target.value as "small" | "medium" | "large")} className="h-10 px-3 border rounded-md bg-background text-sm">
+                                                <option value="small">Small Cards</option>
+                                                <option value="medium">Medium Cards</option>
+                                                <option value="large">Large Cards</option>
+                                            </select>
+                                        )}
+                                        <select value={sortOption} onChange={(e) => setSortOption(e.target.value as SortOption)} className="h-10 px-3 border rounded-md bg-background">
+                                            <option value="name-asc">Name (A-Z)</option>
+                                            <option value="name-desc">Name (Z-A)</option>
+                                            <option value="price-asc">Price (Low)</option>
+                                            <option value="price-desc">Price (High)</option>
+                                            <option value="recent">Recently Added</option>
+                                        </select>
+                                        <button onClick={() => setShowFilters(!showFilters)} className={`h-10 px-3 rounded-md border flex items-center gap-2 ${showFilters ? "bg-foreground/10" : ""}`}>
+                                            <SlidersHorizontal size={18} />
+                                            <span className="hidden md:inline">Filters</span>
+                                        </button>
                                     </div>
                                 </div>
-                            )}
-                            {showFilters && (
-                                <div className="mt-3 pt-3 border-t grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {allCategories.length > 0 && (
+                                {/* Category Tabs */}
+                                {allCategories.length > 0 && (
+                                    <div className="mt-3 overflow-x-auto">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                className={`px-3 py-2 rounded-full border text-sm font-medium whitespace-nowrap ${selectedCategories.length === 0 ? "bg-foreground/10" : ""}`}
+                                                onClick={() => setSelectedCategories([])}
+                                                style={selectedCategories.length === 0 ? { borderColor: shopPrimary, color: shopPrimary } : {}}
+                                            >
+                                                All
+                                            </button>
+                                            {allCategories.map((cat, index, array) => {
+                                                const c = getCategoryColor(index, array.length);
+                                                const active = selectedCategories.length === 1 && selectedCategories[0] === cat;
+                                                return (
+                                                    <button
+                                                        key={cat}
+                                                        className="px-3 py-2 rounded-full border text-sm font-medium whitespace-nowrap"
+                                                        onClick={() => setSelectedCategories([cat])}
+                                                        style={{ borderColor: c, color: active ? "#fff" : c, background: active ? c : "transparent" }}
+                                                    >
+                                                        {cat}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                                {showFilters && (
+                                    <div className="mt-3 pt-3 border-t grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {allCategories.length > 0 && (
+                                            <div>
+                                                <div className="text-sm font-semibold mb-2">Categories</div>
+                                                <div className="space-y-1">
+                                                    {allCategories.map((cat) => (
+                                                        <label key={cat} className="flex items-center gap-2 text-sm cursor-pointer">
+                                                            <input type="checkbox" checked={selectedCategories.includes(cat)} onChange={() => toggleCategory(cat)} className="rounded" />
+                                                            <span>{cat}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                         <div>
-                                            <div className="text-sm font-semibold mb-2">Categories</div>
-                                            <div className="space-y-1">
-                                                {allCategories.map((cat) => (
-                                                    <label key={cat} className="flex items-center gap-2 text-sm cursor-pointer">
-                                                        <input type="checkbox" checked={selectedCategories.includes(cat)} onChange={() => toggleCategory(cat)} className="rounded" />
-                                                        <span>{cat}</span>
-                                                    </label>
-                                                ))}
+                                            <div className="text-sm font-semibold mb-2">Price Range</div>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <input type="number" value={priceRange[0]} onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])} className="w-full h-9 px-2 border rounded-md bg-background text-sm" min={0} />
+                                                    <span className="text-sm text-muted-foreground">to</span>
+                                                    <input type="number" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])} className="w-full h-9 px-2 border rounded-md bg-background text-sm" min={0} />
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    Range: ${actualPriceRange[0]} - ${actualPriceRange[1]}
+                                                </div>
                                             </div>
                                         </div>
-                                    )}
-                                    <div>
-                                        <div className="text-sm font-semibold mb-2">Price Range</div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <input type="number" value={priceRange[0]} onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])} className="w-full h-9 px-2 border rounded-md bg-background text-sm" min={0} />
-                                                <span className="text-sm text-muted-foreground">to</span>
-                                                <input type="number" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])} className="w-full h-9 px-2 border rounded-md bg-background text-sm" min={0} />
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                Range: ${actualPriceRange[0]} - ${actualPriceRange[1]}
-                                            </div>
+                                        <div>
+                                            <div className="text-sm font-semibold mb-2">Stock</div>
+                                            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                                <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="rounded" />
+                                                <span>In stock only</span>
+                                            </label>
                                         </div>
                                     </div>
-                                    <div>
-                                        <div className="text-sm font-semibold mb-2">Stock</div>
-                                        <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                            <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="rounded" />
-                                            <span>In stock only</span>
-                                        </label>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        </>
                     )}
 
                     {activeTab === "shop" && (
                         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
                             <div className={`${heroCollapsed ? "lg:col-span-4" : "lg:col-span-3"} space-y-4`}>
                                 <div className="flex items-center justify-between">
                                     <h2 className="text-xl md:text-2xl font-bold">Products ({filteredAndSortedItems.length})</h2>
@@ -2937,13 +3027,13 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
 
                     {error && <div className="rounded-md border p-3 text-sm text-red-600">{error}</div>}
 
-                    <div className="fixed bottom-0 left-0 right-0 h-8 z-30 pointer-events-none" style={{ background: shopPrimary }}>
+                    <div className={`${isPreview ? "sticky bottom-0 mt-auto" : "fixed bottom-0 left-0 right-0"} h-8 z-30 pointer-events-none`} style={{ background: shopPrimary }}>
                         <div className="max-w-7xl mx-auto h-full flex items-center justify-center px-3">
                             <span className="text-xs font-semibold tracking-widest" style={{ color: poweredTextColor, letterSpacing: "0.2em" }}>{`POWERED BY ${(brand?.name || "").toUpperCase() || "BRAND"}`}</span>
                         </div>
                     </div>
                 </div>
-            </AutoTranslateProvider>
+            </AutoTranslateProvider >
         </VoiceAgentProvider >
     );
 }

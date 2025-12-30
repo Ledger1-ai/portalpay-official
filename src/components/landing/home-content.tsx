@@ -17,6 +17,9 @@ import { resolveBrandSymbol, resolveBrandAppLogo, getEffectiveBrandKey } from "@
 import PortalPayVideo from "@/components/landing/PortalPayVideo";
 import { cachedFetch } from "@/lib/client-api-cache";
 import RebrandingHero from "@/components/landing/RebrandingHero";
+import PublisherOsirisSection from "@/components/landing/PublisherOsirisSection";
+import PluginsSection from "@/components/landing/PluginsSection";
+import TrustlessPermissionlessSection from "@/components/landing/TrustlessPermissionlessSection";
 
 type Metrics = {
   totalUsers: number;
@@ -596,6 +599,13 @@ export default function HomeContent() {
           </div>
         </section>
 
+        {/* Publisher / Osiris Section */}
+        <section className="mt-6">
+          <div className="glass-pane rounded-xl border p-6 md:p-8">
+            <PublisherOsirisSection />
+          </div>
+        </section>
+
         {/* Demo Video - Only show for platform container, not for partner containers */}
         {!isPartnerContainer && (
           <section className="mt-6">
@@ -608,7 +618,7 @@ export default function HomeContent() {
 
         <TechnologyPartners />
         {/* Get Started: Interactive Checklist */}
-        <section className="mt-6">
+        <section className="mt-6 mb-12">
           <div className="glass-pane rounded-xl border p-6">
             <h2 className="text-xl font-semibold mb-3">Get Started</h2>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -650,6 +660,12 @@ export default function HomeContent() {
             </div>
           </div>
         </section>
+
+        {/* Plugins & Integrations */}
+        <PluginsSection />
+
+        {/* Philosophy: Trustless & Permissionless */}
+        <TrustlessPermissionlessSection />
 
         {/* About / Story */}
         <section className="mt-8">
