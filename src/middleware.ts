@@ -73,8 +73,8 @@ function buildCsp(req: NextRequest): string {
   const connectSrc = [self, https, ws, wss, ...extras].join(" ");
   // Script-src: Allow unsafe-inline in production for Next.js managed inline scripts; unsafe-eval only in dev for HMR
   const scriptSrc = isDev
-    ? `${self} 'unsafe-inline' 'unsafe-eval'`
-    : `${self} 'unsafe-inline'`;
+    ? `${self} 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com`
+    : `${self} 'unsafe-inline' https://static.cloudflareinsights.com`;
   const policy = [
     `default-src ${self}`,
     `img-src ${imgSrc}`,

@@ -50,7 +50,7 @@ const nextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https://embedded-wallet.thirdweb.com https://*.thirdweb.com; child-src https://embedded-wallet.thirdweb.com https://*.thirdweb.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.thirdweb.com; style-src 'self' 'unsafe-inline' https:",
+              "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https://embedded-wallet.thirdweb.com https://*.thirdweb.com; child-src https://embedded-wallet.thirdweb.com https://*.thirdweb.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.thirdweb.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https:",
           },
           {
             key: "Cross-Origin-Opener-Policy",
@@ -76,12 +76,12 @@ const nextConfig = {
       desm: false,
       'pino-elasticsearch': false,
     } as any;
-    
+
     // Suppress source map warnings in development
     if (dev) {
       config.devtool = false;
     }
-    
+
     return config;
   },
 
