@@ -5,6 +5,7 @@ import { useActiveAccount } from "thirdweb/react";
 
 type KitchenOrder = {
   receiptId: string;
+  uberOrderId?: string; // For Uber Eats orders
   totalUsd: number;
   currency: string;
   createdAt: number;
@@ -26,22 +27,29 @@ type KitchenOrder = {
   tableNumber?: string;
   customerName?: string;
   specialInstructions?: string;
+  source?: "pos" | "ubereats"; // Order source
+  estimatedPickup?: number;
+  uberMetadata?: {
+    storeId?: string;
+    estimatedDelivery?: number;
+    driverId?: string;
+  };
 };
 
 function formatElapsedTime(startTimestamp: number): string {
   const elapsed = Date.now() - startTimestamp;
   const minutes = Math.floor(elapsed / 60000);
-  
+
   if (minutes < 1) return "< 1 min";
   if (minutes === 1) return "1 min";
   return `${minutes} min`;
 }
 
-function KitchenTicket({ order, onStatusChange }: { order: KitchenOrder; onStatusChange: (receiptId: string, newStatus: string) => void }) {
+function KitchenTicket({ order, onStatusChange }: { order: KitchenOrder; onStatusChange: (receiptId: string, newStatus: string, uberOrderId?: string) => void }) {
   const [updating, setUpdating] = useState(false);
   const enteredAt = order.kitchenMetadata?.enteredKitchenAt || order.createdAt;
   const elapsed = formatElapsedTime(enteredAt);
-  
+
   // Determine urgency based on time
   const minutes = Math.floor((Date.now() - enteredAt) / 60000);
   const isUrgent = minutes > 20;
@@ -59,7 +67,7 @@ function KitchenTicket({ order, onStatusChange }: { order: KitchenOrder; onStatu
   async function updateStatus(newStatus: string) {
     setUpdating(true);
     try {
-      await onStatusChange(order.receiptId, newStatus);
+      await onStatusChange(order.receiptId, newStatus, order.uberOrderId);
     } finally {
       setUpdating(false);
     }
@@ -70,7 +78,14 @@ function KitchenTicket({ order, onStatusChange }: { order: KitchenOrder; onStatu
       {/* Header */}
       <div className="flex items-center justify-between mb-2 pb-2 border-b border-current/20">
         <div>
-          <div className="font-mono font-bold text-lg">#{order.receiptId}</div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono font-bold text-lg">#{order.receiptId}</span>
+            {order.source === "ubereats" && (
+              <span className="px-1.5 py-0.5 text-xs font-bold bg-green-600 text-white rounded flex items-center gap-1">
+                🚗 Uber
+              </span>
+            )}
+          </div>
           {order.tableNumber && (
             <div className="text-sm font-medium">Table {order.tableNumber}</div>
           )}
@@ -94,7 +109,7 @@ function KitchenTicket({ order, onStatusChange }: { order: KitchenOrder; onStatu
         {order.lineItems.map((item, idx) => {
           const modifiers = item.attributes?.modifierGroups || [];
           const hasModifiers = Array.isArray(modifiers) && modifiers.length > 0;
-          
+
           return (
             <div key={idx} className="text-sm">
               <div className="font-semibold">
@@ -107,7 +122,7 @@ function KitchenTicket({ order, onStatusChange }: { order: KitchenOrder; onStatu
                     const selectedMods = Array.isArray(group.modifiers)
                       ? group.modifiers.filter((m: any) => m.selected || m.default)
                       : [];
-                    
+
                     return selectedMods.map((mod: any, midx: number) => (
                       <div key={`${gidx}-${midx}`}>
                         {mod.priceAdjustment > 0 ? "+ " : ""}
@@ -187,41 +202,41 @@ export default function KitchenDisplayPanel() {
     try {
       const audio = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZQQ0PVqzn77JfGAg+ltrzxnMpBSp+zPLaizsIGGS57OihUhELTKXh8bllHAU2jtX0zn8uBSh1xPDek0ELElyx5/CrWBgIOZrb88l3LQUme8rx2o08CBlpvO7mnkwPCFWr5O+0YxoGPJfY88yAMgYeb8Tv45xEDQ9XrujwsmEaCT6W2vTIdjAFKn/M8dqLPQgZZbzs6aJRDwpLpODyuWQdBTSL0/XPgTEFKXXE8N+UQgwQV6/n8LFdGgg7mtv1y3oxBSl+zPPaizsIG2m97OmiUQ8KTKXh8bllHAU2j9X0z4ExBil1xe/flkEMElez5/GsWhgJO5na88h1MAUoesy+fkLPg==");
       audio.volume = 0.3;
-      audio.play().catch(() => {});
-    } catch {}
+      audio.play().catch(() => { });
+    } catch { }
   };
 
   async function fetchOrders() {
     if (!account?.address) return;
-    
+
     try {
       setLoading(true);
       setError("");
-      
+
       const response = await fetch("/api/kitchen/orders?status=new,preparing,ready", {
         headers: { "x-wallet": account.address },
         cache: "no-store",
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         setError(data.error || "Failed to fetch orders");
         return;
       }
-      
+
       const newOrders = data.orders || [];
-      
+
       // Check for new orders (play sound)
       if (orders.length > 0) {
         const existingIds = new Set(orders.map(o => o.receiptId));
         const hasNewOrders = newOrders.some((o: KitchenOrder) => !existingIds.has(o.receiptId));
-        
+
         if (hasNewOrders) {
           playNotification();
         }
       }
-      
+
       setOrders(newOrders);
       setLastUpdate(Date.now());
     } catch (e: any) {
@@ -231,9 +246,9 @@ export default function KitchenDisplayPanel() {
     }
   }
 
-  async function updateOrderStatus(receiptId: string, newStatus: string) {
+  async function updateOrderStatus(receiptId: string, newStatus: string, uberOrderId?: string) {
     if (!account?.address) return;
-    
+
     try {
       const response = await fetch("/api/kitchen/orders", {
         method: "PATCH",
@@ -241,13 +256,17 @@ export default function KitchenDisplayPanel() {
           "Content-Type": "application/json",
           "x-wallet": account.address,
         },
-        body: JSON.stringify({ receiptId, kitchenStatus: newStatus }),
+        body: JSON.stringify({
+          receiptId,
+          kitchenStatus: newStatus,
+          uberOrderId // Include for Uber orders
+        }),
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to update status");
       }
-      
+
       // Refresh orders immediately
       await fetchOrders();
     } catch (e: any) {
@@ -265,11 +284,11 @@ export default function KitchenDisplayPanel() {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
-    
+
     pollIntervalRef.current = window.setInterval(() => {
       fetchOrders();
     }, 5000); // Poll every 5 seconds
-    
+
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
