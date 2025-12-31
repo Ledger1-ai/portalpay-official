@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
 
         const clientId = await decrypt(platformConfig.clientId);
         const clientSecret = await decrypt(platformConfig.clientSecret);
+        // Check if running in sandbox mode (environment field set by admin config)
+        const isSandbox = platformConfig.environment === "sandbox" || platformConfig.sandbox === true;
 
         // 2. Exchange Creds for Token with Uber (Client Credentials Flow)
         // Note: For multi-merchant, we might need different flows (e.g. Authorization Code) if merchants have their own Uber accounts.
@@ -41,7 +43,16 @@ export async function POST(req: NextRequest) {
         params.append("grant_type", "client_credentials");
         params.append("scope", "eats.store eats.order"); // verify scopes
 
-        const tokenRes = await fetch("https://auth.uber.com/oauth/v2/token", {
+        // Use the correct OAuth endpoint based on environment
+        // Sandbox: https://sandbox-login.uber.com/oauth/v2/token
+        // Production: https://login.uber.com/oauth/v2/token
+        const tokenUrl = isSandbox
+            ? "https://sandbox-login.uber.com/oauth/v2/token"
+            : "https://login.uber.com/oauth/v2/token";
+
+        console.log(`[Uber Auth] Using ${isSandbox ? 'sandbox' : 'production'} mode`);
+
+        const tokenRes = await fetch(tokenUrl, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: params,
@@ -50,7 +61,7 @@ export async function POST(req: NextRequest) {
         if (!tokenRes.ok) {
             const err = await tokenRes.text();
             console.error("Uber Token Error", err);
-            return NextResponse.json({ error: "Uber Auth Failed", details: err }, { status: 401 });
+            return NextResponse.json({ error: "Uber Auth Failed", details: err, sandbox: isSandbox }, { status: 401 });
         }
 
         const tokenData = await tokenRes.json();
