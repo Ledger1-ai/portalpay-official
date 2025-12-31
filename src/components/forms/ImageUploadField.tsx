@@ -19,6 +19,8 @@ export type ImageUploadFieldProps = {
   previewSize?: number;
   className?: string;
   compact?: boolean;
+  onUploadStart?: () => void;
+  onUploadEnd?: () => void;
 };
 
 /**
@@ -42,6 +44,8 @@ export default function ImageUploadField(props: ImageUploadFieldProps) {
     previewSize = 112,
     className = "",
     compact = false,
+    onUploadStart,
+    onUploadEnd,
   } = props;
 
   const [uploading, setUploading] = React.useState(false);
@@ -55,6 +59,7 @@ export default function ImageUploadField(props: ImageUploadFieldProps) {
   async function uploadPublicImages(files: File[]): Promise<string[]> {
     setError("");
     setUploading(true);
+    if (onUploadStart) onUploadStart();
     try {
       if (!files || files.length === 0) return [];
       const form = new FormData();
@@ -73,6 +78,7 @@ export default function ImageUploadField(props: ImageUploadFieldProps) {
       return [];
     } finally {
       setUploading(false);
+      if (onUploadEnd) onUploadEnd();
     }
   }
 

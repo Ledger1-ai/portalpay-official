@@ -21,6 +21,10 @@ export default function ShopWizard({ initialConfig, onSave, onClose }: Props) {
     const [saving, setSaving] = useState(false);
     const [showMobilePreview, setShowMobilePreview] = useState(false);
     const account = useActiveAccount();
+    const [activeUploads, setActiveUploads] = useState(0);
+
+    const onUploadStart = () => setActiveUploads(prev => prev + 1);
+    const onUploadEnd = () => setActiveUploads(prev => Math.max(0, prev - 1));
 
     // Mock data for preview
     const mockItems = useMemo(() => {
@@ -148,6 +152,8 @@ export default function ShopWizard({ initialConfig, onSave, onClose }: Props) {
                                 value={config.theme.brandLogoUrl || ""}
                                 onChange={(url) => setConfig(prev => ({ ...prev, theme: { ...prev.theme, brandLogoUrl: Array.isArray(url) ? url[0] : url } }))}
                                 target="brand_logo"
+                                onUploadStart={onUploadStart}
+                                onUploadEnd={onUploadEnd}
                                 previewSize={64}
                             />
 
@@ -235,6 +241,8 @@ export default function ShopWizard({ initialConfig, onSave, onClose }: Props) {
                                     value={config.theme.coverPhotoUrl || ""}
                                     onChange={(url) => setConfig(prev => ({ ...prev, theme: { ...prev.theme, coverPhotoUrl: Array.isArray(url) ? url[0] : url } }))}
                                     target="cover_photo"
+                                    onUploadStart={onUploadStart}
+                                    onUploadEnd={onUploadEnd}
                                     guidance="1920x400 recommended"
                                     previewSize={120}
                                 />
@@ -247,6 +255,8 @@ export default function ShopWizard({ initialConfig, onSave, onClose }: Props) {
                                         value={config.theme.maximalistBannerUrl || ""}
                                         onChange={(url) => setConfig(prev => ({ ...prev, theme: { ...prev.theme, maximalistBannerUrl: Array.isArray(url) ? url[0] : url } }))}
                                         target="maximalist_banner"
+                                        onUploadStart={onUploadStart}
+                                        onUploadEnd={onUploadEnd}
                                         guidance="Ultra-wide banner (32:9 aspect ratio recommended)"
                                         previewSize={120}
                                     />
@@ -265,6 +275,8 @@ export default function ShopWizard({ initialConfig, onSave, onClose }: Props) {
                                                         setConfig(prev => ({ ...prev, theme: { ...prev.theme, galleryImages: newImages } }));
                                                     }}
                                                     target={`gallery_${idx}`}
+                                                    onUploadStart={onUploadStart}
+                                                    onUploadEnd={onUploadEnd}
                                                     guidance="16:9 ratio"
                                                     previewSize={80}
                                                     compact
@@ -325,10 +337,15 @@ export default function ShopWizard({ initialConfig, onSave, onClose }: Props) {
                     {step === "review" ? (
                         <button
                             onClick={handleSave}
-                            disabled={saving}
-                            className="bg-green-600 hover:bg-green-700 text-white px-8 py-2.5 rounded-full font-bold shadow-lg shadow-green-600/20 active:scale-95 transition-all flex items-center gap-2"
+                            disabled={saving || activeUploads > 0}
+                            className={`bg-green-600 hover:bg-green-700 text-white px-8 py-2.5 rounded-full font-bold shadow-lg shadow-green-600/20 active:scale-95 transition-all flex items-center gap-2 ${activeUploads > 0 ? "opacity-75 cursor-wait" : ""}`}
                         >
-                            {saving ? (
+                            {activeUploads > 0 ? (
+                                <>
+                                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                                    Uploading...
+                                </>
+                            ) : saving ? (
                                 <>
                                     <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
                                     Saving...
