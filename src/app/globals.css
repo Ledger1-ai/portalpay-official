@@ -753,10 +753,9 @@ html[data-pp-theme-ready="0"] body::after {
 }
 
 /* Prevent body scroll/jump when thirdweb modal is open */
-/* Target thirdweb's modal portal containers when they contain visible content */
-html:has([data-rk]) body,
-html:has([id^="headlessui-portal"]) body,
-html:has([class*="fixed"][class*="inset-0"][class*="z-"]) body {
+/* Only lock scroll when specific modal portal containers are present */
+html:has([data-rk][role="dialog"]) body,
+html:has([id^="headlessui-portal"][data-headlessui-state]) body {
   overflow: hidden !important;
 }
 
