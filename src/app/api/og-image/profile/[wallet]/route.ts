@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { request as httpsRequest } from 'node:https';
 import sharp from 'sharp';
-import { loadPPSymbol } from '@/lib/og-image-utils';
+import { loadPPSymbol } from '@/lib/og-asset-loader';
 import { getBrandKey } from '@/config/brands';
 
 export const runtime = 'nodejs';
@@ -153,15 +153,15 @@ function shouldInvertSymbol(bgColor: string): boolean {
 
 function wrapTextWithHyphens(text: string, maxCharsPerLine: number, maxLines: number): { lines: string[]; truncated: boolean } {
   if (!text) return { lines: [], truncated: false };
-  
+
   const words = text.split(/\s+/);
   const lines: string[] = [];
   let currentLine = '';
-  
+
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
     const testLine = currentLine ? `${currentLine} ${word}` : word;
-    
+
     if (testLine.length <= maxCharsPerLine) {
       currentLine = testLine;
     } else {
@@ -207,13 +207,13 @@ function wrapTextWithHyphens(text: string, maxCharsPerLine: number, maxLines: nu
       }
     }
   }
-  
+
   if (currentLine && lines.length < maxLines) {
     lines.push(currentLine);
   } else if (currentLine && lines.length >= maxLines) {
     return { lines, truncated: true };
   }
-  
+
   return { lines, truncated: false };
 }
 
@@ -223,10 +223,10 @@ function generateGradientFromWallet(wallet: string): string {
     hash = ((hash << 5) - hash) + wallet.charCodeAt(i);
     hash = hash & hash;
   }
-  
+
   const hue1 = Math.abs(hash % 360);
   const hue2 = Math.abs((hash * 137) % 360);
-  
+
   return `<svg width="1200" height="630">
     <defs>
       <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -245,14 +245,14 @@ export async function GET(
   try {
     const { wallet } = await params;
     const containerName = process.env.AZURE_BLOB_CONTAINER || 'portalpay';
-    
+
     // Generate blob key based on wallet
     const blobName = `og-profile-${wallet}.jpg`;
-    
+
     // Fetch profile from Cosmos DB
     const { getContainer } = await import('@/lib/cosmos');
     const container = await getContainer();
-    
+
     let profile: Profile = {};
     try {
       let brandKey: string | undefined = undefined;
@@ -265,11 +265,11 @@ export async function GET(
       try {
         const { resource } = await container.item(brandId, wallet).read<any>();
         primary = resource || undefined;
-      } catch {}
+      } catch { }
       try {
         const { resource } = await container.item(legacyId, wallet).read<any>();
         legacy = resource || undefined;
-      } catch {}
+      } catch { }
       const merged = isPlatform ? { ...(legacy || {}), ...(primary || {}) } : (primary ?? legacy);
       if (merged) {
         profile = {
@@ -283,22 +283,22 @@ export async function GET(
     } catch (err) {
       console.warn('Failed to fetch profile:', err);
     }
-    
-    const displayName = profile.displayName || `${wallet.slice(0,6)}...${wallet.slice(-4)}`;
+
+    const displayName = profile.displayName || `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
     const bio = profile.bio || '';
     const pfpUrl = profile.pfpUrl;
     const backgroundUrl = profile.profileConfig?.backgroundUrl;
     const themeColor = profile.profileConfig?.themeColor || '#3b82f6'; // User's primary color
     const isMerchant = profile.roles?.merchant || false;
     const isBuyer = profile.roles?.buyer || false;
-    
+
     // Create gradient background
     const gradientSvg = generateGradientFromWallet(wallet);
-    
+
     // Start with gradient or background photo
     let baseImage = sharp(Buffer.from(gradientSvg))
       .resize(1200, 630);
-    
+
     if (backgroundUrl) {
       const bgBuffer = await fetchImageAsBuffer(backgroundUrl);
       if (bgBuffer) {
@@ -310,9 +310,9 @@ export async function GET(
         }
       }
     }
-    
+
     let imageBuffer = await baseImage.png().toBuffer();
-    
+
     // Add blurred glass overlay in user's primary color
     const themeRgb = hexToRgb(themeColor);
     const glassOverlaySvg = `
@@ -320,19 +320,19 @@ export async function GET(
         <rect width="1200" height="630" fill="rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b})" fill-opacity="0.4"/>
       </svg>
     `;
-    
+
     imageBuffer = await sharp(imageBuffer)
       .blur(8)
       .composite([{ input: Buffer.from(glassOverlaySvg), blend: 'over' }])
       .png()
       .toBuffer();
-    
+
     // Create business card with glassmorphism effect (centered with larger corners)
     const cardWidth = 900;
     const cardHeight = 500;
     const cardX = (1200 - cardWidth) / 2;
     const cardY = (630 - cardHeight) / 2;
-    
+
     // Glassmorphism card with border - more opaque white
     const cardSvg = `
       <svg width="${cardWidth}" height="${cardHeight}">
@@ -346,7 +346,7 @@ export async function GET(
         <rect width="${cardWidth - 4}" height="${cardHeight - 4}" x="2" y="2" rx="46" ry="46" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2"/>
       </svg>
     `;
-    
+
     imageBuffer = await sharp(imageBuffer)
       .composite([{
         input: Buffer.from(cardSvg),
@@ -355,7 +355,7 @@ export async function GET(
       }])
       .png()
       .toBuffer();
-    
+
     // Load brand-appropriate symbol (partner: brand symbol/app; platform: ppsymbol.png) and apply theme color
     let ppSymbolOverlay: Buffer | null = null;
     try {
@@ -371,8 +371,8 @@ export async function GET(
             background: { r: symbolThemeRgb.r, g: symbolThemeRgb.g, b: symbolThemeRgb.b, alpha: 1 }
           }
         })
-        .png()
-        .toBuffer();
+          .png()
+          .toBuffer();
         // Use the symbol as an alpha mask to create colored version (like Photoshop color overlay)
         const symbolProcessed = await sharp(colorRect)
           .composite([{ input: ppSymbolRaw, blend: 'dest-in' }])
@@ -383,7 +383,7 @@ export async function GET(
     } catch (e) {
       console.warn('Symbol processing failed:', e);
     }
-    
+
     // Fetch and process profile picture with theme color border
     const pfpBorderColor = themeColor;
     let pfpOverlay: Buffer | null = null;
@@ -394,24 +394,24 @@ export async function GET(
           const pfpSize = 140;
           const circleMask = Buffer.from(
             `<svg width="${pfpSize}" height="${pfpSize}">
-              <circle cx="${pfpSize/2}" cy="${pfpSize/2}" r="${pfpSize/2}" fill="white"/>
+              <circle cx="${pfpSize / 2}" cy="${pfpSize / 2}" r="${pfpSize / 2}" fill="white"/>
             </svg>`
           );
-          
+
           const resizedPfp = await sharp(pfpBuffer)
             .resize(pfpSize, pfpSize, { fit: 'cover' })
             .composite([{ input: circleMask, blend: 'dest-in' }])
             .png()
             .toBuffer();
-          
+
           // Add border with theme color
           const borderRgb = hexToRgb(pfpBorderColor);
           const borderSvg = Buffer.from(
             `<svg width="${pfpSize + 8}" height="${pfpSize + 8}">
-              <circle cx="${(pfpSize + 8)/2}" cy="${(pfpSize + 8)/2}" r="${(pfpSize + 8)/2}" fill="rgb(${borderRgb.r},${borderRgb.g},${borderRgb.b})"/>
+              <circle cx="${(pfpSize + 8) / 2}" cy="${(pfpSize + 8) / 2}" r="${(pfpSize + 8) / 2}" fill="rgb(${borderRgb.r},${borderRgb.g},${borderRgb.b})"/>
             </svg>`
           );
-          
+
           pfpOverlay = await sharp(borderSvg)
             .composite([{
               input: resizedPfp,
@@ -425,13 +425,13 @@ export async function GET(
         }
       }
     }
-    
+
     // Create text content with improved bio handling
     const escapeForSvg = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    
+
     // Wrap bio text to 4 lines with hyphenation
     const { lines: bioLines, truncated } = wrapTextWithHyphens(bio, 85, 4);
-    
+
     // Generate bio text elements
     let bioTextElements = '';
     if (bioLines.length > 0) {
@@ -440,19 +440,19 @@ export async function GET(
       bioLines.forEach((line, index) => {
         const isLastLine = index === bioLines.length - 1;
         const displayLine = truncated && isLastLine ? line.substring(0, Math.max(0, line.length - 12)) + '... read more' : line;
-        bioTextElements += `<text x="${cardWidth/2}" y="${bioStartY + (index * lineHeight)}" font-family="Arial, sans-serif" font-size="18" fill="#374151" text-anchor="middle">${escapeForSvg(displayLine)}</text>`;
+        bioTextElements += `<text x="${cardWidth / 2}" y="${bioStartY + (index * lineHeight)}" font-family="Arial, sans-serif" font-size="18" fill="#374151" text-anchor="middle">${escapeForSvg(displayLine)}</text>`;
       });
     }
-    
+
     const textSvg = `
       <svg width="${cardWidth}" height="${cardHeight}">
-        <text x="${cardWidth/2}" y="250" font-family="Arial, sans-serif" font-size="52" font-weight="bold" fill="#111827" text-anchor="middle">${escapeForSvg(displayName)}</text>
-        <text x="${cardWidth/2}" y="295" font-family="Arial, sans-serif" font-size="20" fill="#6b7280" text-anchor="middle">${wallet.slice(0,6)}...${wallet.slice(-4)}</text>
+        <text x="${cardWidth / 2}" y="250" font-family="Arial, sans-serif" font-size="52" font-weight="bold" fill="#111827" text-anchor="middle">${escapeForSvg(displayName)}</text>
+        <text x="${cardWidth / 2}" y="295" font-family="Arial, sans-serif" font-size="20" fill="#6b7280" text-anchor="middle">${wallet.slice(0, 6)}...${wallet.slice(-4)}</text>
         ${bioTextElements}
-        <text x="${cardWidth/2}" y="${cardHeight - 30}" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#9ca3af" text-anchor="middle" letter-spacing="2">PORTALPAY PROFILE</text>
+        <text x="${cardWidth / 2}" y="${cardHeight - 30}" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#9ca3af" text-anchor="middle" letter-spacing="2">PORTALPAY PROFILE</text>
       </svg>
     `;
-    
+
     // Create role badges for top right
     let roleBadgesSvg = '';
     if (isMerchant || isBuyer) {
@@ -462,45 +462,45 @@ export async function GET(
         const xOffset = isMerchant ? 110 : 0;
         badges.push(`<rect x="${xOffset}" y="0" width="80" height="36" rx="18" fill="#3b82f6"/><text x="${xOffset + 40}" y="24" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="white" text-anchor="middle">Buyer</text>`);
       }
-      
+
       const badgeWidth = (isMerchant && isBuyer) ? 190 : (isMerchant ? 100 : 80);
       roleBadgesSvg = `<svg width="${badgeWidth}" height="36">${badges.join('')}</svg>`;
     }
-    
+
     // Composite all elements
     const composites: any[] = [];
-    
+
     // PortalPay symbol in top left of card
     if (ppSymbolOverlay) {
       composites.push({ input: ppSymbolOverlay, top: cardY + 30, left: cardX + 30 });
     }
-    
+
     // Role badges in top right of card
     if (roleBadgesSvg) {
       const badgeWidth = (isMerchant && isBuyer) ? 190 : (isMerchant ? 100 : 80);
       composites.push({ input: Buffer.from(roleBadgesSvg), top: cardY + 30, left: cardX + cardWidth - badgeWidth - 30 });
     }
-    
+
     // Profile picture centered near top
     if (pfpOverlay) {
       composites.push({ input: pfpOverlay, top: cardY + 60, left: cardX + (cardWidth - 148) / 2 });
     }
-    
+
     // Text content
     composites.push({ input: Buffer.from(textSvg), top: cardY, left: cardX });
-    
+
     const compositeBuffer = await sharp(imageBuffer)
       .composite(composites)
       .toBuffer();
-    
+
     // Generate final image as JPEG
     const finalImage = await sharp(compositeBuffer)
       .jpeg({ quality: 85 })
       .toBuffer();
-    
+
     // Upload to Azure Blob
     const { accountName, accountKey } = getAccountCreds();
-    
+
     try {
       await uploadBlobSharedKey(
         accountName,
@@ -513,7 +513,7 @@ export async function GET(
     } catch (e) {
       console.error('Azure upload failed:', e);
     }
-    
+
     // Construct public URL
     const storageUrl = buildBlobUrl(accountName, containerName, blobName);
     const publicBase = process.env.AZURE_BLOB_PUBLIC_BASE_URL;
@@ -523,10 +523,10 @@ export async function GET(
           const u = new URL(storageUrl);
           return `${publicBase}${u.pathname}`;
         }
-      } catch {}
+      } catch { }
       return storageUrl;
     })();
-    
+
     return new NextResponse(new Uint8Array(finalImage), {
       headers: {
         'Content-Type': 'image/jpeg',
@@ -536,7 +536,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('Profile OG image error:', error);
-    
+
     // Fallback
     const { wallet } = await params;
     const fallbackSvg = generateGradientFromWallet(wallet);
@@ -544,7 +544,7 @@ export async function GET(
       .resize(1200, 630)
       .jpeg({ quality: 85 })
       .toBuffer();
-    
+
     return new NextResponse(new Uint8Array(fallbackBuffer), {
       headers: {
         'Content-Type': 'image/jpeg',

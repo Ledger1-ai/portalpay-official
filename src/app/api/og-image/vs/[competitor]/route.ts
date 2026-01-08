@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getComparisonData } from '@/lib/landing-pages/comparisons';
-import { createMeshGradient, escapeForSvg, wrapTextToLines, loadPPSymbol, fetchWithCache, loadPublicImageBuffer, renderLineWithEmphasis } from '@/lib/og-image-utils';
+import { createMeshGradient, escapeForSvg, wrapTextToLines, renderLineWithEmphasis } from '@/lib/og-image-utils';
+import { loadPPSymbol, fetchWithCache, loadPublicImageBuffer } from '@/lib/og-asset-loader';
 import { getBrandConfig } from '@/config/brands';
 import { isPartnerContext } from '@/lib/env';
 

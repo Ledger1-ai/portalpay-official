@@ -6,17 +6,34 @@ export const alt = 'Basalt Developers';
 export const size = { width: 2400, height: 1260 };
 export const contentType = 'image/png';
 
+
+import { loadBasaltDefaults } from '@/lib/og-asset-loader';
+
 export default async function Image() {
+    const assets = await loadBasaltDefaults();
+
     return await generateBasaltOG({
-        bgPath: 'bsurgebg.png',
+        ...assets,
+        // Override with specific image props if needed, but defaults are fine for now
+        // bgImage: assets.bgBase64, 
+        // medallionImage: assets.medallionBase64, 
+        // etc. generateBasaltOG matches the key names from loadBasaltDefaults except poweredBy -> logoBase64
+        // Wait, loadBasaltDefaults returns { logoBase64 } but generateBasaltOG expects { poweredByImage }.
+        bgImage: assets.bgBase64,
+        blurredBgImage: assets.blurredBgBase64,
+        medallionImage: assets.medallionBase64,
+        poweredByImage: assets.logoBase64,
+        cornerShieldImage: assets.shieldBase64,
+
         primaryColor: '#8b5cf6', // Violet for devs
         leftWing: (
-            <>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
                 <div style={{ fontSize: 32, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: '0.1em', marginBottom: 20 }}>BASALT</div>
-                <div style={{ fontSize: 72, color: 'white', fontWeight: 800, textAlign: 'right', lineHeight: 1.1, textShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-                    DEVELOPER<br />PLATFORM
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 72, color: 'white', fontWeight: 800, textAlign: 'right', lineHeight: 1.1, textShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+                    <span>DEVELOPER</span>
+                    <span>PLATFORM</span>
                 </div>
-            </>
+            </div>
         ),
         rightWing: (
             <>
@@ -30,3 +47,4 @@ export default async function Image() {
         )
     });
 }
+

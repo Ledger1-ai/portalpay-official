@@ -1,6 +1,5 @@
+
 import { ImageResponse } from 'next/og';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 export const alt = 'BasaltHQ - Neuromimetic Business Architecture';
 export const size = { width: 2400, height: 1260 };
@@ -10,48 +9,28 @@ export type OGTemplateProps = {
     leftWing: React.ReactNode;
     rightWing: React.ReactNode;
     primaryColor?: string;
-    medallionPath?: string;
-    bgPath?: string;
-    blurredBgPath?: string;
-    bgImage?: string;
-    medallionImage?: string;
-    poweredBy?: string;
-    cornerShieldPath?: string;
+    // Images must be passed as Data URIs (base64) by the caller
+    bgImage: string;
+    blurredBgImage: string;
+    medallionImage: string;
+    poweredByImage: string; // was 'loadAsset'
+    cornerShieldImage?: string;
 };
 
-const assetCache = new Map<string, string>();
-
-function loadAsset(filename: string): string {
-    const filePath = join(process.cwd(), 'public', filename);
-    if (assetCache.has(filePath)) {
-        return assetCache.get(filePath)!;
-    }
-    try {
-        const data = readFileSync(filePath);
-        const base64 = `data:image/png;base64,${data.toString('base64')}`;
-        assetCache.set(filePath, base64);
-        return base64;
-    } catch (e) {
-        return '';
-    }
-}
-
+/**
+ * Pure template generator. 
+ * Callers must load assets using og-asset-loader (Node) or other means.
+ */
 export async function generateBasaltOG({
     leftWing,
     rightWing,
     primaryColor = '#35ff7c',
-    medallionPath = 'BasaltSurgeM.png',
-    bgPath = 'bsurgebg.png',
-    blurredBgPath = 'bsurgebg-blurred.png',
     bgImage,
+    blurredBgImage,
     medallionImage,
-    cornerShieldPath,
+    poweredByImage,
+    cornerShieldImage,
 }: OGTemplateProps) {
-
-    const bgBase64 = bgImage || loadAsset(bgPath);
-    const blurredBgBase64 = bgImage || loadAsset(blurredBgPath);
-    const medallionBase64 = medallionImage || loadAsset(medallionPath);
-    const shieldBase64 = cornerShieldPath ? loadAsset(cornerShieldPath) : '';
 
     const element = (
         <div style={{
@@ -64,7 +43,7 @@ export async function generateBasaltOG({
             position: 'relative',
             fontFamily: 'Helvetica, Arial, sans-serif'
         }}>
-            <img src={bgBase64} width={2400} height={1260} style={{
+            <img src={bgImage} width={2400} height={1260} style={{
                 position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover',
             }} />
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
@@ -76,7 +55,7 @@ export async function generateBasaltOG({
                 flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center',
                 padding: '40px 260px 40px 40px', boxShadow: 'inset 2px 2px 20px rgba(255,255,255,0.2)',
             }}>
-                <img src={blurredBgBase64} width={2400} height={1260} style={{
+                <img src={blurredBgImage} width={2400} height={1260} style={{
                     position: 'absolute', left: -200, top: -480, width: 2400, height: 1260,
                     objectFit: 'cover', transform: 'scale(1.05)',
                 }} />
@@ -94,7 +73,7 @@ export async function generateBasaltOG({
                 flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center',
                 padding: '40px 40px 40px 260px', boxShadow: 'inset -2px 2px 20px rgba(255,255,255,0.2)',
             }}>
-                <img src={blurredBgBase64} width={2400} height={1260} style={{
+                <img src={blurredBgImage} width={2400} height={1260} style={{
                     position: 'absolute', right: -200, top: -480, width: 2400, height: 1260,
                     objectFit: 'cover', transform: 'scale(1.05)',
                 }} />
@@ -107,25 +86,25 @@ export async function generateBasaltOG({
 
             {/* Glass Frame - Left */}
             <div style={{ position: 'absolute', left: 40, top: 80, width: 40, height: 1100, display: 'flex', background: 'rgba(255,255,255,0.1)', boxShadow: 'inset 0 0 10px rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)', borderTop: 'none', borderBottom: 'none', overflow: 'hidden' }}>
-                <img src={blurredBgBase64} width={2400} height={1260} style={{ position: 'absolute', left: -40, top: -80, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
+                <img src={blurredBgImage} width={2400} height={1260} style={{ position: 'absolute', left: -40, top: -80, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.1)' }} />
             </div>
 
             {/* Glass Frame - Right */}
             <div style={{ position: 'absolute', left: 2320, top: 80, width: 40, height: 1100, display: 'flex', background: 'rgba(255,255,255,0.1)', boxShadow: 'inset 0 0 10px rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)', borderTop: 'none', borderBottom: 'none', overflow: 'hidden' }}>
-                <img src={blurredBgBase64} width={2400} height={1260} style={{ position: 'absolute', left: -2320, top: -80, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
+                <img src={blurredBgImage} width={2400} height={1260} style={{ position: 'absolute', left: -2320, top: -80, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.1)' }} />
             </div>
 
             {/* Glass Frame - Top */}
             <div style={{ position: 'absolute', left: 40, top: 40, width: 2320, height: 40, borderRadius: '24px 24px 0 0', display: 'flex', background: 'rgba(255,255,255,0.1)', boxShadow: 'inset 0 0 10px rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)', borderBottom: 'none', overflow: 'hidden' }}>
-                <img src={blurredBgBase64} width={2400} height={1260} style={{ position: 'absolute', left: -40, top: -40, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
+                <img src={blurredBgImage} width={2400} height={1260} style={{ position: 'absolute', left: -40, top: -40, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.1)' }} />
             </div>
 
             {/* Glass Frame - Bottom */}
             <div style={{ position: 'absolute', left: 40, top: 1180, width: 2320, height: 40, borderRadius: '0 0 24px 24px', display: 'flex', background: 'rgba(255,255,255,0.1)', boxShadow: 'inset 0 0 10px rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)', borderTop: 'none', overflow: 'hidden' }}>
-                <img src={blurredBgBase64} width={2400} height={1260} style={{ position: 'absolute', left: -40, top: -1180, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
+                <img src={blurredBgImage} width={2400} height={1260} style={{ position: 'absolute', left: -40, top: -1180, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.1)' }} />
             </div>
 
@@ -139,57 +118,29 @@ export async function generateBasaltOG({
 
             {/* Center Medallion Ring (Blurred glass behind) */}
             <div style={{ position: 'absolute', left: 810, top: 240, width: 780, height: 780, borderRadius: '50%', overflow: 'hidden', display: 'flex', boxShadow: 'inset 0 0 20px rgba(255,255,255,0.3)', border: `4px solid ${primaryColor}` }}>
-                <img src={blurredBgBase64} width={2400} height={1260} style={{ position: 'absolute', left: -810, top: -240, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
+                <img src={blurredBgImage} width={2400} height={1260} style={{ position: 'absolute', left: -810, top: -240, width: 2400, height: 1260, objectFit: 'cover', transform: 'scale(1.05)' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.05)' }} />
             </div>
 
             {/* Center Medallion */}
-            {medallionImage ? (
-                /* Location pages: Flag with white background */
-                <div style={{ position: 'absolute', left: 850, top: 280, width: 700, height: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', overflow: 'hidden', background: 'white' }}>
-                    <img src={medallionBase64} width={980} height={980} style={{
-                        position: 'absolute',
-                        width: 980,
-                        height: 980,
-                        objectFit: 'cover',
-                        objectPosition: 'center',
-                    }} />
-                </div>
-            ) : (
-                /* Main page: Original medallion with logo fills circle */
-                <div style={{ position: 'absolute', left: 850, top: 280, width: 700, height: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', overflow: 'hidden' }}>
-                    <img src={medallionBase64} width={700} height={700} style={{
-                        objectFit: 'contain',
-                    }} />
-                </div>
-            )}
-
-            {/* 3D Gleam overlay - separate element for location pages only */}
-            {medallionImage && (
-                <div style={{
-                    position: 'absolute',
-                    left: 850,
-                    top: 280,
-                    width: 700,
-                    height: 700,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 20%, transparent 40%, rgba(0,0,0,0.15) 65%, rgba(0,0,0,0.45) 100%)',
-                    pointerEvents: 'none',
+            <div style={{ position: 'absolute', left: 850, top: 280, width: 700, height: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', overflow: 'hidden' }}>
+                <img src={medallionImage} width={700} height={700} style={{
+                    objectFit: 'contain',
                 }} />
-            )}
+            </div>
 
             {/* Outer glow ring around medallion */}
             <div style={{ position: 'absolute', left: 846, top: 276, width: 708, height: 708, borderRadius: '50%', border: `4px solid ${primaryColor}`, boxShadow: `0 0 40px ${primaryColor}60` }} />
 
             {/* Powered By Logo */}
             <div style={{ position: 'absolute', top: 1040, left: 0, width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.8))' }}>
-                <img src={loadAsset('BasaltSurgeWide.png')} height={120} style={{ objectFit: 'contain', opacity: 1 }} />
+                <img src={poweredByImage} height={120} style={{ objectFit: 'contain', opacity: 1 }} />
             </div>
 
             {/* Corner Shield */}
-            {shieldBase64 && (
+            {cornerShieldImage && (
                 <div style={{ position: 'absolute', top: 80, right: 80, display: 'flex' }}>
-                    <img src={shieldBase64} width={120} height={140} style={{ objectFit: 'contain', opacity: 0.9, filter: 'drop-shadow(0 0 20px rgba(53,255,124,0.4))' }} />
+                    <img src={cornerShieldImage} width={120} height={140} style={{ objectFit: 'contain', opacity: 0.9, filter: 'drop-shadow(0 0 20px rgba(53,255,124,0.4))' }} />
                 </div>
             )}
         </div>

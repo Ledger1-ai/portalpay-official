@@ -1,7 +1,8 @@
 
 import { generateBasaltOG } from '@/lib/og-template';
 import { getIndustryData } from '@/lib/landing-pages/industries';
-import { getEmojiColors, createMeshGradient, loadTwemojiPng } from '@/lib/og-image-utils';
+import { getEmojiColors, createMeshGradient } from '@/lib/og-image-utils';
+import { loadTwemojiPng, loadBasaltDefaults } from '@/lib/og-asset-loader';
 import sharp from 'sharp';
 
 export const runtime = 'nodejs';
@@ -39,10 +40,15 @@ export default async function Image({ params }: { params: Promise<{ industry: st
   const emojiBuffer = await loadTwemojiPng(icon, 500); // 500px should be crisp enough inside the 700px container
   const medallionDataUri = emojiBuffer ? `data:image/png;base64,${emojiBuffer.toString('base64')}` : undefined;
 
+  const assets = await loadBasaltDefaults();
+
   return await generateBasaltOG({
     bgImage: bgDataUri,
-    medallionImage: medallionDataUri, // If undefined, it falls back to 'Basalt.png' from template default, maybe acceptable or we pass empty string?
-    // If emoji fails, medallionImage is undefined -> template uses 'Basalt.png'. That's a good fallback.
+    blurredBgImage: assets.blurredBgBase64,
+    medallionImage: medallionDataUri || assets.medallionBase64,
+    poweredByImage: assets.logoBase64,
+    cornerShieldImage: assets.shieldBase64,
+
     primaryColor: colors[0], // Use dominant emoji color as primary
     leftWing: (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>

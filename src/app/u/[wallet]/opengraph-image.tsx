@@ -2,7 +2,7 @@
 import { generateBasaltOG } from '@/lib/og-template';
 import { getContainer } from '@/lib/cosmos';
 import { getBrandKey } from '@/config/brands';
-import { fetchWithCache } from '@/lib/og-image-utils';
+import { fetchWithCache, loadBasaltDefaults } from '@/lib/og-asset-loader';
 import sharp from 'sharp';
 
 export const runtime = 'nodejs';
@@ -137,9 +137,17 @@ export default async function Image({ params }: { params: Promise<{ wallet: stri
   // Fallback PFP? Maybe a generated avatar or default icon? 
   // If undefined, template uses Basalt logo. That's fine.
 
+
+  const assets = await loadBasaltDefaults();
+
   return await generateBasaltOG({
-    bgImage: bgDataUri,
-    medallionImage: medallionDataUri,
+    // Defaults from loader
+    bgImage: bgDataUri || assets.bgBase64,
+    blurredBgImage: assets.blurredBgBase64,
+    medallionImage: medallionDataUri || assets.medallionBase64,
+    poweredByImage: assets.logoBase64,
+    cornerShieldImage: assets.shieldBase64,
+
     primaryColor: '#35ff7c',
     leftWing: (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>

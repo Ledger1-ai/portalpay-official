@@ -164,3 +164,32 @@ export async function loadTwemojiPng(emoji: string, size = 96): Promise<Buffer |
     }
     return null;
 }
+
+/**
+ * Load default assets for Basalt OG template
+ */
+export async function loadBasaltDefaults(): Promise<{
+    bgBase64: string;
+    blurredBgBase64: string;
+    medallionBase64: string;
+    logoBase64: string;
+    shieldBase64: string;
+}> {
+    const [bg, blurred, medallion, logo, shield] = await Promise.all([
+        loadPublicImageBuffer('bsurgebg.png'),
+        loadPublicImageBuffer('bsurgebg-blurred.png'),
+        loadPublicImageBuffer('BasaltSurgeM.png'),
+        loadPublicImageBuffer('BasaltSurgeWide.png'),
+        loadPublicImageBuffer('Shield.png')
+    ]);
+
+    const toBase64 = (buf: Buffer | null) => buf ? `data:image/png;base64,${buf.toString('base64')}` : '';
+
+    return {
+        bgBase64: toBase64(bg),
+        blurredBgBase64: toBase64(blurred),
+        medallionBase64: toBase64(medallion),
+        logoBase64: toBase64(logo),
+        shieldBase64: toBase64(shield),
+    };
+}
