@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { request as httpsRequest } from 'node:https';
 import sharp from 'sharp';
 import { getBrandConfig } from '@/config/brands';
-import { loadPPSymbol } from '@/lib/og-image-utils';
+import { loadPPSymbol } from '@/lib/og-asset-loader';
 
 function escapeXml(text: string): string {
   return String(text)
@@ -158,14 +158,14 @@ export async function GET(
   try {
     const { wallet } = await params;
     const containerName = process.env.AZURE_BLOB_CONTAINER || 'portalpay';
-    
+
     // Generate blob key based on wallet
     const blobName = `og-shop-${wallet}.jpg`;
-    
+
     // Fetch shop config directly from Cosmos DB (avoid self-fetch)
     const { getContainer } = await import('@/lib/cosmos');
     const container = await getContainer();
-    
+
     let config: ShopConfig = { name: 'Shop', theme: {} };
     try {
       const { resource } = await container.item('shop:config', wallet).read<any>();
@@ -181,7 +181,7 @@ export async function GET(
     } catch (cosmosError) {
       console.warn('Failed to fetch shop config from Cosmos, using defaults:', cosmosError);
     }
-    
+
     const primaryColor = config.theme?.primaryColor || '#0ea5e9';
     const secondaryColor = config.theme?.secondaryColor || '#22c55e';
     const coverPhotoUrl = config.theme?.coverPhotoUrl;
@@ -190,7 +190,7 @@ export async function GET(
     const name = config.name || 'Shop';
     const aboutText = config.bio || config.description || '';
     const aboutExcerpt = aboutText.length > 140 ? aboutText.slice(0, 137) + '...' : aboutText;
-    
+
     // Create gradient background as SVG
     const gradientSvg = `
       <svg width="1200" height="630">
@@ -203,14 +203,14 @@ export async function GET(
         <rect width="1200" height="630" fill="url(#grad)" />
       </svg>
     `;
-    
+
     // Cover photo should only fill top portion (leaving room for bottom bar)
     const coverHeight = 400; // Top portion for cover photo
     const bottomBarHeight = 230; // Bottom bar height
     const cornerRadius = 48; // More pronounced rounded corners
-    
+
     let coverImageBuffer: Buffer;
-    
+
     if (coverPhotoUrl) {
       const coverBuffer = await fetchImageAsBuffer(coverPhotoUrl);
       if (coverBuffer) {
@@ -220,7 +220,7 @@ export async function GET(
             .resize(1200, coverHeight, { fit: 'cover' })
             .png()
             .toBuffer();
-          
+
           // Add inner shadow BEFORE applying rounded corners
           const innerShadowSvg = Buffer.from(
             `<svg width="1200" height="${coverHeight}">
@@ -235,19 +235,19 @@ export async function GET(
               <rect width="1200" height="${coverHeight}" fill="url(#innerShadow)"/>
             </svg>`
           );
-          
+
           tempCover = await sharp(tempCover)
             .composite([{ input: innerShadowSvg, blend: 'over' }])
             .png()
             .toBuffer();
-          
+
           // Now apply rounded corners to bottom (this will clip the shadow correctly)
           const roundedBottomMask = Buffer.from(
             `<svg width="1200" height="${coverHeight}">
               <path d="M 0 0 L 1200 0 L 1200 ${coverHeight - cornerRadius} Q 1200 ${coverHeight} ${1200 - cornerRadius} ${coverHeight} L ${cornerRadius} ${coverHeight} Q 0 ${coverHeight} 0 ${coverHeight - cornerRadius} Z" fill="white"/>
             </svg>`
           );
-          
+
           coverImageBuffer = await sharp(tempCover)
             .composite([{ input: roundedBottomMask, blend: 'dest-in' }])
             .png()
@@ -272,7 +272,7 @@ export async function GET(
         .png()
         .toBuffer();
     }
-    
+
     // Create colored bottom bar (using primaryColor)
     const rgb = hexToRgb(primaryColor);
     const bottomBarSvg = `
@@ -280,7 +280,7 @@ export async function GET(
         <rect width="1200" height="${bottomBarHeight}" fill="rgb(${rgb.r},${rgb.g},${rgb.b})" fill-opacity="0.95"/>
       </svg>
     `;
-    
+
     // Create base canvas with primaryColor background (not black)
     let imageBuffer = await sharp({
       create: {
@@ -290,19 +290,19 @@ export async function GET(
         background: { r: rgb.r, g: rgb.g, b: rgb.b, alpha: 1 }
       }
     })
-    .composite([
-      { input: coverImageBuffer, top: 0, left: 0 },
-      { input: Buffer.from(bottomBarSvg), top: coverHeight, left: 0 },
-    ])
-    .png()
-    .toBuffer();
-    
+      .composite([
+        { input: coverImageBuffer, top: 0, left: 0 },
+        { input: Buffer.from(bottomBarSvg), top: coverHeight, left: 0 },
+      ])
+      .png()
+      .toBuffer();
+
     // Fetch and process logo if available
     let logoBuffer: Buffer | null = null;
     if (logoUrl) {
       logoBuffer = await fetchImageAsBuffer(logoUrl);
     }
-    
+
     // Create logo overlay respecting logoShape (BIGGER - 100x100)
     let logoOverlay: Buffer | null = null;
     if (logoBuffer) {
@@ -310,27 +310,27 @@ export async function GET(
         const logoSize = 92;
         const borderSize = 4;
         const totalSize = logoSize + (borderSize * 2);
-        
+
         // Create shape mask based on logoShape
-        const shapeMask = logoShape === 'circle' 
+        const shapeMask = logoShape === 'circle'
           ? `<svg width="${totalSize}" height="${totalSize}">
-              <circle cx="${totalSize/2}" cy="${totalSize/2}" r="${totalSize/2}" fill="white"/>
+              <circle cx="${totalSize / 2}" cy="${totalSize / 2}" r="${totalSize / 2}" fill="white"/>
             </svg>`
           : `<svg width="${totalSize}" height="${totalSize}">
               <rect x="0" y="0" width="${totalSize}" height="${totalSize}" rx="16" ry="16" fill="white"/>
             </svg>`;
-        
+
         // Create white background with shape
         const shapeBg = await sharp(Buffer.from(shapeMask))
           .png()
           .toBuffer();
-        
+
         // Resize logo and composite on white background
         const resizedLogo = await sharp(logoBuffer)
           .resize(logoSize, logoSize, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
           .png()
           .toBuffer();
-        
+
         logoOverlay = await sharp(shapeBg)
           .resize(totalSize, totalSize)
           .composite([{
@@ -344,21 +344,21 @@ export async function GET(
         console.warn('Logo processing failed:', e);
       }
     }
-    
+
     // Load brand-appropriate symbol (partner: brand symbol/app; platform: ppsymbol.png)
     const ppSymbolOverlay: Buffer | null = await loadPPSymbol(60);
-    
+
     // Create text overlay - only 2 lines max for description
     const maxTextWidth = 950;
     const nameSize = name.length > 25 ? 32 : 40;
     const descSize = 19;
-    
+
     // Smart text wrapping: break at word boundaries, add hyphen if word is split
     const wrapText = (text: string, maxChars: number): { line1: string; line2: string; needsHyphen: boolean } => {
       if (text.length <= maxChars) {
         return { line1: text, line2: '', needsHyphen: false };
       }
-      
+
       // Try to break at last space before maxChars
       let breakPoint = text.lastIndexOf(' ', maxChars);
       if (breakPoint === -1 || breakPoint < maxChars * 0.7) {
@@ -368,22 +368,22 @@ export async function GET(
         const line2 = text.substring(breakPoint);
         return { line1, line2, needsHyphen: true };
       }
-      
+
       // Break at space
       const line1 = text.substring(0, breakPoint);
       const line2 = text.substring(breakPoint + 1);
       return { line1, line2, needsHyphen: false };
     };
-    
+
     const wrapped = wrapText(aboutExcerpt, 70);
     const line1 = wrapped.line1;
     const line2Wrapped = wrapped.line2.length > 70 ? wrapText(wrapped.line2, 70) : { line1: wrapped.line2, line2: '', needsHyphen: false };
     const line2 = line2Wrapped.line1;
     const needsReadMore = aboutText.length > 140 || line2Wrapped.line2.length > 0;
-    
+
     // Escape text properly for SVG (preserve apostrophes, escape only XML special chars)
     const escapeForSvg = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    
+
     const textSvg = `
       <svg width="${maxTextWidth}" height="200">
         <text x="0" y="45" font-family="Arial, sans-serif" font-size="${nameSize}" font-weight="bold" fill="white">${escapeForSvg(name)}</text>
@@ -393,36 +393,36 @@ export async function GET(
         <text x="0" y="${line2 ? (needsReadMore ? '160' : '138') : (line1 ? '113' : '78')}" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="rgba(255,255,255,0.8)" letter-spacing="2">${escapeForSvg(`POWERED BY ${String(brand.name || '').toUpperCase()}`)}</text>
       </svg>
     `;
-    
+
     // Get industry pack data - clean icons with brand color strokes only
     const industryPackInfo = config.industryPack ? {
-      'general': { 
+      'general': {
         icon: '<circle cx="12" cy="12" r="10" stroke="rgb(14,165,233)" stroke-width="2.5" fill="none"/><circle cx="12" cy="12" r="3" fill="rgb(14,165,233)"/>',
         primaryColor: '#0ea5e9',
         label: 'General'
       },
-      'restaurant': { 
+      'restaurant': {
         icon: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" stroke="rgb(220,38,38)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
         primaryColor: '#DC2626',
         label: 'Restaurant'
       },
-      'retail': { 
+      'retail': {
         icon: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" stroke="rgb(99,102,241)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
         primaryColor: '#6366F1',
         label: 'Retail'
       },
-      'hotel': { 
+      'hotel': {
         icon: '<rect x="4" y="2" width="16" height="20" rx="2" stroke="rgb(14,165,233)" stroke-width="2.5" fill="none"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M8 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01" stroke="rgb(14,165,233)" stroke-width="2.5" fill="none" stroke-linecap="round"/>',
         primaryColor: '#0EA5E9',
         label: 'Hotel'
       },
-      'freelancer': { 
+      'freelancer': {
         icon: '<rect x="4" y="10" width="16" height="10" rx="2" stroke="rgb(124,58,237)" stroke-width="2.5" fill="none"/><path d="M8 10V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4" stroke="rgb(124,58,237)" stroke-width="2.5" fill="none" stroke-linecap="round"/>',
         primaryColor: '#7C3AED',
         label: 'Freelancer'
       }
     }[config.industryPack] : null;
-    
+
     // Create industry pack badge with light background and colored border
     let industryPackBadge: Buffer | null = null;
     if (industryPackInfo) {
@@ -446,41 +446,41 @@ export async function GET(
         console.warn('Industry pack badge failed:', e);
       }
     }
-    
+
     // Reduce text width if industry pack badge exists to prevent overlap
     const textWidth = industryPackBadge ? 800 : 950;
-    
+
     // Composite all layers
     const composites: any[] = [];
-    
+
     // Add PortalPay symbol if loaded
     if (ppSymbolOverlay) {
       composites.push({ input: ppSymbolOverlay, top: 30, left: 1110 }); // Top right corner
     }
-    
+
     if (logoOverlay) {
       composites.push({ input: logoOverlay, top: 435, left: 40 }); // Logo in bottom bar (lowered to align with text)
     }
-    
+
     composites.push({ input: Buffer.from(textSvg), top: 420, left: logoOverlay ? 160 : 40 }); // Text next to logo
-    
+
     // Add industry pack badge on right side with same margin as left (40px from right edge)
     if (industryPackBadge) {
       composites.push({ input: industryPackBadge, top: 435, left: 1020 }); // 40px margin from right (1200 - 140 - 40 = 1020)
     }
-    
+
     const compositeBuffer = await sharp(imageBuffer)
       .composite(composites)
       .toBuffer();
-    
+
     // Generate final image as JPEG
     const finalImage = await sharp(compositeBuffer)
       .jpeg({ quality: 85 })
       .toBuffer();
-    
+
     // Upload to Azure Blob
     const { accountName, accountKey } = getAccountCreds();
-    
+
     try {
       await uploadBlobSharedKey(
         accountName,
@@ -494,7 +494,7 @@ export async function GET(
       console.error('Azure upload failed:', e);
       // Continue anyway and return the image
     }
-    
+
     // Construct public URL
     const storageUrl = buildBlobUrl(accountName, containerName, blobName);
     const publicBase = process.env.AZURE_BLOB_PUBLIC_BASE_URL;
@@ -504,10 +504,10 @@ export async function GET(
           const u = new URL(storageUrl);
           return `${publicBase}${u.pathname}`;
         }
-      } catch {}
+      } catch { }
       return storageUrl;
     })();
-    
+
     // Return the generated image directly (convert Buffer to Uint8Array for NextResponse)
     return new NextResponse(new Uint8Array(finalImage), {
       headers: {
@@ -518,7 +518,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('OG image generation error:', error);
-    
+
     // Return a simple fallback gradient
     const fallbackSvg = `
       <svg width="1200" height="630">
@@ -532,12 +532,12 @@ export async function GET(
         <text x="600" y="315" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="white" text-anchor="middle">${escapeXml(`Shop on ${brand.name}`)}</text>
       </svg>
     `;
-    
+
     const fallbackBuffer = await sharp(Buffer.from(fallbackSvg))
       .resize(1200, 630)
       .jpeg({ quality: 85 })
       .toBuffer();
-    
+
     return new NextResponse(new Uint8Array(fallbackBuffer), {
       headers: {
         'Content-Type': 'image/jpeg',

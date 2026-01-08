@@ -6,10 +6,8 @@ import {
   wrapTextToLines,
   OG_LAYOUT,
   TEXT_SHADOWS,
-  loadPPSymbol,
-  loadPublicImageBuffer,
-  loadTwemojiPng,
 } from '@/lib/og-image-utils';
+import { loadPPSymbol, loadPublicImageBuffer, loadTwemojiPng } from '@/lib/og-asset-loader';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -106,13 +104,13 @@ export async function GET(_req: NextRequest) {
           ${escapeForSvg(eyebrowText)}
         </text>
         ${titleLines
-          .map(
-            (ln, idx) =>
-              `<text x="${leftX}" y="${titleStartY + idx * 64}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="#FFFFFF" filter="url(#glow)" style="text-shadow: 3px 3px 12px rgba(0,0,0,0.55);">${escapeForSvg(
-                ln
-              )}</text>`
-          )
-          .join('')}
+        .map(
+          (ln, idx) =>
+            `<text x="${leftX}" y="${titleStartY + idx * 64}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="#FFFFFF" filter="url(#glow)" style="text-shadow: 3px 3px 12px rgba(0,0,0,0.55);">${escapeForSvg(
+              ln
+            )}</text>`
+        )
+        .join('')}
         ${linesSvg}
         <!-- Bottom branding -->
         <text x="${leftX}" y="595" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.86)" letter-spacing="1.5">
@@ -140,7 +138,7 @@ export async function GET(_req: NextRequest) {
         const fgBuf = await sharp(fallbackGlobe).png().toBuffer();
         composites.push({ input: fgBuf, top: cy - 100, left: cx - 100 });
       }
-    } catch {}
+    } catch { }
 
     // PP symbol in top-right
     if (ppSymbolOverlay) {

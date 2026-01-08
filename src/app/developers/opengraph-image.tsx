@@ -1,5 +1,6 @@
 
 import { generateBasaltOG } from '@/lib/og-template';
+import { loadBasaltDefaults } from '@/lib/og-asset-loader';
 
 export const runtime = 'nodejs';
 export const alt = 'Basalt Developers';
@@ -7,9 +8,13 @@ export const size = { width: 2400, height: 1260 };
 export const contentType = 'image/png';
 
 export default async function Image() {
+  const defaults = await loadBasaltDefaults();
+
   return await generateBasaltOG({
-    bgPath: 'bsurgebg.png',
+    bgImage: defaults.bgBase64,
+    blurredBgImage: defaults.blurredBgBase64 || defaults.bgBase64,
     primaryColor: '#8b5cf6', // Violet for devs
+    cornerShieldImage: defaults.shieldBase64,
     leftWing: (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
         <div style={{ fontSize: 32, color: 'rgba(255,255,255,0.9)', fontWeight: 600, letterSpacing: '0.1em', marginBottom: 4 }}>BASALT</div>

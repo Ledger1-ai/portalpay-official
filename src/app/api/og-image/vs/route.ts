@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
-import { createMeshGradient, escapeForSvg, wrapTextToLines, OG_LAYOUT, TEXT_SHADOWS, loadPPSymbol, loadPublicImageBuffer } from '@/lib/og-image-utils';
+import { createMeshGradient, escapeForSvg, wrapTextToLines, OG_LAYOUT, TEXT_SHADOWS } from '@/lib/og-image-utils';
+import { loadPPSymbol, loadPublicImageBuffer } from '@/lib/og-asset-loader';
 import { getBrandConfig } from '@/config/brands';
 
 export const runtime = 'nodejs';
@@ -169,16 +170,16 @@ export async function GET(_req: NextRequest) {
           ${escapeForSvg(eyebrowText)}
         </text>
         ${(() => {
-          // Map the three hard-coded title lines at new centered position
-          return titleLines
-            .map(
-              (ln, idx) =>
-                `<text x="${leftX}" y="${titleStartY + idx * titleLineGap}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="#FFFFFF" filter="url(#glow)" style="text-shadow: 3px 3px 12px rgba(0,0,0,0.5);">${escapeForSvg(
-                  ln
-                )}</text>`
-            )
-            .join('');
-        })()}
+        // Map the three hard-coded title lines at new centered position
+        return titleLines
+          .map(
+            (ln, idx) =>
+              `<text x="${leftX}" y="${titleStartY + idx * titleLineGap}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="#FFFFFF" filter="url(#glow)" style="text-shadow: 3px 3px 12px rgba(0,0,0,0.5);">${escapeForSvg(
+                ln
+              )}</text>`
+          )
+          .join('');
+      })()}
         ${linesSvg}
 
         <!-- Bottom branding -->

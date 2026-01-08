@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getLocationData } from '@/lib/landing-pages/locations';
 import { getFlagColors } from '@/lib/flags';
-import { createFlagMeshGradient, escapeForSvg, truncateText, wrapTextToLines, loadTwemojiPng, OG_LAYOUT, TEXT_SHADOWS, loadPPSymbol, renderLineWithEmphasis, wrapTitleToLines, WATERMARK, loadPublicImageBuffer } from '@/lib/og-image-utils';
+import { createFlagMeshGradient, escapeForSvg, truncateText, wrapTextToLines, OG_LAYOUT, TEXT_SHADOWS, renderLineWithEmphasis, wrapTitleToLines, WATERMARK } from '@/lib/og-image-utils';
+import { loadTwemojiPng, loadPPSymbol, loadPublicImageBuffer } from '@/lib/og-asset-loader';
 import { getBrandConfig } from '@/config/brands';
 
 export const runtime = 'nodejs';
@@ -15,16 +16,16 @@ export async function GET(
   const brand = getBrandConfig();
   try {
     const { slug } = await params;
-    
+
     // Get location data
     const locationData = getLocationData(slug);
-    
+
     if (!locationData) {
       return new NextResponse('Location not found', { status: 404 });
     }
-    
+
     const { name, country, localContext } = locationData;
-    
+
     // Map country to flag emoji
     const countryToFlag: Record<string, string> = {
       // Africa & Asia
@@ -266,28 +267,28 @@ export async function GET(
       'Western Samoa': '🇼🇸',
       'Canary Islands': '🇮🇨',
     };
-    
+
     const flag = countryToFlag[country] || '🌍';
-    
+
     // Get flag colors based on country name (ensures accurate palette)
     const flagColors = getFlagColors(country);
-    
+
     // Create flag mesh gradient background
     const backgroundSvg = createFlagMeshGradient(flagColors);
     let imageBuffer = await sharp(Buffer.from(backgroundSvg))
       .resize(1200, 630)
       .png()
       .toBuffer();
-    
+
     // Load PortalPay symbol (local preferred, remote fallback)
     const ppSymbolOverlay: Buffer | null = await loadPPSymbol(OG_LAYOUT.ppSymbol.size);
-    
+
     // Create text overlay with beautiful hierarchy: eyebrow + massive hero + description
     const eyebrowText = 'Accept Crypto Payments in';
     const heroText = name; // The location name as the star
     const subtitleText = localContext || 'Low-fee payment processing for local businesses';
     const maxTextWidth = OG_LAYOUT.canvas.width - OG_LAYOUT.text.x - OG_LAYOUT.margin;
-    
+
     // Wrap hero if needed (rare, but handles long city names)
     const heroLines = wrapTitleToLines(heroText, maxTextWidth, 92, 2);
     const descFontSize = 24;
@@ -296,7 +297,7 @@ export async function GET(
     const linesSvg = descLines
       .map((ln, idx) => `<text x="${OG_LAYOUT.text.x}" y="${descStartY + idx * 30}" font-family="Arial, sans-serif" font-size="${descFontSize}" fill="rgba(255,255,255,0.90)" style="text-shadow: ${TEXT_SHADOWS.desc};">${renderLineWithEmphasis(ln)}</text>`)
       .join('\n');
-    
+
     // Add industry pills below description
     const industryLabels: Record<string, string> = {
       'internet-cafes': 'Internet Cafés',
@@ -353,7 +354,7 @@ export async function GET(
         `;
       })
       .join('');
-    
+
     const textSvg = `
       <svg width="${OG_LAYOUT.canvas.width}" height="${OG_LAYOUT.canvas.height}" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -385,7 +386,7 @@ export async function GET(
         </text>
       </svg>
     `;
-    
+
     // Composite watermark onto mesh gradient first
     const watermarkBuf = await loadPublicImageBuffer('watermark.png');
     if (watermarkBuf) {
@@ -394,27 +395,27 @@ export async function GET(
         .png()
         .toBuffer();
     }
-    
+
     // Then composite text and other elements
     const composites: any[] = [{ input: Buffer.from(textSvg), top: 0, left: 0 }];
-    
+
     // Add Twemoji-rendered flag image to avoid black box rendering
     // Position flag emoji aligned with hero text
     const flagEmojiPng = await loadTwemojiPng(flag, 180);
     if (flagEmojiPng) {
       composites.push({ input: flagEmojiPng, top: 235, left: 50 });
     }
-    
+
     // Add PortalPay symbol in top right if loaded
     if (ppSymbolOverlay) {
       composites.push({ input: ppSymbolOverlay, top: OG_LAYOUT.ppSymbol.y, left: OG_LAYOUT.ppSymbol.x });
     }
-    
+
     imageBuffer = await sharp(imageBuffer)
       .composite(composites)
       .jpeg({ quality: 90 })
       .toBuffer();
-    
+
     return new NextResponse(new Uint8Array(imageBuffer), {
       headers: {
         'Content-Type': 'image/jpeg',
@@ -423,7 +424,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('OG image generation error:', error);
-    
+
     // Fallback gradient
     const fallbackSvg = `
       <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
@@ -442,12 +443,12 @@ export async function GET(
         </text>
       </svg>
     `;
-    
+
     const fallbackBuffer = await sharp(Buffer.from(fallbackSvg))
       .resize(1200, 630)
       .jpeg({ quality: 85 })
       .toBuffer();
-    
+
     return new NextResponse(new Uint8Array(fallbackBuffer), {
       headers: {
         'Content-Type': 'image/jpeg',

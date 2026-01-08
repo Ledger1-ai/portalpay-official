@@ -1,7 +1,8 @@
 
 import { generateBasaltOG } from '@/lib/og-template';
 import { getComparisonData } from '@/lib/landing-pages/comparisons';
-import { createMeshGradient, loadPublicImageBuffer, fetchWithCache, escapeForSvg } from '@/lib/og-image-utils';
+import { createMeshGradient, escapeForSvg } from '@/lib/og-image-utils';
+import { loadPublicImageBuffer, fetchWithCache } from '@/lib/og-asset-loader';
 import { getBrandConfig } from '@/config/brands';
 import sharp from 'sharp';
 
@@ -99,6 +100,7 @@ export default async function Image({ params }: { params: Promise<{ competitor: 
 
     return await generateBasaltOG({
         bgImage: bgDataUri,
+        blurredBgImage: bgDataUri,
         medallionImage: medallionDataUri, // Competitor logo in center
         primaryColor: colors[0],
         leftWing: (

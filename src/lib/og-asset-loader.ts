@@ -185,11 +185,22 @@ export async function loadBasaltDefaults(): Promise<{
 
     const toBase64 = (buf: Buffer | null) => buf ? `data:image/png;base64,${buf.toString('base64')}` : '';
 
+    const resize = async (buf: Buffer | null, w: number) => {
+        if (!buf) return null;
+        return await sharp(buf).resize(w).png().toBuffer();
+    };
+
+    const bgResized = await resize(bg, 1200);
+    const blurredResized = await resize(blurred, 1200);
+    const medallionResized = await resize(medallion, 600);
+    const logoResized = await resize(logo, 600);
+    const shieldResized = await resize(shield, 200);
+
     return {
-        bgBase64: toBase64(bg),
-        blurredBgBase64: toBase64(blurred),
-        medallionBase64: toBase64(medallion),
-        logoBase64: toBase64(logo),
-        shieldBase64: toBase64(shield),
+        bgBase64: toBase64(bgResized),
+        blurredBgBase64: toBase64(blurredResized),
+        medallionBase64: toBase64(medallionResized),
+        logoBase64: toBase64(logoResized),
+        shieldBase64: toBase64(shieldResized),
     };
 }

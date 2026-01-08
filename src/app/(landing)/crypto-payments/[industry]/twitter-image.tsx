@@ -1,7 +1,8 @@
 
 import { generateBasaltOG } from '@/lib/og-template';
 import { getIndustryData } from '@/lib/landing-pages/industries';
-import { getEmojiColors, createMeshGradient, loadTwemojiPng } from '@/lib/og-image-utils';
+import { getEmojiColors, createMeshGradient } from '@/lib/og-image-utils';
+import { loadTwemojiPng } from '@/lib/og-asset-loader';
 import sharp from 'sharp';
 
 export const runtime = 'nodejs';
@@ -29,6 +30,7 @@ export default async function Image({ params }: { params: Promise<{ industry: st
 
     return await generateBasaltOG({
         bgImage: bgDataUri,
+        blurredBgImage: bgDataUri,
         medallionImage: medallionDataUri,
         primaryColor: colors[0],
         leftWing: (

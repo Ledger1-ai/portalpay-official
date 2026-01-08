@@ -1,13 +1,20 @@
 import { generateBasaltOG } from '@/lib/og-template';
 
+import { loadBasaltDefaults } from '@/lib/og-asset-loader';
+
 export const runtime = 'nodejs';
 export const alt = 'Basalt Surge - Web3 Native Commerce & Payments';
 export const size = { width: 2400, height: 1260 };
 export const contentType = 'image/png';
 
 export default async function Image() {
+    const defaults = await loadBasaltDefaults();
+
     return await generateBasaltOG({
-        bgPath: 'bsurgebg.png',
+        bgImage: defaults.bgBase64,
+        blurredBgImage: defaults.blurredBgBase64,
+        medallionImage: defaults.medallionBase64,
+        cornerShieldImage: defaults.shieldBase64,
         primaryColor: '#35ff7c',
         leftWing: (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>

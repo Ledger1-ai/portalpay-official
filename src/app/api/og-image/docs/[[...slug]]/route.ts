@@ -8,9 +8,8 @@ import {
   wrapTextToLines,
   OG_LAYOUT,
   TEXT_SHADOWS,
-  loadPPSymbol,
-  loadPublicImageBuffer,
 } from '@/lib/og-image-utils';
+import { loadPPSymbol, loadPublicImageBuffer } from '@/lib/og-asset-loader';
 import { getBrandConfig } from '@/config/brands';
 
 export const runtime = 'nodejs';

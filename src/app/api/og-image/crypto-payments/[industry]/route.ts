@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getIndustryData } from '@/lib/landing-pages/industries';
-import { getEmojiColors, createMeshGradient, escapeForSvg, wrapTextToLines, loadTwemojiPng, OG_LAYOUT, TEXT_SHADOWS, loadPPSymbol, renderLineWithEmphasis, wrapTitleToLines, WATERMARK, loadPublicImageBuffer } from '@/lib/og-image-utils';
+import { getEmojiColors, createMeshGradient, escapeForSvg, wrapTextToLines, OG_LAYOUT, TEXT_SHADOWS, renderLineWithEmphasis, wrapTitleToLines, WATERMARK } from '@/lib/og-image-utils';
+import { loadTwemojiPng, loadPPSymbol, loadPublicImageBuffer } from '@/lib/og-asset-loader';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

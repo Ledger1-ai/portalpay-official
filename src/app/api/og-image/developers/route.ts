@@ -6,9 +6,8 @@ import {
   wrapTextToLines,
   OG_LAYOUT,
   TEXT_SHADOWS,
-  loadPPSymbol,
-  loadPublicImageBuffer,
 } from '@/lib/og-image-utils';
+import { loadPPSymbol, loadPublicImageBuffer } from '@/lib/og-asset-loader';
 import { getBrandConfig } from '@/config/brands';
 
 export const runtime = 'nodejs';
@@ -92,8 +91,7 @@ export async function GET(_req: NextRequest) {
     const codeLinesSvg = codeLines
       .map(
         (line, idx) =>
-          `<text x="${cardX + 20}" y="${
-            codeStartY + idx * lineSpacing
+          `<text x="${cardX + 20}" y="${codeStartY + idx * lineSpacing
           }" font-family="Courier New, monospace" font-size="17" fill="rgba(255,255,255,0.95)">${line}</text>`
       )
       .join('\n');
@@ -132,13 +130,13 @@ export async function GET(_req: NextRequest) {
         </text>
 
         ${titleLines
-          .map(
-            (ln, idx) =>
-              `<text x="${leftX}" y="${titleStartY + idx * 64}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="#FFFFFF" filter="url(#glow)" style="text-shadow: 3px 3px 12px rgba(0,0,0,0.55);">${escapeForSvg(
-                ln
-              )}</text>`
-          )
-          .join('')}
+        .map(
+          (ln, idx) =>
+            `<text x="${leftX}" y="${titleStartY + idx * 64}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="#FFFFFF" filter="url(#glow)" style="text-shadow: 3px 3px 12px rgba(0,0,0,0.55);">${escapeForSvg(
+              ln
+            )}</text>`
+        )
+        .join('')}
 
         ${descLinesSvg}
 

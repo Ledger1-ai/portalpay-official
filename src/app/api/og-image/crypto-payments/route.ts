@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
-import {
-  createMeshGradient,
-  escapeForSvg,
-  wrapTextToLines,
-  OG_LAYOUT,
-  TEXT_SHADOWS,
-  loadPPSymbol,
-  loadPublicImageBuffer,
-  loadTwemojiPng,
-} from '@/lib/og-image-utils';
+import { createMeshGradient, escapeForSvg, truncateText, wrapTextToLines, OG_LAYOUT, TEXT_SHADOWS, renderLineWithEmphasis, wrapTitleToLines, WATERMARK } from '@/lib/og-image-utils';
+import { loadTwemojiPng, loadPPSymbol, loadPublicImageBuffer } from '@/lib/og-asset-loader';
 import { getBrandConfig } from '@/config/brands';
 
 export const runtime = 'nodejs';
@@ -118,25 +110,24 @@ export async function GET(_req: NextRequest) {
 
         <!-- Title -->
         ${titleLines
-          .map(
-            (ln, idx) =>
-              `<text x="${centerX}" y="${titleStartY + 18 + idx * 78}" font-family="Arial, sans-serif" font-size="${titleFontSize + 18}" font-weight="900" fill="#FFFFFF" filter="url(#glow)" text-anchor="middle" style="text-shadow: 4px 4px 15px rgba(0,0,0,0.55);">${escapeForSvg(
-                ln
-              )}</text>`
-          )
-          .join('')}
+        .map(
+          (ln, idx) =>
+            `<text x="${centerX}" y="${titleStartY + 18 + idx * 78}" font-family="Arial, sans-serif" font-size="${titleFontSize + 18}" font-weight="900" fill="#FFFFFF" filter="url(#glow)" text-anchor="middle" style="text-shadow: 4px 4px 15px rgba(0,0,0,0.55);">${escapeForSvg(
+              ln
+            )}</text>`
+        )
+        .join('')}
 
         <!-- Description -->
-        ${
-          descLines
-            .map(
-              (ln, idx) =>
-                `<text x="${centerX}" y="${descStartY + 48 + idx * 34}" font-family="Arial, sans-serif" font-size="${descFontSize + 8}" fill="rgba(255,255,255,0.95)" text-anchor="middle" style="text-shadow: ${TEXT_SHADOWS.desc};">${escapeForSvg(
-                  ln
-                )}</text>`
-            )
-            .join('\n')
-        }
+        ${descLines
+        .map(
+          (ln, idx) =>
+            `<text x="${centerX}" y="${descStartY + 48 + idx * 34}" font-family="Arial, sans-serif" font-size="${descFontSize + 8}" fill="rgba(255,255,255,0.95)" text-anchor="middle" style="text-shadow: ${TEXT_SHADOWS.desc};">${escapeForSvg(
+              ln
+            )}</text>`
+        )
+        .join('\n')
+      }
 
         <!-- Motion guide arcs behind emoji orbit -->
         <path d="M ${arcCenterX - arcRadius} ${arcCenterY} A ${arcRadius} ${arcRadius} 0 0 1 ${arcCenterX + arcRadius} ${arcCenterY}" stroke="url(#arcStroke)" stroke-width="2" fill="none" />

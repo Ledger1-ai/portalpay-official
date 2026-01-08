@@ -2,7 +2,7 @@
 import { generateBasaltOG } from '@/lib/og-template';
 import { getContainer } from '@/lib/cosmos';
 import { getBrandConfig } from '@/config/brands';
-import { loadPPSymbol, fetchWithCache } from '@/lib/og-image-utils';
+import { loadPPSymbol, fetchWithCache, loadBasaltDefaults } from '@/lib/og-asset-loader';
 import sharp from 'sharp';
 
 export const runtime = 'nodejs';
@@ -13,6 +13,7 @@ export const contentType = 'image/png';
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const cleanSlug = slug.toLowerCase();
+  const defaults = await loadBasaltDefaults();
 
   let shopConfig: {
     name?: string;
@@ -87,6 +88,16 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     }
   }
 
+  let blurredBgDataUri: string | undefined;
+  if (coverPhotoUrl) {
+    const absUrl = getParams(coverPhotoUrl);
+    const buffer = await fetchWithCache(absUrl);
+    if (buffer) {
+      const blurred = await sharp(buffer).resize(1200, 630, { fit: 'cover' }).blur(20).jpeg({ quality: 80 }).toBuffer();
+      blurredBgDataUri = `data:image/jpeg;base64,${blurred.toString('base64')}`;
+    }
+  }
+
   let medallionDataUri: string | undefined;
   if (shopLogoUrl) {
     const absUrl = getParams(shopLogoUrl);
@@ -97,10 +108,11 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     }
   }
 
-
   return await generateBasaltOG({
-    bgImage: bgDataUri, // Will default to 'basaltbg.png' if undefined
-    medallionImage: medallionDataUri, // Will default to 'Basalt.png' if undefined
+    bgImage: bgDataUri || defaults.bgBase64,
+    blurredBgImage: blurredBgDataUri || defaults.blurredBgBase64 || defaults.bgBase64,
+    medallionImage: medallionDataUri || defaults.medallionBase64,
+    cornerShieldImage: defaults.shieldBase64,
     primaryColor: primaryColor,
     leftWing: (
       <>

@@ -12,8 +12,8 @@ export type OGTemplateProps = {
     // Images must be passed as Data URIs (base64) by the caller
     bgImage: string;
     blurredBgImage: string;
-    medallionImage: string;
-    poweredByImage: string; // was 'loadAsset'
+    medallionImage?: string;
+    poweredByImage?: string; // was 'loadAsset'
     cornerShieldImage?: string;
 };
 
@@ -123,19 +123,23 @@ export async function generateBasaltOG({
             </div>
 
             {/* Center Medallion */}
-            <div style={{ position: 'absolute', left: 850, top: 280, width: 700, height: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', overflow: 'hidden' }}>
-                <img src={medallionImage} width={700} height={700} style={{
-                    objectFit: 'contain',
-                }} />
-            </div>
+            {medallionImage && (
+                <div style={{ position: 'absolute', left: 850, top: 280, width: 700, height: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', overflow: 'hidden' }}>
+                    <img src={medallionImage} width={700} height={700} style={{
+                        objectFit: 'contain',
+                    }} />
+                </div>
+            )}
 
             {/* Outer glow ring around medallion */}
             <div style={{ position: 'absolute', left: 846, top: 276, width: 708, height: 708, borderRadius: '50%', border: `4px solid ${primaryColor}`, boxShadow: `0 0 40px ${primaryColor}60` }} />
 
             {/* Powered By Logo */}
-            <div style={{ position: 'absolute', top: 1040, left: 0, width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.8))' }}>
-                <img src={poweredByImage} height={120} style={{ objectFit: 'contain', opacity: 1 }} />
-            </div>
+            {poweredByImage && (
+                <div style={{ position: 'absolute', top: 1040, left: 0, width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.8))' }}>
+                    <img src={poweredByImage} height={120} style={{ objectFit: 'contain', opacity: 1 }} />
+                </div>
+            )}
 
             {/* Corner Shield */}
             {cornerShieldImage && (
