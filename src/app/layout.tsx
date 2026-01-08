@@ -309,7 +309,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const ogTitle = (() => {
     const candidates = [siteMetaTitle, platformMetaTitle, filteredOgTitle];
     for (const c of candidates) {
-      const v = String(c || "").trim();
+      let v = String(c || "").trim();
       if (!v) continue;
       // Skip if it says "PortalPay" anywhere in partner containers (exact match or contains)
       if (isPartnerContainerForMeta) {
@@ -317,6 +317,11 @@ export async function generateMetadata(): Promise<Metadata> {
         if (/^portalpay$/i.test(v)) continue;
         // Also skip titles that contain "PortalPay" as these leak platform branding
         if (/portalpay/i.test(v)) continue;
+      }
+
+      // Override for Platform: If we are not a partner, and title is "PortalPay", force "BasaltSurge"
+      if (!isPartnerContainerForMeta && /^portalpay$/i.test(v)) {
+        return "BasaltSurge";
       }
       return v;
     }
@@ -441,7 +446,7 @@ export async function generateMetadata(): Promise<Metadata> {
     applicationName: brandNameForTitle,
     title: {
       default: ogTitle,
-      template: `%s • ${brandNameForTitle}`,
+      template: `%s | ${brandNameForTitle}`,
     },
     description,
     keywords: [
@@ -494,8 +499,8 @@ export async function generateMetadata(): Promise<Metadata> {
       url: true,
     },
     icons: {
-      // Always use dynamic endpoint for favicon to avoid stale or wrong-brand icons after hydration
-      icon: [{ url: "/api/favicon" }],
+      // Use Surge.png directly for favicon
+      icon: [{ url: "/Surge.png" }],
       apple: (() => {
         const isPartner = String(envMeta.CONTAINER_TYPE || "").toLowerCase() === "partner";
         const key = baseBrand.key || "";

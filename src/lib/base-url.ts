@@ -9,13 +9,13 @@ export function getInternalBaseUrl(): string {
   if (internal) {
     return internal.replace(/\/$/, '');
   }
-  
+
   // In production without INTERNAL_BASE_URL, use localhost:3000
   // Note: Server binds to 0.0.0.0:3000 but localhost/127.0.0.1 should work for internal calls
   if (process.env.NODE_ENV === 'production') {
     return 'http://localhost:3000';
   }
-  
+
   // Development: use localhost with configured port
   return 'http://localhost:3001';
 }
@@ -36,7 +36,7 @@ export function getBaseUrl(): string {
   // In production, always use the production URL with HTTPS
   if (process.env.NODE_ENV === 'production') {
     let url = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
-    
+
     // If no explicit URL configured, derive from request headers (partner container fallback)
     if (!url) {
       try {
@@ -50,7 +50,7 @@ export function getBaseUrl(): string {
         // headers() may fail in some contexts (e.g., static generation); fall back to platform default
       }
     }
-    
+
     // Final fallback: if headers and env are unavailable, avoid leaking platform defaults
     // Use a placeholder domain that indicates misconfiguration but won't leak localhost
     if (!url || isLocalhostUrl(url)) {
@@ -73,7 +73,7 @@ export function getBaseUrl(): string {
 export async function getProductionBaseUrl(): Promise<string> {
   // First try environment variables
   let url = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
-  
+
   // If no env URL or it's localhost, try headers
   if (!url || isLocalhostUrl(url)) {
     try {
@@ -87,12 +87,12 @@ export async function getProductionBaseUrl(): Promise<string> {
       // headers() may fail; continue with fallback
     }
   }
-  
+
   // Final fallback for production - use a default domain that indicates misconfiguration
   if (!url || isLocalhostUrl(url)) {
     url = 'https://pay.ledger1.ai';
   }
-  
+
   // Force HTTPS
   return url.replace(/^http:\/\//, 'https://');
 }
@@ -104,9 +104,9 @@ export async function getProductionBaseUrl(): Promise<string> {
 export function isLocalhostUrl(url: string): boolean {
   if (!url) return false;
   const lower = url.toLowerCase();
-  return lower.includes('localhost') || 
-         lower.includes('127.0.0.1') || 
-         /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(lower);
+  return lower.includes('localhost') ||
+    lower.includes('127.0.0.1') ||
+    /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(lower);
 }
 
 /**
@@ -116,7 +116,7 @@ export function isLocalhostUrl(url: string): boolean {
  */
 export function sanitizeMetadataUrl(url: string | undefined, fallbackAppUrl?: string): string | undefined {
   if (!url) return fallbackAppUrl;
-  
+
   // In production, never return localhost URLs for metadata
   if (process.env.NODE_ENV === 'production' && isLocalhostUrl(url)) {
     // Try to use the fallback app URL if provided
@@ -126,6 +126,6 @@ export function sanitizeMetadataUrl(url: string | undefined, fallbackAppUrl?: st
     // Return undefined to signal that the URL is invalid
     return undefined;
   }
-  
+
   return url;
 }

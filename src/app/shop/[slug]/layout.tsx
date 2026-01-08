@@ -69,8 +69,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     // Priority: Shop Specific -> /api/favicon (Brand Dynamic)
     // We do NOT fallback to the logo for the favicon, as that causes the issue where the logo is used instead of the favicon.
     // /api/favicon will automatically serve the correct brand favicon.
-    const logo = config.theme?.brandLogoUrl || brand.logos.app;
-    const shopFavicon = config.theme?.brandFaviconUrl;
+    const logoRaw = config.theme?.brandLogoUrl || brand.logos.app;
+    const isLogoBlocked = logoRaw && (logoRaw.includes("a311dcf8") || logoRaw.includes("cblogod.png"));
+    const logo = isLogoBlocked ? "/BasaltSurgeWideD.png" : logoRaw;
+
+    const shopFaviconRaw = config.theme?.brandFaviconUrl;
+    const isFaviconBlocked = shopFaviconRaw && (shopFaviconRaw.includes("a311dcf8") || shopFaviconRaw.includes("cblogod.png"));
+    const shopFavicon = isFaviconBlocked ? undefined : shopFaviconRaw;
     const faviconUrl = shopFavicon || "/api/favicon";
 
     const shopApple = config.theme?.appleTouchIconUrl;

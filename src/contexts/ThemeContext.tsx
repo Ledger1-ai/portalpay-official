@@ -9,9 +9,9 @@ import { getDefaultBrandSymbol, isBasaltSurge, resolveBrandAppLogo, resolveBrand
 const BLOCKED_FAVICON_URLS = [
   "https://portalpay-b6hqctdfergaadct.z02.azurefd.net/portalpay/uploads/a311dcf8-e6de-4eca-a39c-907b347dff11.png",
 ];
-const BLOCKED_FAVICON_REPLACEMENT = "/cblogod.png";
+const BLOCKED_FAVICON_REPLACEMENT = "/Surge.png";
 
-function sanitizeFaviconUrl(url: string | undefined): string {
+export function sanitizeFaviconUrl(url: string | undefined): string {
   if (!url) return '';
   const normalized = url.trim().toLowerCase();
   const isBlocked = BLOCKED_FAVICON_URLS.some(blocked => normalized === blocked.toLowerCase());
@@ -44,21 +44,21 @@ type ThemeContextType = {
 };
 
 const defaultTheme: SiteTheme = {
-  primaryColor: '#0f172a',
-  secondaryColor: '#F54029',
+  primaryColor: '#35ff7c',
+  secondaryColor: '#FF6B35',
   // Neutral defaults to avoid PortalPay flash in partner context before BrandContext loads
-  brandLogoUrl: '',
-  brandFaviconUrl: '',
-  symbolLogoUrl: '',
-  brandName: '',
+  brandLogoUrl: '/BasaltSurgeWideD.png',
+  brandFaviconUrl: '/Surge.png',
+  symbolLogoUrl: '/BasaltSurgeD.png',
+  brandName: 'BasaltSurge',
   fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
   receiptBackgroundUrl: '/watermark.png',
   textColor: '#ffffff',
   headerTextColor: '#ffffff',
   bodyTextColor: '#e5e7eb',
   brandLogoShape: 'square',
-  navbarMode: 'symbol',
-  brandKey: '',
+  navbarMode: 'logo',
+  brandKey: 'basaltsurge',
   footerLogoUrl: '',
 };
 
@@ -251,6 +251,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           x.brandLogoUrl = resolveBrandAppLogo(x.brandLogoUrl, brandKeyFinal);
           x.symbolLogoUrl = resolveBrandSymbol(x.symbolLogoUrl || x.brandLogoUrl, brandKeyFinal);
 
+          // Ensure favicon is sanitized against malicious URLs
+          if (x.brandFaviconUrl) {
+            x.brandFaviconUrl = sanitizeFaviconUrl(x.brandFaviconUrl);
+          }
+          // Also sanitize logos if they look like the blocked URL
+          if (x.brandLogoUrl) x.brandLogoUrl = sanitizeFaviconUrl(x.brandLogoUrl);
+          if (x.symbolLogoUrl) x.symbolLogoUrl = sanitizeFaviconUrl(x.symbolLogoUrl);
+
           if (x.logos) {
             x.logos.symbol = x.symbolLogoUrl;
             x.logos.app = x.brandLogoUrl;
@@ -260,8 +268,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           // Only do this for global/platform defaults, NEVER for a specific shop theme (merchant might want teal)
           const isPlatform = !brandKeyFinal || brandKeyFinal === "portalpay" || brandKeyFinal === "basaltsurge";
           if (isPlatform && !shopTheme) {
-            const defaultPrimary = isBS ? '#22C55E' : '#1f2937';
-            const defaultAccent = isBS ? '#16A34A' : '#F54029';
+            const defaultPrimary = '#35ff7c';
+            const defaultAccent = '#FF6B35';
             const p = String(x.primaryColor || "").toLowerCase();
             const s = String(x.secondaryColor || "").toLowerCase();
 

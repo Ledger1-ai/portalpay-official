@@ -45,16 +45,17 @@ export type SiteConfig = {
 };
 
 function defaultTheme(): SiteTheme {
-  const brandKey = (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "portalpay").toLowerCase();
-  const isBasalt = brandKey === "basaltsurge";
+  const brandKey = (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "basaltsurge").toLowerCase();
+  // Force BasaltSurge if nothing else matches, or if it's basaltsurge
+  const isBasalt = true; // Always default to Basalt branding now
 
   return {
-    primaryColor: isBasalt ? "#22C55E" : "#1f2937",
-    secondaryColor: isBasalt ? "#16A34A" : "#F54029",
+    primaryColor: "#35ff7c", // Basalt neon green
+    secondaryColor: "#16A34A",
     // Neutral defaults to prevent PortalPay takeover; actual logos injected from BrandContext or site-config
-    brandLogoUrl: "",
-    brandFaviconUrl: "/favicon-32x32.png",
-    brandName: isBasalt ? "BasaltSurge" : "PortalPay",
+    brandLogoUrl: "/BasaltSurgeWideD.png",
+    brandFaviconUrl: "/Surge.png", // Use shield PNG as favicon
+    brandName: "BasaltSurge",
     fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
     receiptBackgroundUrl: "/watermark.png",
   };

@@ -123,7 +123,8 @@ export function createMeshGradient(colors: string[], width = 1200, height = 630)
  */
 export function createFlagMeshGradient(flagColors: string[], width = 1200, height = 630): string {
   // Use the flag colors to create a beautiful mesh gradient
-  const colors = flagColors.length >= 3 ? flagColors.slice(0, 3) : [...flagColors, ...flagColors, flagColors[0]];
+  const safeColors = flagColors || ['#ffffff', '#cccccc', '#999999'];
+  const colors = safeColors.length >= 3 ? safeColors.slice(0, 3) : [...safeColors, ...safeColors, safeColors[0]];
   return createMeshGradient(colors, width, height);
 }
 
@@ -454,10 +455,10 @@ export async function loadPPSymbol(size = 60): Promise<Buffer | null> {
 
     if (!src) {
       // Platform default symbol (local preferred, remote fallback)
-      console.log('[loadPPSymbol] Using platform default symbol');
-      const isBasalt = String(brand?.key || "").toLowerCase() === "basaltsurge";
-      const local = await loadPublicImageBuffer(isBasalt ? 'bssymbol.png' : 'ppsymbol.png');
-      src = local || await fetchWithCache(isBasalt ? 'https://surge.basalthq.com/bssymbol.png' : 'https://pay.ledger1.ai/ppsymbol.png');
+      console.log('[loadPPSymbol] Using platform default symbol (Surge.png)');
+      const isBasalt = true; // Always default to Basalt
+      const local = await loadPublicImageBuffer('Surge.png');
+      src = local || await fetchWithCache('https://surge.basalthq.com/bssymbol.png');
     }
 
     if (!src) {
@@ -503,23 +504,28 @@ export async function loadTwemojiPng(emoji: string, size = 96): Promise<Buffer |
   const candidates: string[] = [];
   const cpVariants = Array.from(new Set([rawCp, removeFe0f(rawCp)]));
   for (const cp of cpVariants) {
-    // Try multiple CDNs for robustness
-    candidates.push(`https://twemoji.maxcdn.com/v/latest/svg/${cp}.svg`);
+    // Try multiple CDNs for robustness - jsdelivr is reliable for this
+    candidates.push(`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${cp}.svg`);
     candidates.push(`https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/${cp}.svg`);
+    candidates.push(`https://unpkg.com/twemoji@14.0.2/assets/svg/${cp}.svg`);
   }
 
   for (const url of candidates) {
     try {
       const svgBuf = await fetchImageAsBuffer(url);
       if (!svgBuf) continue;
-      const png = await (await import('sharp')).default(svgBuf)
+
+      const sharp = (await import('sharp')).default;
+      const png = await sharp(svgBuf)
         .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
+
       assetCache.set(cacheKey, { buffer: png, expires: now + 86_400_000 }); // 24h
       return png;
-    } catch {
+    } catch (e) {
       // try next candidate
+      // console.error(`Failed to load twemoji from ${url}`, e);
     }
   }
   return null;

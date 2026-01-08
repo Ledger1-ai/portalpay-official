@@ -78,7 +78,7 @@ export function getEnv(): EnvConfig {
   const containerTypeRaw = (process.env.CONTAINER_TYPE || '').trim().toLowerCase();
   const containerType: ContainerType = containerTypeRaw === 'partner' ? 'partner' : 'platform';
 
-  const BRAND_KEY = coerceStr(process.env.BRAND_KEY) || "PortalPay";
+  const BRAND_KEY = coerceStr(process.env.BRAND_KEY) || "BasaltSurge";
 
   const NEXT_PUBLIC_OWNER_WALLET = normalizeHexAddress(process.env.NEXT_PUBLIC_OWNER_WALLET);
 

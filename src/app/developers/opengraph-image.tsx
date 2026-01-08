@@ -1,36 +1,37 @@
-import { ImageResponse } from 'next/og';
-import { getBaseUrl } from '@/lib/base-url';
 
-export const runtime = 'edge';
-export const alt = 'Developers';
-export const size = { width: 1200, height: 630 };
-export const contentType = 'image/jpeg';
+import { generateBasaltOG } from '@/lib/og-template';
+
+export const runtime = 'nodejs';
+export const alt = 'Basalt Developers';
+export const size = { width: 2400, height: 1260 };
+export const contentType = 'image/png';
 
 export default async function Image() {
-  const baseUrl = getBaseUrl();
-
-  try {
-    // Fetch the generated OG image from the browse-level API route
-    const ogImageRes = await fetch(`${baseUrl}/api/og-image/developers`, {
-      cache: 'no-store',
-    });
-
-    if (ogImageRes.ok) {
-      const imageBuffer = await ogImageRes.arrayBuffer();
-      return new Response(imageBuffer, {
-        headers: {
-          'Content-Type': 'image/jpeg',
-          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
-        },
-      });
-    }
-  } catch (error) {
-    console.error('OG image fetch error (developers browse):', error);
-  }
-
-  // Fallback: return a simple error response
-  return new Response(null, {
-    status: 404,
-    statusText: 'OG Image Not Found',
+  return await generateBasaltOG({
+    bgPath: 'bsurgebg.png',
+    primaryColor: '#8b5cf6', // Violet for devs
+    leftWing: (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
+        <div style={{ fontSize: 32, color: 'rgba(255,255,255,0.9)', fontWeight: 600, letterSpacing: '0.1em', marginBottom: 4 }}>BASALT</div>
+        <div style={{ fontSize: 60, color: '#35ff7c', fontWeight: 800, letterSpacing: '0.05em', lineHeight: 1.1, textTransform: 'uppercase' }}>SURGE</div>
+        <div style={{ fontSize: 32, color: 'rgba(255,255,255,0.9)', fontWeight: 600, letterSpacing: '0.1em', marginTop: 4 }}>DEVELOPERS</div>
+      </div>
+    ),
+    rightWing: (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ fontSize: 42, color: 'white', fontWeight: 700, lineHeight: 1.2 }}>
+          Build the Future of
+        </div>
+        <div style={{ fontSize: 42, color: 'white', fontWeight: 700, lineHeight: 1.2 }}>
+          Agentic Commerce
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+          <div style={{ fontSize: 24, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>• API Reference</div>
+          <div style={{ fontSize: 24, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>• SDKs & Libraries</div>
+          <div style={{ fontSize: 24, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>• Neuromimetic OS</div>
+        </div>
+        <div style={{ marginTop: 16, fontSize: 20, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>surge.basalthq.com/docs</div>
+      </div>
+    )
   });
 }

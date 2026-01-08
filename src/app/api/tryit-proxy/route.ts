@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // Build target URL
     const url = new URL(path, baseUrl);
-    
+
     // Add query parameters
     if (query && typeof query === 'object') {
       Object.entries(query).forEach(([key, value]) => {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     // Prepare headers for forwarding
     const forwardHeaders: HeadersInit = {};
-    
+
     // Forward specific headers from client (like Ocp-Apim-Subscription-Key)
     if (clientHeaders && typeof clientHeaders === 'object') {
       Object.entries(clientHeaders).forEach(([key, value]) => {
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       if ((hostname.includes('azurefd.net') || hostname.includes('afd-') || hostname.includes('azure-api.net')) && AFD_EDGE_SECRET && !hasEdgeSecret) {
         forwardHeaders['x-edge-secret'] = AFD_EDGE_SECRET;
       }
-    } catch {}
+    } catch { }
 
     // Prepare request options
     const fetchOptions: RequestInit = {
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('[tryit-proxy] Error:', error.message);
     return NextResponse.json(
-      { 
+      {
         error: 'proxy_error',
         message: error.message || 'Failed to proxy request'
       },

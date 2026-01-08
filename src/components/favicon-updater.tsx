@@ -10,7 +10,7 @@ export function FaviconUpdater() {
     const BLOCKED_FAVICON_URLS = [
         "https://portalpay-b6hqctdfergaadct.z02.azurefd.net/portalpay/uploads/a311dcf8-e6de-4eca-a39c-907b347dff11.png",
     ];
-    const BLOCKED_FAVICON_REPLACEMENT = "/cblogod.png";
+    const BLOCKED_FAVICON_REPLACEMENT = "/Surge.png";
 
     function isBlockedFavicon(url: string): boolean {
         const normalized = url.trim().toLowerCase();

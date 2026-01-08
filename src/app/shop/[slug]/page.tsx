@@ -6,6 +6,31 @@ import { getBaseUrl } from "@/lib/base-url";
 import ShopClient, { ShopConfig } from "./ShopClient";
 import { InventoryItem } from "@/types/inventory";
 
+const BLOCKED_URL_PART = "a311dcf8";
+const LEGACY_LOGO = "cblogod.png";
+
+function sanitizeShopTheme(theme: any) {
+  if (!theme) return theme;
+  const t = { ...theme };
+
+  // Sanitize URLs
+  if (t.brandLogoUrl && (t.brandLogoUrl.includes(BLOCKED_URL_PART) || t.brandLogoUrl.includes(LEGACY_LOGO))) {
+    t.brandLogoUrl = "/BasaltSurgeWideD.png";
+  }
+  if (t.brandFaviconUrl && (t.brandFaviconUrl.includes(BLOCKED_URL_PART) || t.brandFaviconUrl.includes(LEGACY_LOGO))) {
+    t.brandFaviconUrl = "/Surge.png";
+  }
+
+  // Sanitize Colors (Legacy Teal -> Basalt Green)
+  if (t.primaryColor === '#10b981' || t.primaryColor === '#14b8a6' || t.primaryColor === '#0d9488') {
+    t.primaryColor = '#35ff7c';
+  }
+  if (t.secondaryColor === '#2dd4bf' || t.secondaryColor === '#22d3ee') {
+    t.secondaryColor = '#FF6B35';
+  }
+  return t;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const cleanSlug = slug.toLowerCase();
@@ -21,17 +46,21 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       })
       .fetchAll();
 
-    const config = configs[0] as { 
-      name?: string; 
-      description?: string; 
+    const config = configs[0] as {
+      name?: string;
+      description?: string;
       bio?: string;
-      theme?: { 
-        brandLogoUrl?: string; 
-        brandFaviconUrl?: string; 
+      theme?: {
+        brandLogoUrl?: string;
+        brandFaviconUrl?: string;
         primaryColor?: string;
         logos?: { favicon?: string };
       };
     } | undefined;
+
+    if (config?.theme) {
+      config.theme = sanitizeShopTheme(config.theme);
+    }
 
     if (config?.name) {
       // Use shop-specific favicon via query parameter
@@ -40,15 +69,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       const shopTitle = config.name;
       const shopDescription = config.description || config.bio || `Shop at ${config.name}`;
       const themeColor = config.theme?.primaryColor || brand.colors.primary || '#0ea5e9';
-      
+
       // Force HTTPS for production URLs in metadata
-      const safeBaseUrl = /localhost|127\.0\.0\.1/i.test(baseUrl) 
-        ? baseUrl 
+      const safeBaseUrl = /localhost|127\.0\.0\.1/i.test(baseUrl)
+        ? baseUrl
         : baseUrl.replace(/^http:\/\//, "https://");
-      const safeShopUrl = /localhost|127\.0\.0\.1/i.test(shopUrl) 
-        ? shopUrl 
+      const safeShopUrl = /localhost|127\.0\.0\.1/i.test(shopUrl)
+        ? shopUrl
         : shopUrl.replace(/^http:\/\//, "https://");
-      
+
       return {
         title: shopTitle,
         description: shopDescription,
@@ -149,6 +178,10 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
     .fetchAll();
 
   const config = configs[0] as (ShopConfig & { wallet: string }) | undefined;
+
+  if (config?.theme) {
+    config.theme = sanitizeShopTheme(config.theme);
+  }
 
   if (!config) {
     return notFound();

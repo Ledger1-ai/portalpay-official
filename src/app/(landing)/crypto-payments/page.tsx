@@ -38,10 +38,10 @@ export default function CryptoPaymentsIndexPage() {
             Crypto Payments for Every Industry
           </h1>
           <p className="text-lg text-muted-foreground mb-6 max-w-3xl mx-auto">
-            Industry-specific payment solutions with free POS/PMS systems. Accept both crypto and traditional 
+            Industry-specific payment solutions with free POS/PMS systems. Accept both crypto and traditional
             payments with 70-85% lower fees than competitors.
           </p>
-          
+
           <div className="glass-pane rounded-xl border p-6 max-w-4xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
               <div>
@@ -108,7 +108,7 @@ export default function CryptoPaymentsIndexPage() {
             Ready to Transform Your Payment Processing?
           </h2>
           <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
-            Get industry-specific features, lower fees, and instant settlement. 
+            Get industry-specific features, lower fees, and instant settlement.
             No bank account required. Start accepting payments in minutes.
           </p>
           <div className="flex flex-wrap justify-center gap-4">

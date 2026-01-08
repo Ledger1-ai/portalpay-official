@@ -22,7 +22,7 @@ export function getEffectiveBrandKey(): string {
         }
     }
 
-    return "portalpay";
+    return "basaltsurge";
 }
 
 export function isBasaltSurge(key?: string): boolean {

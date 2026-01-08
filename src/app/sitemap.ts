@@ -48,7 +48,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.8,
     },
-    
+
     // Industry landing pages
     ...industries.map((industry) => ({
       url: `${baseUrl}/crypto-payments/${industry.slug}`,
@@ -56,7 +56,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),
-    
+
     // Location pages
     ...locations.map((location) => ({
       url: `${baseUrl}/locations/${location.slug}`,
@@ -64,7 +64,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),
-    
+
     // Comparison pages (high-intent traffic!)
     ...comparisons.map((comparison) => ({
       url: `${baseUrl}/vs/${comparison.slug}`,
@@ -72,7 +72,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly' as const,
       priority: 0.85, // High priority - people searching for alternatives are ready to switch
     })),
-    
+
     // Future routes to add:
     // - Use case pages: /qr-code-payments, /low-fee-processing, etc.
     // - Token pages: /accept/usdc, /accept/bitcoin, etc.

@@ -13,47 +13,16 @@ export const dynamic = 'force-dynamic';
  * Similar to loadPPSymbol but for the full logo (app logo) with proper sizing.
  */
 async function loadBrandLogo(size = 96): Promise<Buffer | null> {
-  let src: Buffer | null = null;
-
   try {
-    const brand = getBrandConfig();
-    const isPartner = isPartnerContext() || (String((brand as any)?.key || '').toLowerCase() !== 'portalpay');
-
-    if (isPartner) {
-      // Prefer brand-specific app logo in partner containers
-      const logoPath = String(brand?.logos?.app || brand?.logos?.symbol || '');
-      console.log('[loadBrandLogo] Partner context - logoPath:', logoPath);
-
-      if (logoPath) {
-        // Check if it's a full URL (starts with http:// or https://)
-        if (/^https?:\/\//i.test(logoPath)) {
-          src = await fetchWithCache(logoPath);
-        } else {
-          // Local path - try loading from public directory
-          const rel = logoPath.replace(/^[/\\]+/, '');
-          src = await loadPublicImageBuffer(rel);
-
-          // Fallback to remote brand asset if local not present and brand.appUrl known
-          if (!src && brand?.appUrl) {
-            const base = String(brand.appUrl).replace(/\/+$/, '');
-            const url = `${base}/${rel}`;
-            src = await fetchWithCache(url);
-          }
-        }
-      }
-    }
-
-    if (!src) {
-      // Platform default: use cblogod.png (full PortalPay logo)
-      src = await loadPublicImageBuffer('cblogod.png');
-    }
+    // Always use Surge.png shield logo for comparison OG images
+    const src = await loadPublicImageBuffer('Surge.png');
 
     if (!src) {
       return null;
     }
 
     return await sharp(src)
-      .resize(size, size, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+      .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toBuffer();
   } catch (error) {
@@ -86,8 +55,8 @@ export async function GET(
     let imageBuffer = await sharp(Buffer.from(backgroundSvg)).resize(1200, 630).png().toBuffer();
 
     const ppSymbolOverlay: Buffer | null = await loadPPSymbol(80);
-    // Brand accent color for table highlights (use brand's accent or fall back to teal)
-    const BRAND_ACCENT = brand.colors?.accent || brand.colors?.primary || '#2EE5C8';
+    // Brand primary color for table highlights (use primary green)
+    const BRAND_ACCENT = brand.colors?.primary || '#35ff7c';
 
     // Two-pane geometry
     const PANE_DIVIDER = 600;
@@ -341,35 +310,12 @@ export async function GET(
     const logoContainerSize = 96;
     const logoTop = tableY - 76;
 
-    // Brand logo (PortalPay or partner brand) positioned near left header base
+    // Brand logo (Surge shield PNG) positioned near right column header
     const portalLogo = await loadBrandLogo(logoContainerSize);
     if (portalLogo) {
-      // Build masked rounded-square tile with the image clipped to rounded corners
-      let portalTile = await sharp({
-        create: { width: logoContainerSize, height: logoContainerSize, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
-      }).png().toBuffer();
-
-      // Ensure white base behind any transparent portions of the logo
-      const whiteBgSvg = `<svg width="${logoContainerSize}" height="${logoContainerSize}" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="0" width="${logoContainerSize}" height="${logoContainerSize}" rx="16" ry="16" fill="#ffffff"/>
-      </svg>`;
-      portalTile = await sharp(portalTile).composite([{ input: Buffer.from(whiteBgSvg) }]).png().toBuffer();
-
-      // portalLogo is already resized by loadBrandLogo
-      portalTile = await sharp(portalTile).composite([{ input: portalLogo, top: 0, left: 0 }]).png().toBuffer();
-
-      const clipSvg = `<svg width="${logoContainerSize}" height="${logoContainerSize}" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="0" width="${logoContainerSize}" height="${logoContainerSize}" rx="16" ry="16" fill="#fff"/>
-      </svg>`;
-      portalTile = await sharp(portalTile).composite([{ input: Buffer.from(clipSvg), blend: 'dest-in' }]).png().toBuffer();
-
-      const strokeSvg = `<svg width="${logoContainerSize}" height="${logoContainerSize}" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="0" width="${logoContainerSize}" height="${logoContainerSize}" rx="16" ry="16" fill="none" stroke="rgba(255,255,255,0.30)" stroke-width="2"/>
-      </svg>`;
-      portalTile = await sharp(portalTile).composite([{ input: Buffer.from(strokeSvg) }]).png().toBuffer();
-
+      // For Surge.png (transparent PNG), use directly without rectangular background
       const portalLogoLeft = tableX + containerPadding + colWidth + (colWidth - logoContainerSize) / 2;
-      composites.push({ input: portalTile, top: logoTop, left: Math.round(portalLogoLeft) });
+      composites.push({ input: portalLogo, top: logoTop, left: Math.round(portalLogoLeft) });
     }
 
     // Competitor logo positioned high on right pane for visual balance

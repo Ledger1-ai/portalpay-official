@@ -119,7 +119,7 @@ function defaults(brandKey?: string): Required<Omit<ShopConfig, "wallet" | "id" 
       secondaryColor: isBasalt ? "#16A34A" : "#22c55e", // Basalt Dark Green or Portal Green
       textColor: "#0b1020",
       accentColor: "#f59e0b", // amber-500
-      brandLogoUrl: isBasalt ? "/bssymbol.png" : "/cblogod.png",
+      brandLogoUrl: isBasalt ? "/BasaltSurgeWideD.png" : "/BasaltSurgeWideD.png",
       coverPhotoUrl: "",
       fontFamily:
         "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",

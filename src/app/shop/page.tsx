@@ -157,7 +157,7 @@ export default function ShopBuilderPage() {
       secondaryColor: "#22c55e",
       textColor: "#0b1020",
       accentColor: "#f59e0b",
-      brandLogoUrl: "/cblogod.png",
+      brandLogoUrl: "/BasaltSurgeWideD.png",
       coverPhotoUrl: "",
       fontFamily:
         "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
@@ -542,7 +542,7 @@ export default function ShopBuilderPage() {
             secondaryColor: pack.theme.secondaryColor,
             accentColor: pack.theme.accentColor,
             textColor: prev.theme.textColor || "#0b1020",
-            brandLogoUrl: currentLogo || prev.theme.brandLogoUrl || "/cblogod.png",
+            brandLogoUrl: currentLogo || prev.theme.brandLogoUrl || "/BasaltSurgeWideD.png",
             coverPhotoUrl: currentCover || prev.theme.coverPhotoUrl || "",
             fontFamily: pack.theme.fontFamily,
           },
@@ -753,7 +753,7 @@ export default function ShopBuilderPage() {
               connectModal={{
                 showThirdwebBranding: false,
                 title: "Login",
-                titleIcon: cfg.theme.brandLogoUrl || "/cblogod.png",
+                titleIcon: (cfg.theme.brandLogoUrl && !cfg.theme.brandLogoUrl.includes("a311dcf8")) ? cfg.theme.brandLogoUrl : "/BasaltSurgeWideD.png",
                 size: "compact",
               }}
               theme={twTheme}
@@ -844,7 +844,7 @@ export default function ShopBuilderPage() {
           <div>
             <ImageUploadField
               label="Brand Logo"
-              value={cfg.theme.brandLogoUrl || ""}
+              value={(!cfg.theme.brandLogoUrl || cfg.theme.brandLogoUrl.includes("a311dcf8")) ? "" : cfg.theme.brandLogoUrl}
               onChange={(url) => setCfg((prev) => ({ ...prev, theme: { ...prev.theme, brandLogoUrl: Array.isArray(url) ? url[0] : url } }))}
               target="brand_logo"
               guidance="Square PNG/WebP recommended. 256x256."

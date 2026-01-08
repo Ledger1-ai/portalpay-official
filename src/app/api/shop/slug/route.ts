@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
           secondaryColor: "#22c55e",
           textColor: "#0b1020",
           accentColor: "#f59e0b",
-          brandLogoUrl: "/cblogod.png",
+          brandLogoUrl: "/BasaltSurgeWideD.png",
           coverPhotoUrl: "",
           fontFamily:
             "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",

@@ -110,11 +110,11 @@ export function getBrandKey(): string {
   // In partner context, no implicit fallback — brand must be provided via env/config
   // However, we do not throw here to allow RootLayout to render a fallback (so middleware can redirect to /brand-not-configured)
   if (isPartnerContext()) {
-    return "portalpay";
+    return "basaltsurge";
   }
 
-  // Platform or local dev may fallback to portalpay
-  return "portalpay";
+  // Platform or local dev may fallback to basaltsurge
+  return "basaltsurge";
 }
 
 /**
