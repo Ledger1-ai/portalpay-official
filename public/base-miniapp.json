@@ -3,13 +3,13 @@
   "description": "Enterprise crypto payments at 0.5% with instant settlement. Unified billing and analytics.",
   "icons": [
     {
-      "src": "https://pay.ledger1.ai/opengraph-image.png",
+      "src": "https://surge.basalthq.com/opengraph-image.png",
       "sizes": "1200x630",
       "type": "image/png"
     }
   ],
-  "start_url": "/",
+  "start_url": "https://surge.basalthq.com",
   "display": "standalone",
-  "theme_color": "#0a0a0a",
+  "theme_color": "#35ff7c",
   "background_color": "#0a0a0a"
 }

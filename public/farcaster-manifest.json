@@ -1,13 +1,13 @@
 {
   "name": "BasaltSurge",
-  "icon": "https://pay.ledger1.ai/opengraph-image.png",
+  "icon": "https://surge.basalthq.com/opengraph-image.png",
   "description": "Enterprise crypto payments at 0.5% with instant settlement. Unified billing and analytics.",
-  "splash": "https://pay.ledger1.ai/opengraph-image.png",
-  "home_url": "https://pay.ledger1.ai",
-  "terms_url": "https://pay.ledger1.ai/terms",
-  "privacy_url": "https://pay.ledger1.ai/privacy",
+  "splash": "https://surge.basalthq.com/opengraph-image.png",
+  "home_url": "https://surge.basalthq.com",
+  "terms_url": "https://surge.basalthq.com/terms",
+  "privacy_url": "https://surge.basalthq.com/privacy",
   "app": {
     "platform": "web",
-    "url": "https://pay.ledger1.ai"
+    "url": "https://surge.basalthq.com"
   }
 }
