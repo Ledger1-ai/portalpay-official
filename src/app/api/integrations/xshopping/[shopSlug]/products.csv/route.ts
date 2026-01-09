@@ -2,13 +2,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/cosmos";
 
-// Helper to escape CSV fields
+// Helper to escape CSV fields complying with RFC 4180
 function csvEscape(field: any): string {
     const stringValue = String(field || "").trim();
-    if (stringValue.includes(",") || stringValue.includes("\"") || stringValue.includes("\n")) {
+    if (stringValue.includes(",") || stringValue.includes("\"") || stringValue.includes("\n") || stringValue.includes("\r")) {
         return `"${stringValue.replace(/"/g, '""')}"`;
     }
     return stringValue;
+}
+
+// Helper to strip HTML tags
+function stripHtml(html: string): string {
+    if (!html) return "";
+    return html.replace(/<[^>]*>?/gm, " ").replace(/\s+/g, " ").trim();
+}
+
+// Helper to truncate text
+function truncate(text: string, maxLength: number): string {
+    if (!text) return "";
+    return text.length > maxLength ? text.substring(0, maxLength - 3) + "..." : text;
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ shopSlug: string }> }) {
@@ -32,11 +44,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
 
         const shop = shops[0];
 
-        // If no shop found, and it's a known brand key like 'portalpay', we might want to fallback or check generic brand config?
-        // But the user requested "only pulls that shops inventory".
+        // For X Shopping, validation fails if URL returns 404. We must return a 200 with empty CSV or valid error?
+        // "Shop not found" implies no feed. 404 is appropriate.
         if (!shop || !shop.wallet) {
-            // Debug: check if there's a fallback or if this is a platform test
-            // For now, return 404 to respect "only pulls that shops inventory"
             return new NextResponse(`Shop not found or wallet missing for slug: ${effectiveSlug}`, { status: 404 });
         }
 
@@ -45,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
         // 2. Fetch Inventory Items for this Wallet
         const { resources: items } = await container.items
             .query({
-                query: "SELECT * FROM c WHERE c.type='inventory_item' AND c.wallet=@wallet",
+                query: "SELECT * FROM c WHERE c.type='inventory_item' AND c.wallet=@wallet AND (c.approvalStatus != 'ARCHIVED' OR NOT IS_DEFINED(c.approvalStatus))",
                 parameters: [{ name: "@wallet", value: wallet }]
             })
             .fetchAll();
@@ -74,55 +84,68 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
             baseUrl = process.env.NEXT_PUBLIC_APP_URL;
         }
 
+        // Shop name cleanup
+        const cleanBrandName = truncate(stripHtml(shop.name || effectiveSlug), 100);
+
         const csvRows = items
             // Remove filter to include all items with defaults as requested
             .map((item: any, index: number) => {
+                // ID: Max 100 chars
+                let itemId = String(item.id || `missing-id-${index}`).trim();
+                itemId = truncate(itemId, 100);
+
+                // Title: Max 150 chars, no HTML
+                let title = stripHtml(item.name || "Untitled Product");
+                if (!title) title = "Untitled Product";
+                title = truncate(title, 150);
+
+                // Description: Max 5000 chars, no HTML
+                // Fallback MUST exist
+                let description = stripHtml(item.description || "");
+                if (!description) {
+                    description = `${title} available at ${cleanBrandName}`;
+                }
+                description = truncate(description, 5000);
+
+                // Price: Format "99.99 USD"
                 const rawPrice = typeof item.priceUsd === 'number' ? item.priceUsd : 0;
                 const price = `${rawPrice.toFixed(2)} ${item.currency || 'USD'}`;
 
-                // Availability: in_stock, out_of_stock, preorder (snake_case required)
+                // Availability: in_stock, out_of_stock
                 let availability = "out_of_stock";
                 if (item.stockQty === -1 || item.stockQty > 0) {
                     availability = "in_stock";
                 }
 
-                // Link construction:
-                const itemId = item.id || `missing-id-${index}`;
+                // Link: Valid HTTPS URL
                 let link = "";
                 if (shop.customDomain && shop.customDomainVerified) {
                     link = `https://${shop.customDomain}/product/${itemId}`;
                 } else {
-                    // Use effectiveSlug to ensure link works if portalpay is the real route
                     link = `${baseUrl}/shop/${effectiveSlug}/product/${itemId}`;
                 }
 
-                // Image fallback
-                // Use a placeholder if no image is present to satisfy "Must have URL"
-                // X Shopping requires unique URLs, so we append the item ID
+                // Image Link
+                // X requires unique image URLs to refresh cache, appending ID helps? 
+                // X Spec: "If you change the image later, the new image must use a different URL"
                 let imageLink = "";
                 if (item.images && item.images.length > 0) {
                     imageLink = item.images[0];
                 } else {
-                    // Use the main platform URL to ensure reliable serving of the API asset
-                    // (custom domains might handle API routes differently depending on middleware)
                     const platformUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pay.ledger1.ai";
                     imageLink = `${platformUrl}/api/integrations/xshopping/${effectiveSlug}/product-images/default?id=${itemId}`;
                 }
 
-                // Description fallback
-                const safeName = item.name || "Untitled Product";
-                const description = item.description || `${safeName} available at ${shop.name || effectiveSlug}`;
-
                 return [
                     csvEscape(itemId),
-                    csvEscape(safeName),
+                    csvEscape(title),
                     csvEscape(description),
                     csvEscape(link),
                     csvEscape(imageLink),
                     csvEscape(price),
                     csvEscape(availability),
                     "new", // Default condition
-                    csvEscape(shop.name || effectiveSlug)
+                    csvEscape(cleanBrandName)
                 ].join(",");
             });
 
@@ -132,7 +155,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
             status: 200,
             headers: {
                 "Content-Type": "text/csv; charset=utf-8",
-                "Content-Disposition": `attachment; filename="x-shopping-feed-${shopSlug}.csv"`
+                "Content-Disposition": `attachment; filename="x-shopping-feed-${effectiveSlug}.csv"`
             }
         });
 
