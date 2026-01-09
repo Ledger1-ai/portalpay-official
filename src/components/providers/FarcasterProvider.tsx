@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import sdk from "@farcaster/frame-sdk";
+import { sdk } from "@farcaster/miniapp-sdk";
 
 export default function FarcasterProvider({ children }: { children: React.ReactNode }) {
     const [isSDKLoaded, setIsSDKLoaded] = useState(false);
