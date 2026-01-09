@@ -19,7 +19,11 @@ export async function GET() {
             ogImageUrl: "https://surge.basalthq.com/opengraph-image", // Dynamic OG image
             primaryCategory: "finance",
             tags: ["payments", "crypto", "billing", "merchant"],
-            // Account association: The user didn't provide one, so we omit or null.
+        },
+        accountAssociation: {
+            header: "eyJmaWQiOjEwNDM0NjQsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg4MkU1QUMwNDJhNTYzNTQ4ZTVEZWE1MmY2NGM2ZmU3RTc0Y0NmMkM3In0",
+            payload: "eyJkb21haW4iOiJzdXJnZS5iYXNhbHRocS5jb20ifQ",
+            signature: "faHRdX6S6EFr9TH8oC/dKpnDJRkkElqlVs2oNnrIK/EsY92TJJBnQAyvphOnKrfEXcYkklxe9t8q0DyX8fmnJRw="
         }
     };
 

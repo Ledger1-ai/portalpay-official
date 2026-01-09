@@ -61,17 +61,36 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
             .fetchAll();
 
         // 3. Generate CSV
-        // X Shopping Feed Specs: id, title, description, link, image_link, price, availability, condition, brand
+        // X Shopping Template Spec: id,title,description,availability,condition,price,link,image_link,gtin,mpn,brand,mobile_link,additional_image_link,google_product_category,product_type,inventory,sale_price,sale_price_effective_date,gender,color,size,age_group,item_group_id,custom_label_0,custom_label_1,custom_label_2,custom_label_3,custom_label_4
         const headers = [
             "id",
             "title",
             "description",
-            "link",
-            "image_link",
-            "price",
             "availability",
             "condition",
-            "brand"
+            "price",
+            "link",
+            "image_link",
+            "gtin",
+            "mpn",
+            "brand",
+            "mobile_link",
+            "additional_image_link",
+            "google_product_category",
+            "product_type",
+            "inventory",
+            "sale_price",
+            "sale_price_effective_date",
+            "gender",
+            "color",
+            "size",
+            "age_group",
+            "item_group_id",
+            "custom_label_0",
+            "custom_label_1",
+            "custom_label_2",
+            "custom_label_3",
+            "custom_label_4"
         ];
 
         // Construct Base URL based on request custom domain or env?
@@ -140,12 +159,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
                     csvEscape(itemId),
                     csvEscape(title),
                     csvEscape(description),
+                    csvEscape(availability),
+                    "new", // condition
+                    csvEscape(price),
                     csvEscape(link),
                     csvEscape(imageLink),
-                    csvEscape(price),
-                    csvEscape(availability),
-                    "new", // Default condition
-                    csvEscape(cleanBrandName)
+                    "", // gtin
+                    "", // mpn
+                    csvEscape(cleanBrandName), // brand
+                    "", // mobile_link
+                    "", // additional_image_link
+                    "", // google_product_category
+                    csvEscape(item.category || "General"), // product_type
+                    Number.isFinite(item.stockQty) ? (item.stockQty === -1 ? "100" : String(item.stockQty)) : "0", // inventory (pseudo)
+                    "", // sale_price
+                    "", // sale_price_effective_date
+                    "", // gender
+                    "", // color
+                    "", // size
+                    "", // age_group
+                    "", // item_group_id
+                    "", // custom_label_0
+                    "", // custom_label_1
+                    "", // custom_label_2
+                    "", // custom_label_3
+                    ""  // custom_label_4
                 ].join(",");
             });
 
