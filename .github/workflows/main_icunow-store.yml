@@ -86,7 +86,9 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: "portalpay"
+          app-name: "icunow-store"
           slot-name: "Production"
           package: release.zip
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_D5B0A1CB80CD44E09D5B4F327B435ED1 }}
+
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_SURGE_ICUNOWSTORE }}
+
