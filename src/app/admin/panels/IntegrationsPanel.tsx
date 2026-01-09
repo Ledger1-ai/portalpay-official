@@ -298,69 +298,74 @@ export default function IntegrationsPanel() {
 
       {/* Catalog of all available plugins - long list, one card per row with extra details */}
       <div className="space-y-3">
-        {catalog.map((p) => (
-          <div key={p.key} className="rounded-lg border p-4 bg-background">
-            {renderCard(p)}
-            {/* Additional details */}
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 microtext text-muted-foreground">
-              <div>
-                <div className="font-semibold text-foreground">Description</div>
-                <div>{p.description}</div>
-              </div>
-              <div>
-                <div className="font-semibold text-foreground">Documentation</div>
+        {catalog.map((p) => {
+          // Early return for X Shopping if disabled
+          if (p.key === "xshopping" && !xEnabled) return null;
+
+          return (
+            <div key={p.key} className="rounded-lg border p-4 bg-background">
+              {renderCard(p)}
+              {/* Additional details */}
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 microtext text-muted-foreground">
                 <div>
-                  {p.key === "shopify" ? (
-                    <a href="https://shopify.dev/docs/apps" target="_blank" rel="noopener noreferrer" className="underline">Shopify Apps Docs</a>
-                  ) : p.key === "woocommerce" ? (
-                    <a href="https://developer.woocommerce.com/" target="_blank" rel="noopener noreferrer" className="underline">WooCommerce Developer</a>
-                  ) : p.key === "stripe" ? (
-                    <a href="https://stripe.com/docs" target="_blank" rel="noopener noreferrer" className="underline">Stripe Docs</a>
-                  ) : p.key === "paypal" ? (
-                    <a href="https://developer.paypal.com/home" target="_blank" rel="noopener noreferrer" className="underline">PayPal Developer</a>
-                  ) : p.key === "square" ? (
-                    <a href="https://developer.squareup.com/docs" target="_blank" rel="noopener noreferrer" className="underline">Square Docs</a>
-                  ) : p.key === "clover" ? (
-                    <a href="https://docs.clover.com/" target="_blank" rel="noopener noreferrer" className="underline">Clover Docs</a>
-                  ) : p.key === "toast" ? (
-                    <a href="https://github.com/ToastTab" target="_blank" rel="noopener noreferrer" className="underline">Toast Resources</a>
-                  ) : p.key === "flexa" ? (
-                    <a href="https://flexa.network/" target="_blank" rel="noopener noreferrer" className="underline">Flexa</a>
-                  ) : p.key === "bitpay" ? (
-                    <a href="https://bitpay.com/docs/" target="_blank" rel="noopener noreferrer" className="underline">BitPay Docs</a>
-                  ) : p.key === "coinbase" ? (
-                    <a href="https://docs.cloud.coinbase.com/commerce/docs/" target="_blank" rel="noopener noreferrer" className="underline">Coinbase Commerce Docs</a>
-                  ) : p.key === "nmi" ? (
-                    <a href="https://developer.nmi.com/" target="_blank" rel="noopener noreferrer" className="underline">NMI Developer</a>
-                  ) : p.key === "nuvei" ? (
-                    <a href="https://docs.nuvei.com/" target="_blank" rel="noopener noreferrer" className="underline">Nuvei Docs</a>
-                  ) : p.key === "bluesnap" ? (
-                    <a href="https://support.bluesnap.com/docs" target="_blank" rel="noopener noreferrer" className="underline">BlueSnap Docs</a>
-                  ) : p.key === "rapyd" ? (
-                    <a href="https://docs.rapyd.net/" target="_blank" rel="noopener noreferrer" className="underline">Rapyd Docs</a>
-                  ) : p.key === "worldpay" ? (
-                    <a href="https://developer.worldpay.com/" target="_blank" rel="noopener noreferrer" className="underline">Worldpay Developer</a>
-                  ) : p.key === "authnet" ? (
-                    <a href="https://developer.authorize.net/" target="_blank" rel="noopener noreferrer" className="underline">Authorize.Net Developer</a>
-                  ) : p.key === "adyen" ? (
-                    <a href="https://docs.adyen.com/" target="_blank" rel="noopener noreferrer" className="underline">Adyen Docs</a>
-                  ) : p.key === "xshopping" ? (
-                    <a href="https://ads.twitter.com/" target="_blank" rel="noopener noreferrer" className="underline">X Ads Manager</a>
-                  ) : (
-                    <a href="https://developer.cybersource.com/" target="_blank" rel="noopener noreferrer" className="underline">CyberSource Developer</a>
-                  )}
+                  <div className="font-semibold text-foreground">Description</div>
+                  <div>{p.description}</div>
                 </div>
-              </div>
-              <div>
-                <div className="font-semibold text-foreground">Status</div>
-                <div className="microtext">
-                  <span className="text-muted-foreground">Enabled:</span> {(p.key === "shopify" ? (String(tile?.status || "").toLowerCase() === "published") : (p.key === "xshopping" ? xEnabled : false)) ? "Yes" : "No"} · <span className="text-muted-foreground">Configured:</span> {(p.key === "shopify" ? (!!tile?.listingUrl && String(tile?.status || "").toLowerCase() !== "draft") : (p.key === "xshopping" ? xEnabled : false)) ? "Yes" : "No"}
+                <div>
+                  <div className="font-semibold text-foreground">Documentation</div>
+                  <div>
+                    {p.key === "shopify" ? (
+                      <a href="https://shopify.dev/docs/apps" target="_blank" rel="noopener noreferrer" className="underline">Shopify Apps Docs</a>
+                    ) : p.key === "woocommerce" ? (
+                      <a href="https://developer.woocommerce.com/" target="_blank" rel="noopener noreferrer" className="underline">WooCommerce Developer</a>
+                    ) : p.key === "stripe" ? (
+                      <a href="https://stripe.com/docs" target="_blank" rel="noopener noreferrer" className="underline">Stripe Docs</a>
+                    ) : p.key === "paypal" ? (
+                      <a href="https://developer.paypal.com/home" target="_blank" rel="noopener noreferrer" className="underline">PayPal Developer</a>
+                    ) : p.key === "square" ? (
+                      <a href="https://developer.squareup.com/docs" target="_blank" rel="noopener noreferrer" className="underline">Square Docs</a>
+                    ) : p.key === "clover" ? (
+                      <a href="https://docs.clover.com/" target="_blank" rel="noopener noreferrer" className="underline">Clover Docs</a>
+                    ) : p.key === "toast" ? (
+                      <a href="https://github.com/ToastTab" target="_blank" rel="noopener noreferrer" className="underline">Toast Resources</a>
+                    ) : p.key === "flexa" ? (
+                      <a href="https://flexa.network/" target="_blank" rel="noopener noreferrer" className="underline">Flexa</a>
+                    ) : p.key === "bitpay" ? (
+                      <a href="https://bitpay.com/docs/" target="_blank" rel="noopener noreferrer" className="underline">BitPay Docs</a>
+                    ) : p.key === "coinbase" ? (
+                      <a href="https://docs.cloud.coinbase.com/commerce/docs/" target="_blank" rel="noopener noreferrer" className="underline">Coinbase Commerce Docs</a>
+                    ) : p.key === "nmi" ? (
+                      <a href="https://developer.nmi.com/" target="_blank" rel="noopener noreferrer" className="underline">NMI Developer</a>
+                    ) : p.key === "nuvei" ? (
+                      <a href="https://docs.nuvei.com/" target="_blank" rel="noopener noreferrer" className="underline">Nuvei Docs</a>
+                    ) : p.key === "bluesnap" ? (
+                      <a href="https://support.bluesnap.com/docs" target="_blank" rel="noopener noreferrer" className="underline">BlueSnap Docs</a>
+                    ) : p.key === "rapyd" ? (
+                      <a href="https://docs.rapyd.net/" target="_blank" rel="noopener noreferrer" className="underline">Rapyd Docs</a>
+                    ) : p.key === "worldpay" ? (
+                      <a href="https://developer.worldpay.com/" target="_blank" rel="noopener noreferrer" className="underline">Worldpay Developer</a>
+                    ) : p.key === "authnet" ? (
+                      <a href="https://developer.authorize.net/" target="_blank" rel="noopener noreferrer" className="underline">Authorize.Net Developer</a>
+                    ) : p.key === "adyen" ? (
+                      <a href="https://docs.adyen.com/" target="_blank" rel="noopener noreferrer" className="underline">Adyen Docs</a>
+                    ) : p.key === "xshopping" ? (
+                      <a href="https://ads.twitter.com/" target="_blank" rel="noopener noreferrer" className="underline">X Ads Manager</a>
+                    ) : (
+                      <a href="https://developer.cybersource.com/" target="_blank" rel="noopener noreferrer" className="underline">CyberSource Developer</a>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-semibold text-foreground">Status</div>
+                  <div className="microtext">
+                    <span className="text-muted-foreground">Enabled:</span> {(p.key === "shopify" ? (String(tile?.status || "").toLowerCase() === "published") : (p.key === "xshopping" ? xEnabled : false)) ? "Yes" : "No"} · <span className="text-muted-foreground">Configured:</span> {(p.key === "shopify" ? (!!tile?.listingUrl && String(tile?.status || "").toLowerCase() !== "draft") : (p.key === "xshopping" ? xEnabled : false)) ? "Yes" : "No"}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
+          );
+        })}
+      </div >
+    </div >
   );
 }

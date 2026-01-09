@@ -127,8 +127,9 @@ export default function PartnerShopifyPanel() {
   async function loadConfig() {
     setError(""); setInfo(""); setLoading(true);
     try {
-      if (!brandKey) { setError("Enter brandKey"); return; }
+      if (!brandKey?.trim()) { setError("Enter brandKey"); return; }
       const targetBrand = getEffectiveBrandKey(brandKey);
+      if (!targetBrand) { setError("Invalid brandKey"); return; }
       const r = await fetch(`/api/admin/shopify/brands/${encodeURIComponent(targetBrand)}/plugin-config`, { cache: "no-store" });
       const j = await r.json().catch(() => ({}));
       const ok = r.ok && j?.plugin;
@@ -249,8 +250,9 @@ export default function PartnerShopifyPanel() {
   async function saveConfig() {
     setError(""); setInfo(""); setSaving(true);
     try {
-      if (!brandKey) { setError("Enter brandKey"); return; }
+      if (!brandKey?.trim()) { setError("Enter brandKey"); return; }
       const targetBrand = getEffectiveBrandKey(brandKey);
+      if (!targetBrand) { setError("Invalid brandKey"); return; }
       const r = await fetch(`/api/admin/shopify/brands/${encodeURIComponent(targetBrand)}/plugin-config`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -267,8 +269,9 @@ export default function PartnerShopifyPanel() {
   async function generatePackage() {
     setError(""); setInfo("");
     try {
-      if (!brandKey) { setError("Enter brandKey"); return; }
+      if (!brandKey?.trim()) { setError("Enter brandKey"); return; }
       const targetBrand = getEffectiveBrandKey(brandKey);
+      if (!targetBrand) { setError("Invalid brandKey"); return; }
       const r = await fetch(`/api/admin/shopify/apps/package`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey: targetBrand, palette: plugin?.extension?.palette }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.ok) { setError(j?.error || "Package failed"); return; }
@@ -279,8 +282,9 @@ export default function PartnerShopifyPanel() {
   async function deploy() {
     setError(""); setInfo("");
     try {
-      if (!brandKey) { setError("Enter brandKey"); return; }
+      if (!brandKey?.trim()) { setError("Enter brandKey"); return; }
       const targetBrand = getEffectiveBrandKey(brandKey);
+      if (!targetBrand) { setError("Invalid brandKey"); return; }
       const r = await fetch(`/api/admin/shopify/apps/deploy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey: targetBrand }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.ok) { setError(j?.error || "Deploy failed"); return; }
@@ -303,8 +307,9 @@ export default function PartnerShopifyPanel() {
   async function publish() {
     setError(""); setInfo("");
     try {
-      if (!brandKey) { setError("Enter brandKey"); return; }
+      if (!brandKey?.trim()) { setError("Enter brandKey"); return; }
       const targetBrand = getEffectiveBrandKey(brandKey);
+      if (!targetBrand) { setError("Invalid brandKey"); return; }
       const r = await fetch(`/api/admin/shopify/apps/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandKey: targetBrand, listingUrl: plugin?.listingUrl || undefined, shopifyAppId: plugin?.shopifyAppId || undefined, shopifyAppSlug: plugin?.shopifyAppSlug || undefined }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.ok) { setError(j?.error || "Publish failed"); return; }
@@ -316,8 +321,9 @@ export default function PartnerShopifyPanel() {
   async function saveXShoppingConfig(enabled: boolean) {
     setError(""); setInfo("");
     try {
-      if (!brandKey) { setError("Enter brandKey"); return; }
+      if (!brandKey?.trim()) { setError("Enter brandKey"); return; }
       const targetBrand = getEffectiveBrandKey(brandKey);
+      if (!targetBrand) { setError("Invalid brandKey"); return; }
 
       const r = await fetch(`/api/admin/plugins/xshopping/config/${encodeURIComponent(targetBrand)}`, {
         method: "POST",

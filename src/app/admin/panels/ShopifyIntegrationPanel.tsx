@@ -127,7 +127,7 @@ export default function ShopifyIntegrationPanel() {
         })
         .catch(e => console.error("Failed to load Uber Eats config:", e));
     } else if (selectedPlugin === 'xshopping') {
-      fetch("/api/admin/plugins/xshopping/config")
+      fetch(`/api/admin/plugins/xshopping/config/${encodeURIComponent(brandKey)}`)
         .then(r => r.json())
         .then(data => {
           if (data.config) {
@@ -136,7 +136,7 @@ export default function ShopifyIntegrationPanel() {
         })
         .catch(e => console.error("Failed to load X Shopping config:", e));
     }
-  }, [selectedPlugin]);
+  }, [selectedPlugin, brandKey]);
 
   async function saveUberConfig() {
     setSaving(true);
@@ -157,8 +157,10 @@ export default function ShopifyIntegrationPanel() {
 
   async function saveXShoppingConfig() {
     setSaving(true);
+    setInfo("");
+    setError("");
     try {
-      const res = await fetch("/api/admin/plugins/xshopping/config", {
+      const res = await fetch(`/api/admin/plugins/xshopping/config/${encodeURIComponent(brandKey)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(xshoppingConfig)

@@ -20,15 +20,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
 
         const container = await getContainer();
 
-        // 1. Resolve Shop Slug to Wallet
-        // Query for the shop config to get the owner wallet.
-        // We use the same container where ShopConfigs and InventoryItems live.
-        // Note: brandKey/shopSlug mapping. For now, assume shopSlug matches the 'slug' field in ShopConfig.
-        // If shopSlug is 'portalpay', it likely maps to the platform brand owner.
+        // 1. Resolve Shop Slug (Normalize basaltsurge -> portalpay)
+        const effectiveSlug = shopSlug.toLowerCase() === 'basaltsurge' ? 'portalpay' : shopSlug.toLowerCase();
+
         const { resources: shops } = await container.items
             .query({
                 query: "SELECT * FROM c WHERE c.slug = @slug OR (c.customDomain = @slug AND c.customDomainVerified = true)",
-                parameters: [{ name: "@slug", value: shopSlug.toLowerCase() }]
+                parameters: [{ name: "@slug", value: effectiveSlug }]
             })
             .fetchAll();
 
@@ -39,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
         if (!shop || !shop.wallet) {
             // Debug: check if there's a fallback or if this is a platform test
             // For now, return 404 to respect "only pulls that shops inventory"
-            return new NextResponse(`Shop not found or wallet missing for slug: ${shopSlug}`, { status: 404 });
+            return new NextResponse(`Shop not found or wallet missing for slug: ${effectiveSlug}`, { status: 404 });
         }
 
         const wallet = shop.wallet;
@@ -76,35 +74,57 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
             baseUrl = process.env.NEXT_PUBLIC_APP_URL;
         }
 
-        const csvRows = items.map((item: any) => {
-            const price = `${item.priceUsd || 0} ${item.currency || 'USD'}`;
-            // Simple stock check logic
-            const availability = (item.stockQty === -1 || item.stockQty > 0) ? "in stock" : "out of stock";
+        const csvRows = items
+            // Remove filter to include all items with defaults as requested
+            .map((item: any, index: number) => {
+                const rawPrice = typeof item.priceUsd === 'number' ? item.priceUsd : 0;
+                const price = `${rawPrice.toFixed(2)} ${item.currency || 'USD'}`;
 
-            // Link construction:
-            // If custom domain: https://custom.com/product/123
-            // If platform slug: https://platform.com/shop/slug/product/123
-            let link = "";
-            if (shop.customDomain && shop.customDomainVerified) {
-                link = `https://${shop.customDomain}/product/${item.id}`;
-            } else {
-                link = `${baseUrl}/shop/${shopSlug}/product/${item.id}`;
-            }
+                // Availability: in_stock, out_of_stock, preorder (snake_case required)
+                let availability = "out_of_stock";
+                if (item.stockQty === -1 || item.stockQty > 0) {
+                    availability = "in_stock";
+                }
 
-            const imageLink = item.images && item.images.length > 0 ? item.images[0] : "";
+                // Link construction:
+                const itemId = item.id || `missing-id-${index}`;
+                let link = "";
+                if (shop.customDomain && shop.customDomainVerified) {
+                    link = `https://${shop.customDomain}/product/${itemId}`;
+                } else {
+                    // Use effectiveSlug to ensure link works if portalpay is the real route
+                    link = `${baseUrl}/shop/${effectiveSlug}/product/${itemId}`;
+                }
 
-            return [
-                csvEscape(item.id),
-                csvEscape(item.name),
-                csvEscape(item.description || item.name),
-                csvEscape(link),
-                csvEscape(imageLink),
-                csvEscape(price),
-                csvEscape(availability),
-                "new", // Default condition
-                csvEscape(shop.name || shopSlug)
-            ].join(",");
-        });
+                // Image fallback
+                // Use a placeholder if no image is present to satisfy "Must have URL"
+                // X Shopping requires unique URLs, so we append the item ID
+                let imageLink = "";
+                if (item.images && item.images.length > 0) {
+                    imageLink = item.images[0];
+                } else {
+                    // Use the main platform URL to ensure reliable serving of the API asset
+                    // (custom domains might handle API routes differently depending on middleware)
+                    const platformUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pay.ledger1.ai";
+                    imageLink = `${platformUrl}/api/integrations/xshopping/${effectiveSlug}/product-images/default?id=${itemId}`;
+                }
+
+                // Description fallback
+                const safeName = item.name || "Untitled Product";
+                const description = item.description || `${safeName} available at ${shop.name || effectiveSlug}`;
+
+                return [
+                    csvEscape(itemId),
+                    csvEscape(safeName),
+                    csvEscape(description),
+                    csvEscape(link),
+                    csvEscape(imageLink),
+                    csvEscape(price),
+                    csvEscape(availability),
+                    "new", // Default condition
+                    csvEscape(shop.name || effectiveSlug)
+                ].join(",");
+            });
 
         const csvContent = [headers.join(","), ...csvRows].join("\n");
 

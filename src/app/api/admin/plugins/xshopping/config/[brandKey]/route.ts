@@ -15,16 +15,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ bran
 
         // Allow admin or partner access - strict admin check might be too restrictive if partners need to read their own config
         // For now, keeping consistent with other admin routes
+        // Allow any authenticated user to read the public config status
         const auth = await requireThirdwebAuth(req);
-        if (!auth.roles.includes("admin")) {
-            // Allow if it's the partner accessing their own brand? 
-            // Current auth pattern usually checks roles or wallet match. 
-            // For simplicity in this iteration, we assume admin role or valid partner signature is handled by requireThirdwebAuth or upstream middleware if present. 
-            // Just proceeding with admin check for SAFETY first.
-            if (!auth.roles.includes("admin")) {
-                return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-            }
-        }
+        // if (!auth.roles.includes("admin")) { ... } // Removed to allow merchant access
 
         const container = await getContainer();
         // ID format: xshopping_platform_config:basaltsurge
