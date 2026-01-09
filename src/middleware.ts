@@ -82,7 +82,7 @@ function buildCsp(req: NextRequest): string {
     `style-src ${self} 'unsafe-inline' https://use.typekit.net`,
     `connect-src ${connectSrc}`,
     `font-src ${self} ${https} https://use.typekit.net`,
-    `frame-ancestors ${self}`,
+    `frame-ancestors ${self} https://warpcast.com https://*.warpcast.com https://*.farcaster.xyz`,
     `base-uri ${self}`,
     `form-action ${self}`,
     // Allow media from https for embedded audio/video if used
