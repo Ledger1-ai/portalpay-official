@@ -2,6 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/cosmos";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Helper to escape CSV fields complying with RFC 4180
 function csvEscape(field: any): string {
     const stringValue = String(field || "").trim();
