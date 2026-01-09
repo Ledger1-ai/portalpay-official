@@ -9,8 +9,8 @@ export default function FarcasterProvider({ children }: { children: React.ReactN
 
     useEffect(() => {
         const load = async () => {
-            setContext(await sdk.context);
             sdk.actions.ready();
+            setContext(await sdk.context);
         };
         if (sdk && !isSDKLoaded) {
             setIsSDKLoaded(true);
