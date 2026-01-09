@@ -89,6 +89,14 @@ const nextConfig = {
     // No redirects for /pricing; it now serves the Terminal experience directly
     return [];
   },
+  async rewrites() {
+    return [
+      {
+        source: "/.well-known/farcaster.json",
+        destination: "/api/farcaster/manifest",
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);

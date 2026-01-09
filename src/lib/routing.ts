@@ -42,6 +42,7 @@ export const EXCLUDE_PREFIXES = new Set<string>([
     "sitemap.xml",
     "opengraph-image",
     "twitter-image",
+    ".well-known",
 ]);
 
 export function isCandidateSlug(pathname: string): string | null {
