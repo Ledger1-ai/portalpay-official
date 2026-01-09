@@ -45,6 +45,20 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: "/:all*(svg|jpg|png|ico|webp)",
+        locale: false,
+        headers: [
+          {
+            key: "Cross-Origin-Resource-Policy",
+            value: "cross-origin",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+        ],
+      },
+      {
         source: "/(.*)",
         headers: [
           {

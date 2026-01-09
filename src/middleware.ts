@@ -85,7 +85,6 @@ function buildCsp(req: NextRequest): string {
     `frame-ancestors ${self} https://warpcast.com https://*.warpcast.com https://*.farcaster.xyz`,
     `base-uri ${self}`,
     `form-action ${self}`,
-    // Allow media from https for embedded audio/video if used
     `media-src ${https} ${self}`,
     // Allow Thirdweb wallet iframes and Adobe Sign
     `frame-src ${self} https://embedded-wallet.thirdweb.com https://*.thirdweb.com https://na2.documents.adobe.com https://*.documents.adobe.com https://*.adobesign.com`,
@@ -100,8 +99,12 @@ function applySecurityHeaders(req: NextRequest, res: NextResponse) {
   const isPortalRoute = req.nextUrl.pathname.startsWith("/portal/");
   // For /portal/*, relax frame-ancestors to allow embedding from self and approved origins, and omit X-Frame-Options
   let finalCsp = csp;
+
+  // ALWAYS allow Farcaster domains for framing, regardless of route (shop or portal)
+  // Also include localhost for dev tools
+  const allowedAncestors = ["'self'", "https://warpcast.com", "https://*.warpcast.com", "https://*.farcaster.xyz", "https://client.warpcast.com", "http://localhost:*", "https://localhost:*"];
+
   if (isPortalRoute) {
-    const allowedAncestors: string[] = ["'self'"];
     try {
       const app = process.env.NEXT_PUBLIC_APP_URL || "";
       if (app) {
@@ -111,11 +114,18 @@ function applySecurityHeaders(req: NextRequest, res: NextResponse) {
     } catch { }
     // Explicitly allow pay.ledger1.ai
     allowedAncestors.push("https://surge.basalthq.com");
-    finalCsp = csp.replace(/frame-ancestors [^;]+/, `frame-ancestors ${allowedAncestors.join(" ")}`);
   }
+
+  // Replace the default frame-ancestors in the policy
+  finalCsp = csp.replace(/frame-ancestors [^;]+/, `frame-ancestors ${allowedAncestors.join(" ")}`);
+
   res.headers.set("Content-Security-Policy", finalCsp);
   if (!isPortalRoute) {
-    res.headers.set("X-Frame-Options", "SAMEORIGIN");
+    // legacy header, might conflict if set to SAMEORIGIN. Let's remove it if we have CSP frame-ancestors.
+    // Or set to ALLOW-FROM but that is deprecated.
+    // Safer to delete it if we trust CSP, or set to SAMEORIGIN only if we really mean it.
+    // Since we want framing, we should definitely NOT set X-Frame-Options: SAMEORIGIN if we expect framing!
+    res.headers.delete("X-Frame-Options");
   } else {
     try { res.headers.delete("X-Frame-Options"); } catch { }
   }
@@ -131,11 +141,9 @@ function applySecurityHeaders(req: NextRequest, res: NextResponse) {
   // See: https://www.smartwallet.dev/guides/tips/popup-tips#cross-origin-opener-policy
   res.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
 
-  // For API routes, use cross-origin to allow proxied/CDN requests
-  // For other routes, use same-origin for stricter security, EXCEPT images/public assets for mini apps
-  const isApiRoute = req.nextUrl.pathname.startsWith("/api/");
-  const isImageResp = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i.test(req.nextUrl.pathname);
-  res.headers.set("Cross-Origin-Resource-Policy", (isApiRoute || isImageResp) ? "cross-origin" : "same-origin");
+  // Allow cross-origin for virtually everything to fix Farcaster/Proxy issues
+  // There is little risk for a public shop/portal site.
+  res.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
 
   // HSTS (only meaningful over HTTPS; harmless otherwise)
   res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");

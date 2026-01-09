@@ -10,6 +10,7 @@
   ],
   "start_url": "https://surge.basalthq.com",
   "display": "standalone",
+  "imageUrl": "https://surge.basalthq.com/opengraph-image.png",
   "theme_color": "#35ff7c",
   "background_color": "#0a0a0a"
 }
