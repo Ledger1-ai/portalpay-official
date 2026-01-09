@@ -39,8 +39,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ bran
         // OR use the brandKey as partition if this is "Brand Config".
         // Looking at Shopify: `shopify_plugin_config:${brandKey}` with partition `${brandKey}`.
         // We will follow Shopify pattern: partitionKey = brandKey.
-
-        const { resource } = await container.item(docId, normalizedBrandKey).read();
+        let resource: any = null;
+        try {
+            const response = await container.item(docId, normalizedBrandKey).read();
+            resource = response.resource;
+        } catch (e: any) {
+            // 404 is expected if not found
+            if (e.code !== 404) throw e;
+        }
 
         return NextResponse.json({ config: resource || { enabled: false } });
 
@@ -65,7 +71,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ bra
         const docId = `xshopping_platform_config:${normalizedBrandKey}`;
 
         // Fetch existing using query to be safe or just read
-        const { resource: existing } = await container.item(docId, normalizedBrandKey).read();
+        let existing: any = null;
+        try {
+            const response = await container.item(docId, normalizedBrandKey).read();
+            existing = response.resource;
+        } catch (e: any) {
+            if (e.code !== 404) throw e;
+        }
 
         const doc = {
             ...(existing || {}),
@@ -79,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ bra
 
         await container.items.upsert(doc);
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, ok: true });
 
     } catch (err: any) {
         return NextResponse.json({ error: err.message }, { status: 500 });
