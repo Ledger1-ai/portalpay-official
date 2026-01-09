@@ -196,8 +196,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
             status: 200,
             headers: {
                 "Content-Type": "text/csv; charset=utf-8",
-                "Content-Disposition": `attachment; filename="x-shopping-feed-${effectiveSlug}.csv"`,
+                "Content-Disposition": `attachment; filename="x-shopping-feed-${effectiveSlug}-${Date.now()}.csv"`,
                 "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+                "X-Feed-Version": "v2-fix-spaces",
+                "X-Feed-Gen-Time": new Date().toISOString(),
             }
         });
 
