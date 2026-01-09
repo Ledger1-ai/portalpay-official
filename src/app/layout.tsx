@@ -627,6 +627,7 @@ export default async function RootLayout({
     >
       <head>
         <link rel="stylesheet" href="https://use.typekit.net/eur3bvn.css" />
+        <meta name="base:app_id" content="69614c80b8395f034ac21fe2" />
       </head>
       <body
         suppressHydrationWarning

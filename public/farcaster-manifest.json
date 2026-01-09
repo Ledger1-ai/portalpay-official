@@ -1,15 +1,13 @@
 {
-  "name": "Chicken Bones",
-  "icon": "/android-chrome-192x192.png",
-  "description": "Read the chicken bones. Live AI audio agent with sessions and billing.",
-  "splash": "/story4.png",
-  "home_url": "/",
-  "terms_url": "/",
-  "privacy_url": "/",
+  "name": "BasaltSurge",
+  "icon": "https://pay.ledger1.ai/opengraph-image.png",
+  "description": "Enterprise crypto payments at 0.5% with instant settlement. Unified billing and analytics.",
+  "splash": "https://pay.ledger1.ai/opengraph-image.png",
+  "home_url": "https://pay.ledger1.ai",
+  "terms_url": "https://pay.ledger1.ai/terms",
+  "privacy_url": "https://pay.ledger1.ai/privacy",
   "app": {
     "platform": "web",
-    "url": "/"
+    "url": "https://pay.ledger1.ai"
   }
 }
-
-
