@@ -41,6 +41,7 @@ export const EXCLUDE_PREFIXES = new Set<string>([
     "robots.txt",
     "sitemap.xml",
     "opengraph-image",
+    "opengraph-image.png",
     "twitter-image",
     ".well-known",
 ]);

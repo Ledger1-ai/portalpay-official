@@ -16,7 +16,7 @@ export async function GET() {
             tagline: "Crypto Payments Simplified",
             ogTitle: "BasaltSurge",
             ogDescription: "Enterprise crypto payments with instant settlement. Unified billing and analytics.",
-            ogImageUrl: "https://surge.basalthq.com/opengraph-image", // Dynamic OG image
+            ogImageUrl: "https://surge.basalthq.com/opengraph-image.png", // Generative OG image with extension rewrite
             primaryCategory: "finance",
             tags: ["payments", "crypto", "billing", "merchant"],
         },

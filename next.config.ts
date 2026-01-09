@@ -95,6 +95,10 @@ const nextConfig = {
         source: "/.well-known/farcaster.json",
         destination: "/api/farcaster/manifest",
       },
+      {
+        source: "/opengraph-image.png",
+        destination: "/opengraph-image",
+      },
     ];
   },
 };

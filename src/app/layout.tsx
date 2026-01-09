@@ -14,6 +14,7 @@ import { ThemeReadyGate } from "@/components/providers/theme-ready-gate";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { I18nProvider } from "@/components/providers/i18n-provider";
 import { AutoTranslateProvider } from "@/components/providers/auto-translate-provider";
+import FarcasterProvider from "@/components/providers/FarcasterProvider";
 import SplitGuardMount from "@/components/split-guard-mount";
 import { getBaseUrl, isLocalhostUrl } from "@/lib/base-url";
 import messages from "../../messages/en.json";
@@ -995,17 +996,19 @@ export default async function RootLayout({
           <ThirdwebAppProvider>
             <ThemeProvider>
               <QueryProvider>
-                <I18nProvider messages={messages}>
-                  <AutoTranslateProvider>
-                    <TitleUpdater />
-                    <FaviconUpdater />
-                    <HideableNavbar />
-                    {/* Mobile spacer below navbar to avoid content crowding */}
-                    <div id="mobile-navbar-spacer" className="sm:hidden h-2" />
-                    <SplitGuardMount />
-                    {children}
-                  </AutoTranslateProvider>
-                </I18nProvider>
+                <FarcasterProvider>
+                  <I18nProvider messages={messages}>
+                    <AutoTranslateProvider>
+                      <TitleUpdater />
+                      <FaviconUpdater />
+                      <HideableNavbar />
+                      {/* Mobile spacer below navbar to avoid content crowding */}
+                      <div id="mobile-navbar-spacer" className="sm:hidden h-2" />
+                      <SplitGuardMount />
+                      {children}
+                    </AutoTranslateProvider>
+                  </I18nProvider>
+                </FarcasterProvider>
               </QueryProvider>
             </ThemeProvider>
           </ThirdwebAppProvider>
