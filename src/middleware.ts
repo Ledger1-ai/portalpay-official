@@ -69,8 +69,8 @@ function buildCsp(req: NextRequest): string {
     }
   } catch { }
   const imgSrc = [self, data, https, ...extras].join(" ");
-  // Allow dev HMR WebSockets explicitly
-  const connectSrc = [self, https, ws, wss, ...extras].join(" ");
+  // Allow dev HMR WebSockets explicitly + WalletConnect + Privy
+  const connectSrc = [self, https, ws, wss, ...extras, "https://explorer-api.walletconnect.com", "wss://*.walletconnect.com", "https://*.walletconnect.com", "https://auth.privy.io", "https://*.rpc.privy.systems"].join(" ");
   // Script-src: Allow unsafe-inline in production for Next.js managed inline scripts; unsafe-eval only in dev for HMR
   const scriptSrc = isDev
     ? `${self} 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com`
@@ -144,6 +144,9 @@ function applySecurityHeaders(req: NextRequest, res: NextResponse) {
   // Allow cross-origin for virtually everything to fix Farcaster/Proxy issues
   // There is little risk for a public shop/portal site.
   res.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  res.headers.set("Access-Control-Allow-Origin", "*");
+  res.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // HSTS (only meaningful over HTTPS; harmless otherwise)
   res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");

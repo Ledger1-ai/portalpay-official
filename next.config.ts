@@ -45,7 +45,7 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/:all*(svg|jpg|png|ico|webp)",
+        source: "/(.*).(svg|jpg|jpeg|png|gif|ico|webp)",
         locale: false,
         headers: [
           {
@@ -64,7 +64,7 @@ const nextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https://embedded-wallet.thirdweb.com https://*.thirdweb.com; child-src https://embedded-wallet.thirdweb.com https://*.thirdweb.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.thirdweb.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:;",
+              "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: https://explorer-api.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.com https://auth.privy.io https://*.rpc.privy.systems; frame-src https:; child-src https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:; frame-ancestors 'self' https://warpcast.com https://*.warpcast.com https://*.farcaster.xyz https://client.warpcast.com http://localhost:*;",
           },
           {
             key: "Cross-Origin-Opener-Policy",
