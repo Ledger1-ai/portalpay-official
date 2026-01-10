@@ -522,7 +522,20 @@ export async function generateMetadata(): Promise<Metadata> {
       index: true,
       follow: true,
     },
-    other: iosAppId ? { "apple-itunes-app": `app-id=${iosAppId}` } : undefined,
+    other: {
+      ...(iosAppId ? { "apple-itunes-app": `app-id=${iosAppId}` } : {}),
+      "fc:miniapp": JSON.stringify({
+        version: "next",
+        imageUrl: "https://surge.basalthq.com/Surge.png",
+        button: {
+          title: "Start Your Shop!",
+          action: {
+            type: "launch_frame",
+            url: "https://surge.basalthq.com",
+          },
+        },
+      }),
+    },
   };
 }
 
