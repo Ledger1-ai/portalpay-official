@@ -8,6 +8,46 @@ export const size = { width: 2400, height: 1260 };
 export const contentType = 'image/png';
 
 export default async function Image() {
+    let explicitBrandConfig = null;
+    try {
+        // Derive brand from hostname just like layout.tsx
+        const { headers } = require('next/headers');
+        const headersList = await headers();
+        const host = headersList.get('x-forwarded-host') || headersList.get('host') || '';
+
+        let brandKey = '';
+        // Same logic as layout.tsx to parse host
+        // remove port
+        const hostLower = host.toLowerCase().split(':')[0];
+        if (hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
+            // local dev
+        } else {
+            // Azure/custom domain detection
+            const parts = hostLower.split('.');
+            if (parts.length >= 2) {
+                const candidate = parts[0];
+                // Check simplified Azure/AppService pattern
+                if (candidate && !['www', 'api', 'admin'].includes(candidate)) {
+                    const isAzure = hostLower.endsWith('.azurewebsites.net') || hostLower.endsWith('.azurecontainerapps.io');
+                    const isPayportal = hostLower.endsWith('.payportal.co') || hostLower.endsWith('.portalpay.app');
+                    if (isAzure || isPayportal) {
+                        brandKey = candidate;
+                    }
+                }
+                // Handle explicit known brands/domains if needed, but the candidate check catches 'xoinpay.azurewebsites.net'
+                if (hostLower === 'www.xoinpay.com' || hostLower === 'xoinpay.com') brandKey = 'xoinpay';
+            }
+        }
+
+        if (brandKey) {
+            const { getBrandConfigFromCosmos } = require('@/lib/brand-config');
+            const { brand } = await getBrandConfigFromCosmos(brandKey);
+            if (brand) explicitBrandConfig = brand;
+        }
+    } catch (e) {
+        console.error('OG Image brand detection failed:', e);
+    }
+
     const {
         bgBase64,
         blurredBgBase64,
@@ -15,7 +55,7 @@ export default async function Image() {
         shieldBase64,
         logoBase64,
         brand
-    } = await loadBasaltDefaults(); // Actually calling the new logic aliased/shimmed
+    } = await loadBasaltDefaults(explicitBrandConfig); // Inject derived brand config
 
     const primaryColor = brand.colors.primary || '#35ff7c';
     const isBasalt = String(brand.key).toLowerCase() === 'basaltsurge';

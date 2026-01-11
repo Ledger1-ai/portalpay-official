@@ -346,30 +346,37 @@ export async function generateMetadata(): Promise<Metadata> {
 
   // Choose metadata base: site-config appUrl if available, otherwise APP_URL
   // CRITICAL: Never use localhost URLs in production metadata
-  let metadataBaseUrl = APP_URL;
-  if (siteAppUrl && siteAppUrl.length && !isLocalhostUrl(siteAppUrl)) {
-    metadataBaseUrl = siteAppUrl;
+  // Choose metadata base: Prioritize request headers for dynamic deployment URLs
+  // This ensures we use the actual browser URL (e.g. azurewebsites.net) instead of a hardcoded env var
+  let metadataBaseUrl = '';
+  try {
+    const { headers } = require('next/headers');
+    const headersList = await headers();
+    const host = headersList.get('x-forwarded-host') || headersList.get('host');
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      metadataBaseUrl = `https://${host}`;
+    }
+  } catch {
+    // headers() unavailable
   }
 
-  // If metadataBaseUrl is still localhost in production, try to derive from brand appUrl or request headers
+  // Fallback to site-config appUrl or env APP_URL
+  if (!metadataBaseUrl) {
+    if (siteAppUrl && siteAppUrl.length && !isLocalhostUrl(siteAppUrl)) {
+      metadataBaseUrl = siteAppUrl;
+    } else {
+      metadataBaseUrl = APP_URL;
+    }
+  }
+
+  // Final safety checks
   if (process.env.NODE_ENV === 'production' && isLocalhostUrl(metadataBaseUrl)) {
     // Try brand appUrl first
     if (runtimeBrand.appUrl && !isLocalhostUrl(runtimeBrand.appUrl)) {
       metadataBaseUrl = runtimeBrand.appUrl;
     } else {
-      // Try to get from request headers
-      try {
-        const { headers } = require('next/headers');
-        const headersList = await headers();
-        const host = headersList.get('x-forwarded-host') || headersList.get('host');
-        if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
-          metadataBaseUrl = `https://${host}`;
-        }
-      } catch {
-        // headers() may fail; fall back to a placeholder that signals misconfiguration
-        // but won't leak localhost to crawlers
-        metadataBaseUrl = 'https://example.com';
-      }
+      // Fallback to example to avoid localhost leak
+      metadataBaseUrl = 'https://example.com';
     }
   }
   // Force HTTPS for OG images when possible

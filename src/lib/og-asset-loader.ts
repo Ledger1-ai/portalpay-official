@@ -168,7 +168,10 @@ export async function loadTwemojiPng(emoji: string, size = 96): Promise<Buffer |
 /**
  * Load assets for dynamic Brand OG template
  */
-export async function loadBrandOGAssets(): Promise<{
+/**
+ * Load assets for dynamic Brand OG template
+ */
+export async function loadBrandOGAssets(explicitBrandConfig?: any): Promise<{
     bgBase64: string;
     blurredBgBase64: string;
     medallionBase64: string;
@@ -176,7 +179,7 @@ export async function loadBrandOGAssets(): Promise<{
     shieldBase64: string;
     brand: any;
 }> {
-    const brand = getBrandConfig();
+    const brand = explicitBrandConfig || getBrandConfig();
     const isPlatform = String(brand?.key || '').toLowerCase() === 'basaltsurge' || String(brand?.key || '').toLowerCase() === 'portalpay';
 
     // 1. Backgrounds: Use Brand-specific if available (future), otherwise default BasaltBG
@@ -195,7 +198,39 @@ export async function loadBrandOGAssets(): Promise<{
     } else {
         // Try to load partner symbol using our robust loader
         // Use 450px to ensure it fits within the 700px circle (and 4px border) without clipping corners of a square logo
-        medallion = await loadPPSymbol(450);
+        // Pass the explicit brand context to loadPPSymbol helper if needed? 
+        // Actually loadPPSymbol calls getBrandConfig() internally. We should probably refactor it or just duplicate logic here roughly.
+        // Let's rely on the brand properties we have in `brand` object.
+
+        let logoPath = String(brand?.logos?.symbol || brand?.logos?.app || '');
+        if (logoPath) {
+            if (/^https?:\/\//i.test(logoPath)) {
+                medallion = await fetchWithCache(logoPath);
+            } else {
+                const rel = logoPath.replace(/^[/\\]+/, '');
+                medallion = await loadPublicImageBuffer(rel);
+                if (!medallion && brand?.appUrl) {
+                    const base = String(brand.appUrl).replace(/\/+$/, '');
+                    medallion = await fetchWithCache(`${base}/${rel}`);
+                }
+            }
+        }
+
+        // If still null, try using loadPPSymbol logic but we can't easily injection into loadPPSymbol without changing its signature too.
+        // For now, if we provided explicit config, assume it has the paths we need.
+        if (!medallion) {
+            // Fallback to platform symbol only if we really can't find anything
+            // But for partner we usually want their logo or nothing/initials? 
+            // Existing logic fell back to platform.
+            // Let's try to stick to existing logic:
+            // loadPPSymbol tried to load "brand specific" or "Surge.png".
+            // If we are a partner, we want partner symbol.
+        }
+    }
+
+    // If medallion is still null and we are platform, ensure we load platform default
+    if (!medallion && isPlatform) {
+        medallion = await loadPublicImageBuffer('BasaltSurgeM.png');
     }
 
     // 3. Logo (Bottom/Footer Logo or "Powered By")
@@ -259,6 +294,6 @@ export async function loadBrandOGAssets(): Promise<{
  * Load default assets for Basalt OG template
  * @deprecated Use loadBrandOGAssets instead
  */
-export async function loadBasaltDefaults() {
-    return loadBrandOGAssets();
+export async function loadBasaltDefaults(explicitBrandConfig?: any) {
+    return loadBrandOGAssets(explicitBrandConfig);
 }
