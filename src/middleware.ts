@@ -77,15 +77,15 @@ function buildCsp(req: NextRequest): string {
     : `${self} 'unsafe-inline' https://static.cloudflareinsights.com`;
   const policy = [
     `default-src ${self}`,
-    `img-src ${imgSrc}`,
+    `img-src ${imgSrc} https://portalpay-b6hqctdfergaadct.z02.azurefd.net`,
     `script-src ${scriptSrc}`,
-    `style-src ${self} 'unsafe-inline' https://use.typekit.net`,
+    `style-src ${self} 'unsafe-inline' https://use.typekit.net https://p.typekit.net`,
     `connect-src ${connectSrc}`,
-    `font-src ${self} ${https} https://use.typekit.net`,
+    `font-src ${self} ${https} https://use.typekit.net https://p.typekit.net data:`,
     `frame-ancestors ${self} https://warpcast.com https://*.warpcast.com https://*.farcaster.xyz`,
     `base-uri ${self}`,
     `form-action ${self}`,
-    `media-src ${https} ${self}`,
+    `media-src ${https} ${self} https://portalpay-b6hqctdfergaadct.z02.azurefd.net`,
     // Allow Thirdweb wallet iframes and Adobe Sign
     `frame-src ${self} https://embedded-wallet.thirdweb.com https://*.thirdweb.com https://na2.documents.adobe.com https://*.documents.adobe.com https://*.adobesign.com`,
     // Disallow object/embed entirely
