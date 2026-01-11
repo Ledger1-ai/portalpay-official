@@ -217,7 +217,7 @@ export function Navbar() {
                 brandName: "BasaltSurge",
                 brandLogoShape: "square",
                 brandKey: "basaltsurge",
-                navbarMode: "logo" as const
+                navbarMode: "symbol" as const
             };
         }
 
@@ -680,7 +680,7 @@ export function Navbar() {
                                     </span>
                                     <div className="relative h-8 min-w-[120px] max-w-[180px] transform group-hover:scale-105 transition-transform duration-300">
                                         <Image
-                                            src={effectiveLogo || effectiveLogoApp || partnerFallbackLogo}
+                                            src={effectiveLogoApp || effectiveLogo || partnerFallbackLogo}
                                             alt={theme.brandName || "Logo"}
                                             fill
                                             className="object-contain object-left"

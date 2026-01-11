@@ -38,6 +38,8 @@ jobs:
           NEXT_PUBLIC_THIRDWEB_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_THIRDWEB_CLIENT_ID }}
           NEXT_PUBLIC_CHAIN_ID: ${{ secrets.NEXT_PUBLIC_CHAIN_ID }}
           NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID }}
+          NEXT_PUBLIC_RECIPIENT_ADDRESS: ${{ secrets.NEXT_PUBLIC_RECIPIENT_ADDRESS }}
+          NEXT_PUBLIC_OWNER_WALLET: ${{ secrets.NEXT_PUBLIC_OWNER_WALLET }}
         run: |
           npm install
           npm run build --if-present
