@@ -34,16 +34,73 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
       - name: npm install, build, and test
+        env:
+          NEXT_PUBLIC_THIRDWEB_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_THIRDWEB_CLIENT_ID }}
+          NEXT_PUBLIC_CHAIN_ID: ${{ secrets.NEXT_PUBLIC_CHAIN_ID }}
+          NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID }}
         run: |
           npm install
           npm run build --if-present
           npm run test --if-present
 
+      - name: Prepare Standalone Build
+        run: |
+          cp -r public .next/standalone/public
+          mkdir -p .next/standalone/.next
+          cp -r .next/static .next/standalone/.next/static
+          
+          # Create web.config for Azure IIS/Windows
+          cd .next/standalone
+          cat <<EOF > web.config
+          <configuration>
+            <system.webServer>
+              <handlers>
+                <add name="iisnode" path="server.js" verb="*" modules="iisnode" />
+              </handlers>
+              <rewrite>
+                <rules>
+                  <rule name="NodeInspector" patternSyntax="ECMAScript" stopProcessing="true">
+                    <match url="^server.js\/debug[\/]?" />
+                  </rule>
+                  <rule name="StaticContent">
+                    <action type="Rewrite" url="public{REQUEST_URI}" />
+                  </rule>
+                  <rule name="DynamicContent">
+                    <conditions>
+                      <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True" />
+                    </conditions>
+                    <action type="Rewrite" url="server.js" />
+                  </rule>
+                </rules>
+              </rewrite>
+              <security>
+                <requestFiltering>
+                  <hiddenSegments>
+                    <remove segment="bin"/>
+                  </hiddenSegments>
+                </requestFiltering>
+              </security>
+              <httpErrors existingResponse="PassThrough" />
+            </system.webServer>
+          </configuration>
+          EOF
+
+          npm pkg set scripts.start="node server.js"
+          cd ../..
+
+          # Debug: Verify .next/standalone/.next exists and has content
+          ls -la .next/standalone/.next
+
+          # Zip the standalone directory to preserve all files including hidden ones
+          cd .next/standalone
+          zip -r ../../release.zip .
+          cd ../..
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: release.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -72,5 +129,4 @@ jobs:
           app-name: "xoinpay"
           slot-name: "Production"
           package: release.zip
-          startup-command: "node server.js"
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_SURGE_XOINPAY }}
