@@ -21,7 +21,7 @@ jobs:
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
-          node-version: "24.x"
+          node-version: "20.x"
           cache: "npm"
 
       - name: Next.js cache
@@ -89,5 +89,5 @@ jobs:
           app-name: "xoinpay"
           slot-name: "Production"
           package: release.zip
-
+          startup-command: "node server.js"
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_SURGE_XOINPAY }}

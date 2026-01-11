@@ -194,7 +194,8 @@ export async function loadBrandOGAssets(): Promise<{
         medallion = await loadPublicImageBuffer('BasaltSurgeM.png');
     } else {
         // Try to load partner symbol using our robust loader
-        medallion = await loadPPSymbol(600);
+        // Use 450px to ensure it fits within the 700px circle (and 4px border) without clipping corners of a square logo
+        medallion = await loadPPSymbol(450);
     }
 
     // 3. Logo (Bottom/Footer Logo or "Powered By")

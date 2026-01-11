@@ -3,7 +3,7 @@ import { generateBasaltOG } from '@/lib/og-template';
 import { loadBasaltDefaults } from '@/lib/og-asset-loader';
 
 export const runtime = 'nodejs';
-export const alt = 'Basalt Surge - Web3 Native Commerce & Payments';
+export const alt = 'Web3 Native Commerce & Payments';
 export const size = { width: 2400, height: 1260 };
 export const contentType = 'image/png';
 
@@ -56,7 +56,7 @@ export default async function Image() {
                     <div style={{ width: 4, height: 40, background: primaryColor }} />
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <div style={{ fontSize: 20, color: primaryColor, fontWeight: 700, letterSpacing: '0.15em' }}>{isBasalt ? 'SANTA FE • NM' : 'POWERED BY WEB3'}</div>
-                        <div style={{ fontSize: 20, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{isBasalt ? 'surge.basalthq.com' : (brand.appUrl?.replace(/^https?:\/\//, '') || 'portalpay.io')}</div>
+                        <div style={{ fontSize: 20, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{isBasalt ? 'surge.basalthq.com' : (brand.appUrl?.replace(/^https?:\/\//, '') || 'WEB3 PAYMENTS')}</div>
                     </div>
                 </div>
             </div>

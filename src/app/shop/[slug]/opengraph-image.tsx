@@ -113,6 +113,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     blurredBgImage: blurredBgDataUri || defaults.blurredBgBase64 || defaults.bgBase64,
     medallionImage: medallionDataUri || defaults.medallionBase64,
     cornerShieldImage: defaults.shieldBase64,
+    poweredByImage: defaults.logoBase64,
     primaryColor: primaryColor,
     leftWing: (
       <>

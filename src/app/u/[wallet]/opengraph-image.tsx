@@ -151,7 +151,7 @@ export default async function Image({ params }: { params: Promise<{ wallet: stri
     primaryColor: '#35ff7c',
     leftWing: (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
-        <div style={{ fontSize: 32, color: 'rgba(255,255,255,0.9)', fontWeight: 600, letterSpacing: '0.1em', marginBottom: 4 }}>BASALT SURGE</div>
+        <div style={{ fontSize: 32, color: 'rgba(255,255,255,0.9)', fontWeight: 600, letterSpacing: '0.1em', marginBottom: 4 }}>{(assets.brand.name || 'BASALT SURGE').toUpperCase()}</div>
         <div style={{ fontSize: 60, color: '#35ff7c', fontWeight: 800, letterSpacing: '0.05em', lineHeight: 1.1, textTransform: 'uppercase', textAlign: 'right', wordBreak: 'break-word', maxWidth: '100%' }}>
           {displayName.toUpperCase()}
         </div>

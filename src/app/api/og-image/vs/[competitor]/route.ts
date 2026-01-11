@@ -9,28 +9,7 @@ import { isPartnerContext } from '@/lib/env';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/**
- * Load the brand's logo for the comparison table (larger logo, not compact symbol).
- * Similar to loadPPSymbol but for the full logo (app logo) with proper sizing.
- */
-async function loadBrandLogo(size = 96): Promise<Buffer | null> {
-  try {
-    // Always use Surge.png shield logo for comparison OG images
-    const src = await loadPublicImageBuffer('Surge.png');
 
-    if (!src) {
-      return null;
-    }
-
-    return await sharp(src)
-      .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-      .png()
-      .toBuffer();
-  } catch (error) {
-    console.error('[loadBrandLogo] Error:', error);
-    return null;
-  }
-}
 
 export async function GET(
   req: NextRequest,
@@ -311,10 +290,11 @@ export async function GET(
     const logoContainerSize = 96;
     const logoTop = tableY - 76;
 
-    // Brand logo (Surge shield PNG) positioned near right column header
-    const portalLogo = await loadBrandLogo(logoContainerSize);
+    // Brand logo (Partner/Basalt Symbol) positioned near right column header
+    // Use loadPPSymbol to respect partner branding (auto-fallback to Surge.png for platform)
+    const portalLogo = await loadPPSymbol(logoContainerSize);
     if (portalLogo) {
-      // For Surge.png (transparent PNG), use directly without rectangular background
+      // For transparent logos, use directly without rectangular background
       const portalLogoLeft = tableX + containerPadding + colWidth + (colWidth - logoContainerSize) / 2;
       composites.push({ input: portalLogo, top: logoTop, left: Math.round(portalLogoLeft) });
     }

@@ -111,6 +111,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     bgImage: bgDataUri,
     blurredBgImage: bgDataUri, // Use same for blurred or defaults.bg if preferred
     medallionImage: medallionDataUri,
+    poweredByImage: defaults.logoBase64,
     primaryColor: primaryColors[0],
     leftWing: (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', height: '100%', gap: 0 }}>

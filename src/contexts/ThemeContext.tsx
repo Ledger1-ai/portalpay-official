@@ -400,9 +400,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             if (x.logos) {
               x.logos.app = '/BasaltSurgeWideD.png';
               x.logos.symbol = '/BasaltSurgeD.png';
-              x.logos.navbarMode = 'logo';
+              x.logos.navbarMode = 'symbol';
             }
-            x.navbarMode = 'logo';
+            x.navbarMode = 'symbol';
           }
           return x;
         })();
