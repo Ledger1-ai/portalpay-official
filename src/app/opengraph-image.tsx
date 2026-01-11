@@ -3,6 +3,7 @@ import { generateBasaltOG } from '@/lib/og-template';
 import { loadBasaltDefaults } from '@/lib/og-asset-loader';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // Allow headers() access for multi-tenant branding
 export const alt = 'Web3 Native Commerce & Payments';
 export const size = { width: 2400, height: 1260 };
 export const contentType = 'image/png';
