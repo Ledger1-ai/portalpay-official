@@ -227,7 +227,7 @@ export async function generateMetadata(): Promise<Metadata> {
   let siteBrandName: string | undefined;
   let siteLogosSocialDefault: string | undefined;
   try {
-    const recipient = String(process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || "").toLowerCase();
+    const recipient = String(process.env.NEXT_PUBLIC_PLATFORM_WALLET || "").toLowerCase();
     const c = await getContainer();
     const DOC_ID = "site:config";
     const partition = recipient || DOC_ID;

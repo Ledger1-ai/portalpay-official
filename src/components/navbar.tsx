@@ -33,7 +33,15 @@ export function Navbar() {
     const twTheme = usePortalThirdwebTheme();
     const account = useActiveAccount();
     const activeWallet = useActiveWallet();
-    const owner = (process.env.NEXT_PUBLIC_OWNER_WALLET || "").toLowerCase();
+    const [owner, setOwner] = useState("");
+    useEffect(() => {
+        try {
+            if (typeof document !== 'undefined') {
+                const envOwner = (document.documentElement?.getAttribute('data-pp-owner-wallet') || "").toLowerCase();
+                if (envOwner) setOwner(envOwner);
+            }
+        } catch { }
+    }, []);
     const isOwner = (account?.address || "").toLowerCase() === owner && !!owner;
     const wallet = (account?.address || "").toLowerCase();
     const pathname = usePathname();

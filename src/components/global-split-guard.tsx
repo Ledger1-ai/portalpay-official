@@ -117,7 +117,7 @@ export default function GlobalSplitGuard() {
   const [previewRecipients, setPreviewRecipients] = useState<any[] | null>(null);
   const prevOpenRef = useRef<boolean>(false);
 
-  const platformRecipient = (process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || "").toLowerCase();
+  const platformRecipient = (process.env.NEXT_PUBLIC_PLATFORM_WALLET || "").toLowerCase();
   const platformValid = isValidHex(platformRecipient);
 
   const brand = useBrand();
@@ -269,7 +269,7 @@ export default function GlobalSplitGuard() {
           const roles = Array.isArray((authCheck as any)?.roles) ? (authCheck as any).roles : [];
           const adminByRole = roles.includes('admin');
           const partnerAdmin = partnerContext && partnerValid && meAddr === partnerAddr;
-          const ownerEnv = (process.env.NEXT_PUBLIC_OWNER_WALLET || "").toLowerCase();
+          const ownerEnv = ((typeof document !== "undefined" && document?.documentElement?.getAttribute("data-pp-owner-wallet")) || "").toLowerCase() || (process.env.NEXT_PUBLIC_OWNER_WALLET || "").toLowerCase();
           const ownerAdmin = !!ownerEnv && ownerEnv === meAddr;
           setIsAdmin(adminByRole || partnerAdmin || ownerAdmin);
         } catch { }
