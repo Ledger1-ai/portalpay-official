@@ -87,8 +87,9 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: "icunow-store"
+          app-name: "xoinpay"
           slot-name: "Production"
           package: release.zip
 
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_73BE9DA539084F859DDFAB5E0165BF7D }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_SURGE_XOINPAY }}
+
