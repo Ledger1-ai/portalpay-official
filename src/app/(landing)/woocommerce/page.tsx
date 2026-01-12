@@ -1,23 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getBrandConfig } from "@/config/brands";
+import BrandText from "@/components/brand-text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
-  const title = `${brand.name} vs WooCommerce — Headless Payments Comparison`;
+  const title = `BasaltSurge vs WooCommerce — Headless Payments Comparison`;
   const description =
-    `Compare ${brand.name} and WooCommerce for modern, API-first payments. See differences across developer experience, extensibility, B2B workflows, headless use-cases, and more.`;
+    `Compare BasaltSurge and WooCommerce for modern, API-first payments. See differences across developer experience, extensibility, B2B workflows, headless use-cases, and more.`;
   return {
     title,
     description,
     openGraph: {
       title,
       description,
-      images: [brand.logos?.app || "/PortalPay.png"],
+      // Use BasaltSurge image primarily
+      images: ["/BasaltSurge.png"],
       type: "website",
     },
     alternates: {
-      canonical: "/portalpay-vs-woocommerce",
+      // Retain the NEW canonical since the route changed
+      canonical: "/woocommerce",
     },
   };
 }
@@ -84,20 +87,26 @@ const rows: Row[] = [
 
 export default function Page() {
   const brand = getBrandConfig();
-  const title = `${brand.name} vs WooCommerce`;
+  const title = (
+    <>
+      <BrandText /> vs WooCommerce
+    </>
+  );
   const description =
     "A practical comparison for teams choosing between a headless, API-first payments platform and a traditional plugin-based ecommerce stack.";
 
+  // For JSON-LD we must be static or accept platform default for now since it's inside script tag
+  // We'll use BasaltSurge for the structured data
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     mainEntity: [
       {
         "@type": "Question",
-        name: `When should I choose ${brand.name}?`,
+        name: `When should I choose BasaltSurge?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `Choose ${brand.name} when you need an API-first, headless payments surface to power custom apps, POS, kiosks, or B2B flows with receipts, reserve, split, tax, and inventory/order APIs.`,
+          text: `Choose BasaltSurge when you need an API-first, headless payments surface to power custom apps, POS, kiosks, or B2B flows with receipts, reserve, split, tax, and inventory/order APIs.`,
         },
       },
       {
@@ -188,7 +197,7 @@ export default function Page() {
                   <th className="px-4 py-3 font-medium text-neutral-700 w-[38%]">
                     Feature
                   </th>
-                  <th className="px-4 py-3 font-semibold">{brand.name}</th>
+                  <th className="px-4 py-3 font-semibold"><BrandText /></th>
                   <th className="px-4 py-3 font-semibold">WooCommerce</th>
                 </tr>
               </thead>
@@ -224,7 +233,7 @@ export default function Page() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="rounded-lg border border-neutral-200 p-5 bg-white">
             <h3 className="text-base md:text-lg font-semibold mb-1">
-              Choose {brand.name} if you need:
+              Choose <BrandText /> if you need:
             </h3>
             <ul className="text-sm text-neutral-700 list-disc pl-5 space-y-1.5">
               <li>Headless, API-first payments for custom channels</li>

@@ -5,16 +5,23 @@ import React from "react";
 import {
   Volume2,
   VolumeX,
-  DollarSign,
-  Palette,
+  Globe,
   Zap,
-  BarChart3,
-  CheckCircle2
+  ShieldCheck,
+  Code2,
+  Network,
+  Scale,
+  CheckCircle2,
+  Settings,
+  QrCode,
+  Smartphone,
+  PieChart
 } from "lucide-react";
 import { useBrand } from "@/contexts/BrandContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import GeometricAnimation from "@/components/landing/GeometricAnimation";
 import { cachedFetch } from "@/lib/client-api-cache";
+import BrandText from "@/components/brand-text";
 
 export default function GetStartedPage() {
   const brand = useBrand();
@@ -48,14 +55,12 @@ export default function GetStartedPage() {
     return ctFromState === "partner" || ctFromAttr === "partner";
   }, [containerType]);
 
-  // Compute display brand name (avoids showing "PortalPay" on partner containers)
+  // Compute display brand name
   const displayBrandName = React.useMemo(() => {
     try {
       const raw = String(siteTheme?.brandName || "").trim();
       const generic = /^ledger\d*$/i.test(raw) || /^partner\d*$/i.test(raw) || /^default$/i.test(raw);
-      // In partner containers, also treat "PortalPay" as generic to force using the brand key
       const treatAsGeneric = generic || (isPartnerContainer && /^portalpay$/i.test(raw));
-      // Prefer container brand key over context brand key
       const key = containerBrandKey || String((brand as any)?.key || "").trim();
       const titleizedKey = key ? key.charAt(0).toUpperCase() + key.slice(1) : "PortalPay";
       return (!raw || treatAsGeneric) ? titleizedKey : raw;
@@ -67,24 +72,12 @@ export default function GetStartedPage() {
 
   const toggleMute = async () => {
     if (!videoRef.current) return;
-
     try {
       const newMutedState = !isMuted;
-
-      // Set volume to full when unmuting
-      if (!newMutedState) {
-        videoRef.current.volume = 1.0;
-      }
-
+      if (!newMutedState) videoRef.current.volume = 1.0;
       videoRef.current.muted = newMutedState;
       setIsMuted(newMutedState);
-
-      // Ensure video is playing
-      if (videoRef.current.paused) {
-        await videoRef.current.play();
-      }
-
-      console.log('Video muted:', newMutedState, 'Volume:', videoRef.current.volume);
+      if (videoRef.current.paused) await videoRef.current.play();
     } catch (error) {
       console.error('Toggle mute failed:', error);
     }
@@ -93,43 +86,37 @@ export default function GetStartedPage() {
   React.useEffect(() => {
     const handleScroll = () => {
       if (!heroRef.current) return;
-
       const heroHeight = heroRef.current.offsetHeight;
       const scrollY = window.scrollY;
-
-      // Calculate progress as a value from 0 to 1 based on scroll through hero section
       const progress = Math.min(scrollY / (heroHeight * 0.75), 1);
       setScrollProgress(progress);
     };
-
     window.addEventListener("scroll", handleScroll);
-    handleScroll(); // Initial call
-
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Calculate different animation stages based on scroll progress
-  // Stage 1 (0-0.2): Fade in hero content
+  // Animation values
   const contentOpacity = Math.min(scrollProgress / 0.2, 1);
-
-  // Stage 2 (0.2-0.5): Scale up content slightly
   const contentScale = 1 + (Math.min(Math.max(scrollProgress - 0.2, 0) / 0.3, 1) * 0.15);
-
-  // Stage 3 (0.5-0.8): Fade out content
   const contentFadeOut = 1 - Math.min(Math.max(scrollProgress - 0.5, 0) / 0.3, 1);
-
-  // Stage 4 (0-1): Increase blur gradually throughout
   const blurAmount = scrollProgress * 20;
-
-  // Overlay darkness increases with scroll
   const overlayOpacity = scrollProgress * 0.7;
 
+  // Dynamic Styles
+  const primaryColor = siteTheme?.primaryColor || '#35ff7c'; // Use theme primary or Basalt Green default
+  const heroGradientStyle = {
+    backgroundImage: `linear-gradient(to right, ${primaryColor}, ${siteTheme?.secondaryColor || '#FF6B35'})`,
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent'
+  };
+
   return (
-    <div className="min-h-screen">
-      {/* Fixed Background - Video or Geometric Animation based on container type */}
+    <div className="min-h-screen relative bg-black">
+      {/* Background Layer */}
       <div className="fixed top-0 left-0 w-full h-screen overflow-hidden z-0">
         {isPartnerContainer ? (
-          /* Geometric Animation for partner containers */
           <div
             className="absolute inset-0 transition-all duration-300"
             style={{
@@ -140,7 +127,6 @@ export default function GetStartedPage() {
             <GeometricAnimation className="w-full h-full" />
           </div>
         ) : (
-          /* Video Background for platform container */
           <video
             ref={videoRef}
             autoPlay
@@ -159,35 +145,25 @@ export default function GetStartedPage() {
             />
           </video>
         )}
-
-        {/* Overlay */}
+        {/* Dynamic Overlay only - No static dimming at start */}
         <div
           className="absolute inset-0 bg-black transition-opacity duration-300"
           style={{ opacity: overlayOpacity }}
         />
       </div>
 
-      {/* Audio Control - Bottom Right - Only show for video (non-partner containers) */}
+      {/* Mute Button */}
       {!isPartnerContainer && (
         <button
           onClick={toggleMute}
           className="fixed bottom-8 right-8 z-50 p-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors"
-          aria-label={isMuted ? "Unmute video" : "Mute video"}
         >
-          {isMuted ? (
-            <VolumeX className="w-6 h-6 text-white" />
-          ) : (
-            <Volume2 className="w-6 h-6 text-white" />
-          )}
+          {isMuted ? <VolumeX className="w-6 h-6 text-white" /> : <Volume2 className="w-6 h-6 text-white" />}
         </button>
       )}
 
-      {/* Hero Section */}
-      <section
-        ref={heroRef}
-        className="relative h-[200vh] w-full -mt-20"
-      >
-        {/* Hero Content */}
+      {/* HERO */}
+      <section ref={heroRef} className="relative h-[200vh] w-full -mt-20">
         <div
           className="fixed top-0 left-0 w-full h-screen flex flex-col items-center justify-center text-center px-4 transition-all duration-300 z-10"
           style={{
@@ -195,330 +171,256 @@ export default function GetStartedPage() {
             transform: `scale(${contentScale})`,
           }}
         >
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-2xl mb-8">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-black/30 backdrop-blur-xl border border-white/10 shadow-2xl mb-10 ring-1 ring-white/5">
             <img
               src={(() => {
-                // Prefer platform/container symbol, then app logo; never use favicon
+                if (!isPartnerContainer) return "/Surge.png";
                 const symbol = String((brand.logos?.symbol || "")).trim();
                 const app = String((brand.logos?.app || "")).trim();
                 if (symbol) return symbol;
                 if (app) return app;
-                // Fallback to platform symbol asset
-                return "/ppsymbol.png";
+                return "/Surge.png";
               })()}
               alt={`${brand.name} Logo`}
-              className="w-16 h-16 rounded-lg object-cover"
+              className="w-16 h-16 object-contain drop-shadow-lg"
             />
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 text-white max-w-4xl">
-            Accept crypto at the point of sale
+          <h1 className="text-6xl md:text-9xl font-black tracking-tighter mb-8 text-white max-w-6xl leading-[0.9]">
+            SOVEREIGN <br />
+            COMMERCE
+            <span className="block text-4xl md:text-6xl mt-4 font-bold tracking-normal opacity-90" style={heroGradientStyle}>
+              FOR THE DIGITAL AGE
+            </span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-white/90 mb-12 max-w-3xl leading-relaxed">
-            Scan. Pay. Settled. Give customers a secure web3‑native checkout and get instant,
-            programmable settlement in stablecoins or tokens.
+          <p className="text-xl md:text-2xl text-white/90 mb-12 max-w-3xl leading-relaxed font-light">
+            Powered by the <strong className="text-white">Universal Commerce Protocol (UCP)</strong>.
+            <span className="block mt-2">The internet's missing payment layer is finally here.</span>
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/admin"
-              className="px-8 py-4 text-lg rounded-lg bg-pp-secondary text-[var(--primary-foreground)] hover:opacity-90 transition-opacity shadow-xl"
+              className="px-8 py-4 text-lg rounded-lg text-white hover:scale-105 transition-transform shadow-2xl font-bold"
+              style={{ backgroundColor: primaryColor }}
             >
-              Start accepting crypto
+              Start the Revolution
             </Link>
             <Link
-              href="/terminal"
-              className="px-8 py-4 text-lg rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-colors"
+              href="#protocol"
+              className="px-8 py-4 text-lg rounded-lg bg-white/10 backdrop-blur-sm border border-white/30 text-white hover:bg-white/20 transition-colors font-semibold"
             >
-              Try the portal
+              Explore the Protocol
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Main Content */}
-      <div className="relative z-10 bg-background">
-        <div className="max-w-6xl mx-auto px-6 py-20">
-          {/* Core Value Props */}
-          <section className="mb-20">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Why {displayBrandName}?</h2>
-              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Modern payment infrastructure designed for the web3 era
+      {/* CONTENT */}
+      <div className="relative z-10 bg-black text-white">
+
+        {/* LIBERATION / MANIFESTO */}
+        <section className="py-24 md:py-32 px-6 border-b border-white/10 bg-neutral-950">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-16 items-center">
+              <div>
+                <span className="font-mono text-sm tracking-wider uppercase mb-4 block" style={{ color: primaryColor }}>
+                  /// STATUS: LIBERATED
+                </span>
+                <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight">
+                  Freedom from <br />
+                  <span className="text-neutral-500">Rent-Seekers.</span>
+                </h2>
+                <p className="text-xl text-neutral-400 mb-6 leading-relaxed">
+                  They own the rails. They own the data. They own your business.
+                  Legacy payment processors are gatekeepers of global prosperity.
+                </p>
+                <p className="text-xl text-white font-medium">
+                  We built new rails. <BrandText /> is not just a payment processor.
+                  It is a declaration of financial independence.
+                </p>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-0 blur-3xl rounded-full opacity-30" style={{ background: primaryColor }} />
+                <div className="relative bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
+                  <div className="flex items-center gap-4 mb-6 border-b border-white/10 pb-6">
+                    <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-500">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-neutral-400">Old System</div>
+                      <div className="text-lg font-bold">Permissioned & Taxed</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: `${primaryColor}40` }}>
+                      <Globe className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-neutral-400">New System (UCP)</div>
+                      <div className="text-lg font-bold text-white">Permissionless & Free</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* UCP & x402 PROTOCOL */}
+        <section id="protocol" className="py-24 md:py-32 px-6 bg-black relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-[url('/hex-pattern.svg')] opacity-5 pointer-events-none" />
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-20">
+              <span className="inline-block px-4 py-1.5 rounded-full border border-white/10 bg-white/5 font-mono text-sm mb-6 text-[var(--primary)]">
+                HTTP 402: PAYMENT REQUIRED
+              </span>
+              <h2 className="text-4xl md:text-6xl font-black mb-6">
+                The Universal Commerce Protocol
+              </h2>
+              <p className="text-xl text-neutral-400 max-w-3xl mx-auto">
+                Standardizing value transfer like HTTP standardized information.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <div className="glass-pane rounded-xl border p-8 text-center hover:border-[var(--primary)]/50 transition-colors">
-                <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mx-auto mb-6">
-                  <DollarSign className="w-7 h-7 text-[var(--primary)]" />
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                { icon: Code2, title: "x402 Standard", text: "The missing HTTP status code. Programmatic payment requirements for any digital resource." },
+                { icon: Network, title: "Interoperable", text: "Connect once, trade everywhere. Across chains, wallets, and apps." },
+                { icon: Scale, title: "Trustless Settlement", text: "No middlemen. Smart contracts handle settlement instantly. Code is law." }
+              ].map((item, i) => (
+                <div key={i} className="group relative bg-neutral-900/50 border border-white/10 rounded-2xl p-8 hover:border-[var(--primary)]/50 transition-colors">
+                  <div className="absolute top-0 right-0 p-8 opacity-10 font-mono text-6xl font-bold group-hover:text-[var(--primary)] transition-colors">
+                    0{i + 1}
+                  </div>
+                  <item.icon className="w-12 h-12 text-[var(--primary)] mb-6" />
+                  <h3 className="text-2xl font-bold mb-4">{item.title}</h3>
+                  <p className="text-neutral-400 leading-relaxed">{item.text}</p>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Lower Fees</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Avoid legacy card rails and reduce foreign exchange friction
-                </p>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-8 text-center hover:border-[var(--primary)]/50 transition-colors">
-                <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mx-auto mb-6">
-                  <Palette className="w-7 h-7 text-[var(--primary)]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3">Brand Control</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  White‑label portal with your colors, logo, and receipt backdrop
-                </p>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-8 text-center hover:border-[var(--primary)]/50 transition-colors">
-                <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mx-auto mb-6">
-                  <Zap className="w-7 h-7 text-[var(--primary)]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3">Instant Settlement</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Real‑time on‑chain settlement with programmable splits
-                </p>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-8 text-center hover:border-[var(--primary)]/50 transition-colors">
-                <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mx-auto mb-6">
-                  <BarChart3 className="w-7 h-7 text-[var(--primary)]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3">Real‑Time Analytics</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Track transactions, USD volume, and trends as they happen
-                </p>
-              </div>
+              ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* How It Works */}
-          <section className="mb-20">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
-              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Four simple steps to start accepting crypto payments
+        {/* TACTICAL EXECUTION (How it Works - Restored & Styled) */}
+        <section className="py-24 md:py-32 px-6 bg-neutral-950 border-t border-white/10">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-black mb-6">Tactical Execution</h2>
+              <p className="text-xl text-neutral-400 max-w-3xl mx-auto">
+                Four simple steps to sovereign wealth generation.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="glass-pane rounded-xl border p-6">
-                <div className="w-10 h-10 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold text-lg mb-4">
-                  1
+              {[
+                { icon: Settings, title: "Configure", text: "Set your brand, colors, logo, and revenue splits in the admin panel." },
+                { icon: QrCode, title: "Generate", text: "Create receipt IDs and print QR codes from your POS system." },
+                { icon: Smartphone, title: "Scan & Pay", text: "Customers scan the QR code and pay with any wallet." },
+                { icon: PieChart, title: "Reconcile", text: "Real-time analytics and instant on-chain settlement." }
+              ].map((step, i) => (
+                <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-colors">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-6 text-white" style={{ backgroundColor: primaryColor }}>
+                    {i + 1}
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-white flex items-center gap-2">
+                    <step.icon className="w-5 h-5 text-white/70" /> {step.title}
+                  </h3>
+                  <p className="text-neutral-400 text-sm">{step.text}</p>
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Configure</h3>
-                <p className="text-sm text-muted-foreground">
-                  Set your brand, colors, logo, reserve wallet, and token ratios in the admin panel
-                </p>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-6">
-                <div className="w-10 h-10 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold text-lg mb-4">
-                  2
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Generate</h3>
-                <p className="text-sm text-muted-foreground">
-                  Create receipt IDs and print QR codes from your POS system
-                </p>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-6">
-                <div className="w-10 h-10 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold text-lg mb-4">
-                  3
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Scan & Pay</h3>
-                <p className="text-sm text-muted-foreground">
-                  Customers scan the QR code, connect their wallet, and complete payment
-                </p>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-6">
-                <div className="w-10 h-10 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold text-lg mb-4">
-                  4
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Reconcile</h3>
-                <p className="text-sm text-muted-foreground">
-                  Transactions post to your dashboard with real‑time analytics and insights
-                </p>
-              </div>
+              ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Feature Deep Dive */}
-          <section className="mb-20">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Powerful Features</h2>
-              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Everything you need for modern crypto commerce
+        {/* SOVEREIGN ARSENAL (Features - Restored & Styled) */}
+        <section className="py-24 md:py-32 px-6 bg-black relative">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-black mb-6">The Sovereign Arsenal</h2>
+              <p className="text-xl text-neutral-400 max-w-3xl mx-auto">
+                Everything you need to compete and win in the digital economy.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="glass-pane rounded-xl border p-8">
-                <h3 className="text-2xl font-semibold mb-3">QR Code Payments</h3>
-                <p className="text-muted-foreground mb-4">
-                  Print QR codes on POS receipts. Customers scan and pay on mobile with their
-                  preferred wallet. No hardware changes needed.
-                </p>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Works with existing receipt printers</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Mobile-first customer experience</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>No additional hardware required</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-8">
-                <h3 className="text-2xl font-semibold mb-3">Multi‑Token Support</h3>
-                <p className="text-muted-foreground mb-4">
-                  Accept multiple cryptocurrencies and stablecoins. Customers pay with their
-                  preferred token on Base network.
-                </p>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>USDC & USDT stablecoins</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>cbBTC, cbXRP, and ETH</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Base network for fast, low-cost transactions</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-8">
-                <h3 className="text-2xl font-semibold mb-3">White‑Label Branding</h3>
-                <p className="text-muted-foreground mb-4">
-                  Customize every aspect of the payment portal to match your brand identity. Your
-                  customers see your brand, not ours.
-                </p>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Custom logo and colors</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Custom fonts and receipt backgrounds</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Fully branded checkout experience</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-8">
-                <h3 className="text-2xl font-semibold mb-3">Reserve & Revenue Splits</h3>
-                <p className="text-muted-foreground mb-4">
-                  Configure your token mix and automatically split revenue between multiple wallets.
-                  Perfect for partnerships and revenue sharing.
-                </p>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Smart token rotation and balancing</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>On‑chain revenue splits</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Configurable reserve ratios</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-8">
-                <h3 className="text-2xl font-semibold mb-3">Real‑Time Analytics</h3>
-                <p className="text-muted-foreground mb-4">
-                  Track every transaction with detailed insights. Monitor USD volume, trends, and
-                  customer behavior in real time.
-                </p>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Live transaction dashboard</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>USD volume tracking and reporting</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Customer and transaction insights</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="glass-pane rounded-xl border p-8">
-                <h3 className="text-2xl font-semibold mb-3">Web3‑Native Security</h3>
-                <p className="text-muted-foreground mb-4">
-                  Secure wallet connect with account abstraction and gas sponsorship. Your customers
-                  don't need to worry about gas fees.
-                </p>
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Secure wallet connection</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>Gas sponsorship for seamless UX</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                    <span>On‑chain settlement verification</span>
-                  </li>
-                </ul>
-              </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[
+                {
+                  title: "QR Code Payments",
+                  desc: "Print QR codes on POS receipts. Customers scan and pay.",
+                  items: ["Works with existing printers", "Mobile-first experience", "No new hardware"]
+                },
+                {
+                  title: "Multi-Token Support",
+                  desc: "Accept stablecoins, ETH, or community tokens on Base.",
+                  items: ["USDC & USDT", "cbBTC & cbXRP", "Low gas fees"]
+                },
+                {
+                  title: "White-Label Branding",
+                  desc: "Your colors, your logo. Customers see you, not us.",
+                  items: ["Custom logo & colors", "Branded checkout", "Custom fonts"]
+                },
+                {
+                  title: "Revenue Splits",
+                  desc: "Programmatic profit sharing on-chain.",
+                  items: ["Automated distribution", "Partnership friendly", "Smart rotation"]
+                },
+                {
+                  title: "Real-Time Analytics",
+                  desc: "Watch your volume and trends instantly.",
+                  items: ["Live dashboard", "USD volume tracking", "Customer insights"]
+                },
+                {
+                  title: "Web3 Security",
+                  desc: "Account abstraction and gas sponsorship.",
+                  items: ["Secure connection", "Gasless for users", "Verified settlement"]
+                }
+              ].map((feature, i) => (
+                <div key={i} className="bg-neutral-900/50 border border-white/10 rounded-2xl p-8 hover:border-[var(--primary)]/30 transition-colors">
+                  <h3 className="text-2xl font-bold mb-4 text-white">{feature.title}</h3>
+                  <p className="text-neutral-400 mb-6">{feature.desc}</p>
+                  <ul className="space-y-3">
+                    {feature.items.map((item, j) => (
+                      <li key={j} className="flex items-start gap-3 text-sm text-neutral-300">
+                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: primaryColor }} />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* CTA Section */}
-          <section className="text-center">
-            <div className="glass-pane rounded-2xl border p-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Ready to get started?</h2>
-              <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                Start accepting crypto payments in minutes. No complex setup, no hidden fees.
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                <Link
-                  href="/admin"
-                  className="px-8 py-4 text-lg rounded-lg bg-pp-secondary text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
-                >
-                  Open Admin Panel
-                </Link>
-                <Link
-                  href="/terminal"
-                  className="px-8 py-4 text-lg rounded-lg border hover:bg-accent transition-colors"
-                >
-                  View Portal
-                </Link>
-                <Link
-                  href="/"
-                  className="px-8 py-4 text-lg rounded-lg border hover:bg-accent transition-colors"
-                >
-                  Learn More
-                </Link>
-              </div>
-            </div>
-          </section>
-        </div>
+        {/* FINAL CTA */}
+        <section className="py-32 px-6 text-center border-t border-white/10 bg-neutral-950">
+          <h2 className="text-5xl md:text-7xl font-black mb-8 leading-tight">
+            Claim Your <br />
+            <span style={{ color: primaryColor }}>Sovereignty.</span>
+          </h2>
+          <p className="text-xl text-neutral-400 max-w-2xl mx-auto mb-12">
+            The tools for financial freedom are now in your hands.
+            Join the network that is rewriting the rules of global commerce.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            <Link
+              href="/admin"
+              className="px-10 py-5 text-xl rounded-xl text-white hover:scale-105 transition-transform shadow-2xl font-bold"
+              style={{ backgroundColor: primaryColor }}
+            >
+              Start Building
+            </Link>
+            <Link
+              href="/terminal"
+              className="px-10 py-5 text-xl rounded-xl border border-white/20 hover:bg-white/10 transition-colors font-semibold"
+            >
+              Enter Terminal
+            </Link>
+          </div>
+        </section>
+
       </div>
     </div>
   );

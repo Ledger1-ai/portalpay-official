@@ -20,6 +20,8 @@ import RebrandingHero from "@/components/landing/RebrandingHero";
 import PublisherOsirisSection from "@/components/landing/PublisherOsirisSection";
 import PluginsSection from "@/components/landing/PluginsSection";
 import TrustlessPermissionlessSection from "@/components/landing/TrustlessPermissionlessSection";
+import { AgenticPaymentsSection } from "@/components/landing/AgenticPaymentsSection";
+<AgenticPaymentsSection />
 
 type Metrics = {
   totalUsers: number;
@@ -216,11 +218,11 @@ export default function HomeContent() {
       const treatAsGeneric = generic || (isPartnerContainer && /^portalpay$/i.test(raw));
       // Prefer container brand key over context brand key
       const key = containerBrandKey || String((brand as any)?.key || "").trim();
-      const titleizedKey = key ? key.charAt(0).toUpperCase() + key.slice(1) : "PortalPay";
+      const titleizedKey = key ? key.charAt(0).toUpperCase() + key.slice(1) : "BasaltSurge";
       return (!raw || treatAsGeneric) ? titleizedKey : raw;
     } catch {
       const key = containerBrandKey || String((brand as any)?.key || "").trim();
-      return key ? key.charAt(0).toUpperCase() + key.slice(1) : "PortalPay";
+      return key ? key.charAt(0).toUpperCase() + key.slice(1) : "BasaltSurge";
     }
   }, [siteTheme?.brandName, containerBrandKey, (brand as any)?.key, isPartnerContainer]);
 
@@ -709,6 +711,9 @@ export default function HomeContent() {
 
         {/* Plugins & Integrations */}
         <PluginsSection />
+
+        {/* Agentic Payments (x402) */}
+        <AgenticPaymentsSection />
 
         {/* Philosophy: Trustless & Permissionless */}
         <TrustlessPermissionlessSection />

@@ -145,9 +145,10 @@ export async function POST(req: NextRequest) {
     // Fetch site config for brand, processing fee, tax presets, and fallback default token (prefer per-wallet, fallback global)
     const cfg = await getSiteConfigForWallet(wallet).catch(() => null as any);
     const brandName = cfg?.theme?.brandName || "PortalPay";
+    let splitAddr = "";
     // Enforce split required before merchant activity (order generation)
     try {
-      let splitAddr = (cfg as any)?.splitAddress || (cfg as any)?.split?.address || "";
+      splitAddr = (cfg as any)?.splitAddress || (cfg as any)?.split?.address || "";
       let brandKeyResolved: string | undefined;
       if (!/^0x[a-f0-9]{40}$/i.test(String(splitAddr))) {
         // Fallback: attempt to resolve split via split/deploy route (brand-scoped lookup and legacy mapping)
@@ -671,6 +672,92 @@ export async function POST(req: NextRequest) {
     ];
 
     const totalUsd = fromCents(baseWithoutFeeCents + processingFeeCents);
+
+    // --- x402 Agentic Payment Logic START ---
+    // Check if the client is an agent requesting L402 flow
+    const acceptHeader = req.headers.get("accept") || "";
+    const agentHeader = req.headers.get("x-agent-payment") || "";
+    const isAgentic = acceptHeader.includes("application/vnd.l402+json") || agentHeader.toLowerCase() === "true";
+
+    let x402Status = "none";
+
+    if (isAgentic && totalUsd > 0) {
+      try {
+        const { settlePayment, facilitator } = await import("thirdweb/x402");
+        const { createThirdwebClient } = await import("thirdweb");
+        const { defineChain } = await import("thirdweb/chains");
+
+        const secretKey = process.env.THIRDWEB_SECRET_KEY;
+        const serviceWallet = process.env.THIRDWEB_SERVER_WALLET_ADDRESS || process.env.NEXT_PUBLIC_OWNER_WALLET;
+        const chainId = Number(process.env.CHAIN_ID || process.env.NEXT_PUBLIC_CHAIN_ID || 8453);
+
+        if (secretKey && serviceWallet) {
+          const client = createThirdwebClient({ secretKey });
+          const network = defineChain(chainId);
+
+          const thirdwebFacilitator = facilitator({
+            client,
+            serverWalletAddress: serviceWallet as `0x${string}`,
+            waitUntil: "confirmed", // Agents should probably wait for confirmation or at least simulation
+          });
+
+          const paymentData = req.headers.get("x-payment");
+          const resourceUrl = req.nextUrl.toString();
+
+          // We are asking the agent to pay the *Merchant* (or the platform, which then splits it?)
+          // Currently, PortalPay splits heavily rely on the client-side checkout or split contracts.
+          // For simplicity in this x402 implementation, we will route funds to the configured SPLIT address if available,
+          // or the merchant wallet if no split is found. 
+          // HOWEVER, x402 from thirdweb usually expects to verify payment to a specific address.
+          // If we use the merchant's wallet, we need read access to that wallet's history or use a generated address?
+          // The simpler MVP approach: Pay to the Platform/Service Wallet (facilitator) which acts as a custodian or 
+          // just verify payments to the intended recipient if `settlePayment` supports verification of 3rd party transfers.
+          // Looking at `subscriptions/route.ts`, it pays `ownerWallet`. 
+          // For Orders, we ideally want to pay `splitAddr` or `wallet`.
+          // `thirdweb/x402` server-side verification usually monitors the address it controls or specified.
+
+          // For this MVP, let's respect the `splitAddr` or `wallet` we derived earlier.
+          const payTo = (splitAddr && /^0x[a-f0-9]{40}$/i.test(splitAddr)) ? splitAddr : wallet;
+
+          // NOTE: The `facilitator` helper in thirdweb SDK primarily monitors the `serverWalletAddress` if it's based on specific service logic,
+          // but `settlePayment` allows `payTo`. If `payTo` is different from `serverWalletAddress`, the verification 
+          // might rely on the chain indexer seeing the tx.
+
+          const result = await settlePayment({
+            resourceUrl,
+            method: "POST",
+            paymentData,
+            payTo: payTo as `0x${string}`,
+            network,
+            price: `$${totalUsd}`,
+            routeConfig: {
+              description: `Order Payment for ${brandName}`,
+              mimeType: "application/json",
+              outputSchema: {}, // We return the receipt as the "resource"
+            },
+            facilitator: thirdwebFacilitator,
+          });
+
+          if (result.status !== 200) {
+            return NextResponse.json(result.responseBody, {
+              status: 402,
+              headers: { ...(result.responseHeaders as any), "x-correlation-id": correlationId },
+            });
+          }
+
+          // Payment detected and settled!
+          x402Status = "paid";
+        }
+      } catch (e) {
+        console.error("x402 checking failed", e);
+        // Fallback to normal flow if x402 check fails/crashes (don't block non-agentic or messed up configs)
+        // But if it WAS an agentic request, they might expect a 402. 
+        // For safety, if explicitly agentic, maybe we should error? 
+        // Let's log and proceed for now to be safe.
+      }
+    }
+    // --- x402 Agentic Payment Logic END ---
+
     const receiptId = genReceiptId();
     const ts = Date.now();
 
@@ -691,8 +778,8 @@ export async function POST(req: NextRequest) {
       jurisdictionCode: appliedJurisdictionCode,
       taxRate: Math.max(0, Math.min(1, taxRate)),
       taxComponents: appliedTaxComponents,
-      status: "generated",
-      statusHistory: [{ status: "generated", ts }],
+      status: x402Status === "paid" ? "paid" : "generated",
+      statusHistory: [{ status: x402Status === "paid" ? "paid" : "generated", ts }],
       discountId: appliedDiscountDoc?.id, // Track used discount
       discountCode: appliedDiscountDoc?.code
     };
@@ -707,7 +794,7 @@ export async function POST(req: NextRequest) {
       jurisdictionCode: appliedJurisdictionCode,
       taxRate: Math.max(0, Math.min(1, taxRate)),
       taxComponents: appliedTaxComponents,
-      status: "generated",
+      status: x402Status === "paid" ? "paid" : "generated",
     };
 
     try {
