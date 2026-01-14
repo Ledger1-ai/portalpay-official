@@ -495,8 +495,11 @@ export default function KioskClient({
 
     const cartCount = useMemo(() => cart.reduce((acc, line) => acc + line.qty, 0), [cart]);
 
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
     const handleCheckout = async () => {
         setCheckoutOpen(true);
+        setCheckoutError(null);
         try {
             const res = await fetch("/api/orders", {
                 method: "POST",
@@ -504,15 +507,24 @@ export default function KioskClient({
                 body: JSON.stringify({
                     items: cart.map(c => ({ id: c.id, qty: c.qty })),
                     couponCode: appliedCoupon?.code,
-                    appliedCoupon: appliedCoupon ? { id: appliedCoupon.id, code: appliedCoupon.code, title: appliedCoupon.title, type: appliedCoupon.type, value: appliedCoupon.value } : undefined
+                    appliedCoupon: appliedCoupon ? { id: appliedCoupon.id, code: appliedCoupon.code, title: appliedCoupon.title, type: appliedCoupon.type, value: appliedCoupon.value } : undefined,
+                    shopSlug: config.slug
                 })
             });
             const data = await res.json();
-            if (data.receiptId) {
-                setQrValue(`${window.location.origin}/pay/${data.receiptId}`);
+            if (data.receipt?.receiptId || data.receiptId) {
+                const rid = data.receipt?.receiptId || data.receiptId;
+                // Use portalLink if provided by API, otherwise fallback to local /pay route
+                const paymentLink = data.portalLink || `${window.location.origin}/pay/${rid}`;
+                setQrValue(paymentLink);
+            } else if (data.error) {
+                setCheckoutError(data.message || data.error);
+            } else {
+                setCheckoutError("An unexpected error occurred. Please try again.");
             }
         } catch (e) {
             console.error("Checkout failed", e);
+            setCheckoutError("Failed to connect to the server. Please check your connection.");
         }
     };
 
@@ -533,15 +545,17 @@ export default function KioskClient({
                 <h1 className="text-5xl font-bold text-white relative z-10">Scan to Pay</h1>
 
                 <div className="bg-white p-6 rounded-3xl shadow-2xl relative z-10">
-                    <div className="w-72 h-72 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center">
+                    <div className="w-72 h-72 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center overflow-hidden">
                         {qrValue ? (
-                            <div className="w-56 h-56 bg-black rounded-lg grid grid-cols-8 gap-0.5 p-2">
-                                {Array.from({ length: 64 }).map((_, i) => (
-                                    <div key={i} className={`${Math.random() > 0.5 ? "bg-white" : "bg-black"}`} style={{ aspectRatio: "1" }} />
-                                ))}
-                            </div>
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrValue)}`}
+                                alt="Payment QR Code"
+                                className="w-64 h-64"
+                            />
+                        ) : checkoutError ? (
+                            <div className="text-red-500 font-bold p-4 text-sm">{checkoutError}</div>
                         ) : (
-                            <div className="animate-pulse text-gray-400">Generating...</div>
+                            <div className="text-gray-400 animate-pulse font-medium text-lg">Generating...</div>
                         )}
                     </div>
                 </div>
