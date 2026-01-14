@@ -124,8 +124,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let brandKey = String(getBrandKey() || "").toLowerCase();
-    if (brandKey === "basaltsurge") brandKey = "portalpay";
+    const brandKey = String(getBrandKey() || "").toLowerCase();
     const itemsBody: OrderItemBody[] = Array.isArray(body?.items) ? body.items : [];
     if (!itemsBody.length) {
       return NextResponse.json(

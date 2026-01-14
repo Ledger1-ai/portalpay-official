@@ -39,6 +39,8 @@ type AdminTabKey =
   | 'messages'
   | 'messages-buyer'
   | 'messages-merchant'
+  | 'endpoints'
+  | 'team'
   | 'rewards'
   | 'loyalty'
   | 'loyaltyConfig'
@@ -319,6 +321,8 @@ export function AdminSidebar({ activeTab, onChangeTab, industryPack, canBranding
         { title: 'Loyalty', key: 'loyalty' as AdminTabKey },
         { title: 'Messages', key: 'messages-merchant' as AdminTabKey },
         { title: 'Integrations', key: 'integrations' as AdminTabKey },
+        { title: 'Touchpoints', key: 'endpoints' as AdminTabKey },
+        { title: 'Team', key: 'team' as AdminTabKey },
       ],
     },
     {

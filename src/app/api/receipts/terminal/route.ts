@@ -46,6 +46,9 @@ export type Receipt = {
   jurisdictionCode?: string;
   taxRate?: number;
   taxComponents?: string[];
+  employeeId?: string;
+  sessionId?: string;
+  tipAmount?: number;
 };
 
 function toCents(n: number) {
@@ -54,6 +57,7 @@ function toCents(n: number) {
 function fromCents(c: number) {
   return Math.round(c) / 100;
 }
+
 function genReceiptId(): string {
   const baseId = Math.floor(Math.random() * 1_000_000)
     .toString()
@@ -122,7 +126,7 @@ export async function POST(req: NextRequest) {
           if (/^0x[a-f0-9]{40}$/i.test(addr)) {
             splitAddr = addr;
           }
-        } catch {}
+        } catch { }
       }
       if (!/^0x[a-f0-9]{40}$/i.test(String(splitAddr))) {
         return NextResponse.json(
@@ -130,7 +134,7 @@ export async function POST(req: NextRequest) {
           { status: 403, headers: { "x-correlation-id": correlationId } }
         );
       }
-    } catch {}
+    } catch { }
 
     // Compute taxRate: precedence override > explicit components > jurisdiction rate > default jurisdiction (components if present)
     let appliedJurisdictionCode: string | undefined = jurisdictionCode || undefined;
@@ -188,7 +192,7 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-    } catch {}
+    } catch { }
 
     // Processing fee add-on (above base platform fee)
     // basePlatformFeePct: combined platform + partner fee (brand-configured; fallback to 0.5%)
@@ -258,11 +262,13 @@ export async function POST(req: NextRequest) {
       taxRate: Math.max(0, Math.min(1, taxRate)),
       taxComponents: appliedTaxComponents,
       status: "generated",
+      employeeId: typeof body?.employeeId === "string" ? body.employeeId : undefined,
+      sessionId: typeof body?.sessionId === "string" ? body.sessionId : undefined,
       statusHistory: [{ status: "generated", ts }],
       lastUpdatedAt: ts,
     };
 
-    const receipt: Receipt = {
+    const receipt: Receipt & { sessionId?: string } = {
       receiptId,
       totalUsd,
       currency,
@@ -273,6 +279,8 @@ export async function POST(req: NextRequest) {
       taxRate: Math.max(0, Math.min(1, taxRate)),
       taxComponents: appliedTaxComponents,
       status: "generated",
+      employeeId: typeof body?.employeeId === "string" ? body.employeeId : undefined,
+      sessionId: typeof body?.sessionId === "string" ? body.sessionId : undefined,
     };
 
     // Persist

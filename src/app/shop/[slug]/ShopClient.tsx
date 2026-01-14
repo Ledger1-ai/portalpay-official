@@ -39,6 +39,7 @@ type ShopTheme = {
     layoutMode?: "balanced" | "minimalist" | "maximalist";
     maximalistBannerUrl?: string; // Specific for maximalist layout
     galleryImages?: string[]; // Up to 5 images for maximalist carousel
+    receiptBackgroundUrl?: string; // Background for terminal/receipts
 };
 
 type InventoryArrangement = "grid" | "featured_first" | "groups" | "carousel";
@@ -546,12 +547,12 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
         return { discountedPrice, discount, savings };
     }, [getItemDiscount]);
 
-    // Fetch inventory from API if not provided or empty
+    // Fetch inventory from API if not provided or empty, or if we are the owner (to see unapproved items)
     useEffect(() => {
-        if (initialItems.length === 0) {
+        if (initialItems.length === 0 || isOwner) {
             loadInventory();
         }
-    }, [initialItems]);
+    }, [initialItems, isOwner]);
 
     const loadInventory = async () => {
         setLoadingItems(true);
@@ -562,7 +563,7 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
             const data = await res.json();
             if (Array.isArray(data.items)) {
                 const mapped = data.items
-                    .filter((it: any) => !it.approvalStatus || it.approvalStatus === "APPROVED")
+                    .filter((it: any) => isOwner || !it.approvalStatus || it.approvalStatus === "APPROVED")
                     .map((it: any) => ({
                         ...it,
                         id: it.id || it._id,

@@ -64,10 +64,12 @@ export function HideableNavbar() {
     isCustomDomain ||
     pathname === "/portal" || pathname.startsWith("/portal/") ||
     pathname.startsWith("/shop/") ||
+    pathname === "/kiosk" || pathname.startsWith("/kiosk/") ||
     pathname === "/msa" || pathname === "/msas" ||
     pathname.startsWith("/reader/") || pathname === "/reader" ||
     ((pathname === "/terminal" || pathname.startsWith("/terminal")) && isFullscreen) ||
     ((pathname === "/terminal" || pathname.startsWith("/terminal")) && isMobile && isTerminalView) ||
+    pathname.match(/^\/terminal\/0x[a-fA-F0-9]{40}/) ||
     isCandidateSlug(pathname);
 
   // Apply body class for navbar padding

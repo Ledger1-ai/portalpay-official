@@ -75,9 +75,9 @@ export default function IntegrationsPanel() {
   const [copied, setCopied] = useState(false);
   const [shopSlug, setShopSlug] = useState("");
 
-  // Normalize Brand Key: basaltsurge -> portalpay
+  // Brand Key
   const rawKey = String(brand?.key || "").toLowerCase();
-  const normalizedKey = rawKey === "basaltsurge" ? "portalpay" : rawKey;
+  const normalizedKey = rawKey || "basaltsurge";
 
   React.useEffect(() => {
     let cancelled = false;
@@ -85,8 +85,7 @@ export default function IntegrationsPanel() {
       try {
         setLoading(true);
         setError("");
-        const rawBk = String(brand?.key || "").toLowerCase();
-        const bk = rawBk === "basaltsurge" ? "portalpay" : rawBk;
+        const bk = String(brand?.key || "basaltsurge").toLowerCase();
 
         if (!bk) {
           setError("brandKey unavailable");

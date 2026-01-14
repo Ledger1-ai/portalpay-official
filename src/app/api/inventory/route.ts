@@ -284,7 +284,7 @@ export async function GET(req: NextRequest) {
       let brandKey: string | undefined = undefined;
       try {
         brandKey = getBrandKey();
-        if (brandKey === "basaltsurge") brandKey = "portalpay";
+        // No longer remapping basaltsurge -> portalpay since migration sets items to basaltsurge
       } catch {
         brandKey = undefined;
       }
@@ -405,7 +405,6 @@ export async function POST(req: NextRequest) {
     let brandKey: string | undefined = undefined;
     try {
       brandKey = getBrandKey();
-      if (brandKey === "basaltsurge") brandKey = "portalpay";
     } catch {
       brandKey = undefined;
     }

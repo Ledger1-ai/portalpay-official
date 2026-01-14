@@ -62,6 +62,7 @@ type Receipt = {
   jurisdictionCode?: string;
   taxRate?: number;
   taxComponents?: string[];
+  tipAmount?: number;
 };
 
 type TokenDef = {
@@ -129,6 +130,8 @@ function isValidHexAddress(addr: string): boolean {
 }
 
 export default function PortalReceiptPage() {
+  // ... (hooks)
+
   const twTheme = usePortalThirdwebTheme();
   const { id } = useParams() as { id?: string };
   const receiptId = String(id || "");
@@ -952,16 +955,19 @@ export default function PortalReceiptPage() {
         .filter((it) => !/processing fee/i.test(it.label || ""))
         .filter((it) => !/portal fee/i.test(it.label || ""))
         .filter((it) => !/tax/i.test(it.label || ""))
+        .filter((it) => !/gratuity/i.test(it.label || ""))
+        .filter((it) => !/tip/i.test(it.label || ""))
         .reduce((s, it) => s + Number(it.priceUsd || 0), 0);
       const subtotal = +base.toFixed(2);
       if (subtotal > 0) return subtotal;
-      const fallback = Number(receipt?.totalUsd || 0);
+      // Fallback only if no subtotal found (unlikely)
+      let fallback = Number(receipt?.totalUsd || 0);
+      if (receipt?.tipAmount) fallback -= receipt.tipAmount;
       return fallback > 0 ? +fallback.toFixed(2) : 0;
     } catch {
-      const fallback = Number(receipt?.totalUsd || 0);
-      return fallback > 0 ? +fallback.toFixed(2) : 0;
+      return 0;
     }
-  }, [items, receipt?.totalUsd]);
+  }, [items, receipt?.totalUsd, receipt?.tipAmount]);
 
   const taxUsd = useMemo(() => {
     try {
@@ -974,32 +980,56 @@ export default function PortalReceiptPage() {
 
   const [tipChoice, setTipChoice] = useState<"0" | "10" | "15" | "20" | "custom">("0");
   const [tipCustomPct, setTipCustomPct] = useState<number>(0);
-  const tipUsd = useMemo(() => {
-    const pct = tipChoice === "custom" ? Number(tipCustomPct || 0) : Number(tipChoice);
-    const clamped = Math.max(0, Math.min(100, pct));
-    const amt = (clamped / 100) * itemsSubtotalUsd;
-    return +amt.toFixed(2);
-  }, [tipChoice, tipCustomPct, itemsSubtotalUsd]);
+  const [updatingTip, setUpdatingTip] = useState(false);
+
+  const tipUsd = Number(receipt?.tipAmount || 0);
+
+  const handleTipUpdate = async (val: string | number) => {
+    if (!receiptId || updatingTip) return;
+
+    // Calculate intended amount from percentage
+    let amount = 0;
+    const pct = Number(val);
+    if (!isNaN(pct) && pct > 0) {
+      amount = Number(((pct / 100) * itemsSubtotalUsd).toFixed(2));
+    }
+
+    setUpdatingTip(true);
+    try {
+      const res = await fetch(`/api/receipts/${receiptId}/tip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipAmount: amount })
+      });
+      if (res.ok) {
+        const j = await res.json();
+        if (j.receipt) {
+          setReceipt(j.receipt);
+        }
+      }
+    } finally {
+      setUpdatingTip(false);
+    }
+  };
 
   const baseWithoutFeeNoTipUsd = useMemo(
     () => +(itemsSubtotalUsd + taxUsd).toFixed(2),
     [itemsSubtotalUsd, taxUsd]
   );
 
-  const processingFeeUsd = useMemo(
-    () => +((((basePlatformFeePct + Number(processingFeePct || 0)) / 100) * baseWithoutFeeNoTipUsd).toFixed(2)),
-    [basePlatformFeePct, processingFeePct, baseWithoutFeeNoTipUsd]
-  );
+  const processingFeeUsd = useMemo(() => {
+    const feeItem = items.find(it => /processing fee/i.test(it.label || "") || /portal fee/i.test(it.label || ""));
+    if (feeItem) return Number(feeItem.priceUsd || 0);
 
-  const computedTotalUsd = useMemo(
-    () => +((itemsSubtotalUsd + taxUsd + tipUsd + processingFeeUsd)).toFixed(2),
-    [itemsSubtotalUsd, taxUsd, tipUsd, processingFeeUsd]
-  );
-  const totalUsd = useMemo(() => {
-    if (computedTotalUsd > 0) return computedTotalUsd;
-    const fallback = Number(receipt?.totalUsd || 0);
-    return fallback > 0 ? +fallback.toFixed(2) : 0;
-  }, [computedTotalUsd, receipt?.totalUsd]);
+    if (receipt?.totalUsd) {
+      // Fee is the remainder
+      return Math.max(0, +(receipt.totalUsd - itemsSubtotalUsd - taxUsd - tipUsd).toFixed(2));
+    }
+    return 0;
+  }, [items, receipt?.totalUsd, itemsSubtotalUsd, taxUsd, tipUsd]);
+
+  // We rely on the server's totalUsd which includes everything.
+  const totalUsd = Number(receipt?.totalUsd || 0);
 
   // Compute receipt readiness (loaded and has a positive total)
   useEffect(() => {
@@ -2189,14 +2219,21 @@ export default function PortalReceiptPage() {
                   })()}
 
                   <div className="mt-2">
-                    <div className="text-xs font-medium">Add a tip</div>
+                    <div className="text-xs font-medium flex items-center gap-2">
+                      Add a tip
+                      {updatingTip && <span className="animate-spin text-xs">⏳</span>}
+                    </div>
                     <div className="mt-1 flex gap-2 flex-wrap">
                       {(["0", "10", "15", "20", "custom"] as const).map((v) => (
                         <button
                           key={v}
                           type="button"
-                          onClick={() => setTipChoice(v)}
-                          className={`px-2 py-1 rounded-md border text-xs hover:bg-foreground/5 transition-colors ${tipChoice === v ? "bg-foreground/10 border-foreground/20" : ""}`}
+                          disabled={updatingTip}
+                          onClick={() => {
+                            setTipChoice(v);
+                            if (v !== "custom") handleTipUpdate(v);
+                          }}
+                          className={`px-2 py-1 rounded-md border text-xs hover:bg-foreground/5 transition-colors ${tipChoice === v ? "bg-foreground/10 border-foreground/20" : ""} ${updatingTip ? "opacity-50 cursor-not-allowed" : ""}`}
                           title={v === "custom" ? "Custom tip amount" : `Tip ${v}%`}
                         >
                           {v === "custom" ? "Custom" : `${v}%`}
@@ -2208,8 +2245,10 @@ export default function PortalReceiptPage() {
                           step="0.1"
                           min="0"
                           max="100"
+                          disabled={updatingTip}
                           value={Number.isFinite(tipCustomPct) ? String(tipCustomPct) : ""}
                           onChange={(e) => setTipCustomPct(Number(e.target.value))}
+                          onBlur={() => handleTipUpdate(tipCustomPct)}
                           placeholder="%"
                           className="h-7 px-2 rounded-md border bg-background text-xs w-20"
                           title="Enter tip percentage"

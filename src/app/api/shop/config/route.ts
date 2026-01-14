@@ -14,12 +14,10 @@ import { isPlatformContext } from "@/lib/env";
  */
 function resolveBrandKey(): string {
   try {
-    const k = (getBrandKey() || "portalpay").toLowerCase();
-    // PortalPay and BasaltSurge are platform brands; they share data
-    if (k === "basaltsurge") return "portalpay";
-    return k === "portalpay" ? "portalpay" : k;
+    const k = (getBrandKey() || "basaltsurge").toLowerCase();
+    return k;
   } catch {
-    return "portalpay";
+    return "basaltsurge";
   }
 }
 

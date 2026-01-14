@@ -30,8 +30,10 @@ import BrandingPanelExt from "@/app/admin/panels/BrandingPanel";
 import { Thumbnail, type ReserveBalancesResponse, type SiteConfig, type TaxCatalogEntry } from "@/app/admin/panels/common";
 import PartnerManagementPanelExt from "@/app/admin/panels/PartnerManagementPanel";
 import ApplicationsPanelExt from "@/app/admin/panels/ApplicationsPanel";
+import EndpointsPanel from "@/app/admin/panels/EndpointsPanel";
 import SplitConfigPanelExt from "@/app/admin/panels/SplitConfigPanel";
 import MessagesPanelExt from "@/app/admin/panels/MessagesPanel";
+import TeamPanel from "@/app/admin/panels/TeamPanel";
 import MyPurchasesPanelExt from "@/app/admin/panels/MyPurchasesPanel";
 import { SEOLandingPagesPanel } from "@/app/admin/panels/SEOLandingPagesPanel";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
@@ -4062,6 +4064,8 @@ function UsersPanel() {
     totalCustomerXp: number;
     platformFeeUsd: number;
     shopSlug?: string;
+    kioskEnabled?: boolean;
+    terminalEnabled?: boolean;
   }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -4298,7 +4302,10 @@ function UsersPanel() {
             }
           } catch { }
 
-          itemsArr = allArr.filter((it: any) => !partnerWallets.has(String(it?.merchant || "").toLowerCase()));
+
+          // itemsArr = allArr.filter((it: any) => !partnerWallets.has(String(it?.merchant || "").toLowerCase()));
+          // SHOW ALL for now to ensure admin wallets are visible even if they are linked to a partner
+          itemsArr = allArr;
         }
       }
 
@@ -4399,6 +4406,44 @@ function UsersPanel() {
   useEffect(() => {
     // no-op to avoid auto reindexing
   }, [brandKeyFilter]);
+
+  async function toggleMerchantFeature(merchant: string, feature: 'kioskEnabled' | 'terminalEnabled', value: boolean) {
+    // Optimistic update
+    setItems(prev => prev.map(u => {
+      if (u.merchant === merchant) {
+        return {
+          ...u,
+          [feature]: value
+        };
+      }
+      return u;
+    }));
+
+    try {
+      const payload: any = {};
+      payload[feature] = value;
+
+      const r = await fetch(`/api/merchants/${merchant}/features`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) throw new Error("Failed to update");
+    } catch (e) {
+      // Revert on error
+      console.error("Failed to update feature setting", e);
+      // Revert optimistic update
+      setItems(prev => prev.map(u => {
+        if (u.merchant === merchant) {
+          return {
+            ...u,
+            [feature]: !value
+          };
+        }
+        return u;
+      }));
+    }
+  }
 
   // Load reserve balances for a merchant (uses split if configured)
   async function fetchMerchantBalances(wallet: string) {
@@ -4900,6 +4945,7 @@ function UsersPanel() {
               <th className="text-left px-3 py-2 font-medium">Customers</th>
               <th className="text-left px-3 py-2 font-medium">Total Customer XP</th>
               <th className="text-left px-3 py-2 font-medium">Platform Fee (USD)</th>
+              <th className="text-left px-3 py-2 font-medium">Mode</th>
               <th className="text-left px-3 py-2 font-medium">Links</th>
             </tr>
           </thead>
@@ -4927,6 +4973,42 @@ function UsersPanel() {
                     <td className="px-3 py-2">{Number(it.customers || 0)}</td>
                     <td className="px-3 py-2">{Number(it.totalCustomerXp || 0)}</td>
                     <td className="px-3 py-2">${Number(it.platformFeeUsd || 0).toFixed(2)}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-4">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <button
+                              role="switch"
+                              aria-checked={!!it.kioskEnabled}
+                              onClick={() => toggleMerchantFeature(it.merchant, 'kioskEnabled', !it.kioskEnabled)}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${it.kioskEnabled ? "bg-emerald-500" : "bg-neutral-200 dark:bg-neutral-700"
+                                }`}
+                            >
+                              <span
+                                className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${it.kioskEnabled ? "translate-x-4" : "translate-x-0.5"
+                                  }`}
+                              />
+                            </button>
+                            <span className="text-xs font-medium">Kiosk</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              role="switch"
+                              aria-checked={!!it.terminalEnabled}
+                              onClick={() => toggleMerchantFeature(it.merchant, 'terminalEnabled', !it.terminalEnabled)}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${it.terminalEnabled ? "bg-blue-500" : "bg-neutral-200 dark:bg-neutral-700"
+                                }`}
+                            >
+                              <span
+                                className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${it.terminalEnabled ? "translate-x-4" : "translate-x-0.5"
+                                  }`}
+                              />
+                            </button>
+                            <span className="text-xs font-medium">Term</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <a href={`/u/${encodeURIComponent(it.merchant)}`} className="underline">Profile</a>
@@ -8818,6 +8900,8 @@ export default function AdminPage() {
     | "delivery"
     | "writersWorkshop"
     | "publications"
+    | "endpoints"
+    | "team"
   >("reserve");
   const [industryPack, setIndustryPack] = useState<string | null>(null);
   const containerType = String(process.env.NEXT_PUBLIC_CONTAINER_TYPE || "platform").toLowerCase();
@@ -9224,6 +9308,12 @@ export default function AdminPage() {
       )}
       {activeTab === "publications" && (
         <PublicationsPanelExt />
+      )}
+      {activeTab === "endpoints" && (
+        <EndpointsPanel />
+      )}
+      {activeTab === "team" && (
+        <TeamPanel />
       )}
     </div>
   );

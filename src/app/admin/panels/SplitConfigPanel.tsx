@@ -55,7 +55,7 @@ export default function SplitConfigPanel() {
 
   const isPlatform = !isPartnerContextClient();
 
-  const [brandKey, setBrandKey] = useState<string>(isPlatform ? "portalpay" : (brand?.key || "portalpay"));
+  const [brandKey, setBrandKey] = useState<string>(isPlatform ? "basaltsurge" : (brand?.key || "basaltsurge"));
   const [versions, setVersions] = useState<SplitVersion[]>([]);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const [forceRedeployOlder, setForceRedeployOlder] = useState<boolean>(false);
@@ -96,7 +96,7 @@ export default function SplitConfigPanel() {
         if (themeBrandKey && themeBrandKey !== String(brandKey || "").toLowerCase()) {
           setBrandKey(themeBrandKey);
         }
-      } catch {}
+      } catch { }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlatform]);
@@ -113,7 +113,7 @@ export default function SplitConfigPanel() {
           : [];
         const deployed: string[] = [];
         for (const k of arr) {
-          if (k === "portalpay") continue;
+          if (k === "basaltsurge") continue;
           try {
             const cr = await fetch(`/api/platform/brands/${encodeURIComponent(k)}/config`, { cache: "no-store" });
             const cj = await cr.json().catch(() => ({}));
@@ -125,15 +125,15 @@ export default function SplitConfigPanel() {
             if (isDeployed) deployed.push(k);
           } catch { }
         }
-        const list = ["portalpay", ...Array.from(new Set(deployed))];
+        const list = ["basaltsurge", ...Array.from(new Set(deployed))];
         setBrandsList(list);
         const current = String(brandKey || "").toLowerCase();
         if (!list.includes(current)) {
-          setBrandKey("portalpay");
+          setBrandKey("basaltsurge");
         }
       } catch {
-        setBrandsList(["portalpay"]);
-        if (String(brandKey || "").toLowerCase() !== "portalpay") setBrandKey("portalpay");
+        setBrandsList(["basaltsurge"]);
+        if (String(brandKey || "").toLowerCase() !== "basaltsurge") setBrandKey("basaltsurge");
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,7 +239,7 @@ export default function SplitConfigPanel() {
       if (newDefaultMerchantFeeBps !== "") {
         payload.defaultMerchantFeeBps = bps(Number(newDefaultMerchantFeeBps));
       }
-      if (String(brandKey || "").toLowerCase() !== "portalpay" && newPartnerWallet && isHexAddress(newPartnerWallet)) {
+      if (String(brandKey || "").toLowerCase() !== "basaltsurge" && newPartnerWallet && isHexAddress(newPartnerWallet)) {
         payload.partnerWallet = newPartnerWallet;
       }
       const r = await fetch(`/api/platform/brands/${encodeURIComponent(key)}/split-versions`, {
@@ -334,7 +334,7 @@ export default function SplitConfigPanel() {
                 onChange={(e) => setBrandKey(e.target.value)}
                 title="Select deployed partner brand or portalpay"
               >
-                {(brandsList.length ? brandsList : ["portalpay"]).map((k) => (
+                {(brandsList.length ? brandsList : ["basaltsurge"]).map((k) => (
                   <option key={k} value={k}>{k}</option>
                 ))}
               </select>

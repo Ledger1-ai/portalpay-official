@@ -14,10 +14,9 @@ import { useActiveAccount } from "thirdweb/react";
 export default function PartnerShopifyPanel() {
   const account = useActiveAccount();
 
-  // Helper to resolve effective brand key (basaltsurge -> portalpay)
+  // Helper to resolve effective brand key
   const getEffectiveBrandKey = (key: string) => {
-    const k = key.trim().toLowerCase();
-    return k === "basaltsurge" ? "portalpay" : k;
+    return key.trim().toLowerCase() || "basaltsurge";
   };
 
   // Brand selection (partners typically know their brand key)

@@ -103,8 +103,7 @@ export async function GET(req: NextRequest) {
     } catch {
       brandKey = undefined;
     }
-    let normalizedBrand = String(brandKey || "portalpay").toLowerCase();
-    if (normalizedBrand === "basaltsurge") normalizedBrand = "portalpay";
+    const normalizedBrand = String(brandKey || "basaltsurge").toLowerCase();
 
     try {
       const c = await getContainer();
@@ -202,8 +201,7 @@ export async function POST(req: NextRequest) {
     } catch {
       brandKey = undefined;
     }
-    let normalizedBrand = String(brandKey || "portalpay").toLowerCase();
-    if (normalizedBrand === "basaltsurge") normalizedBrand = "portalpay";
+    const normalizedBrand = String(brandKey || "basaltsurge").toLowerCase();
     const docId = getDocIdForBrand(normalizedBrand);
 
     const c = await getContainer();

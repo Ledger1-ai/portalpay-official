@@ -16,14 +16,13 @@ export async function GET(req: NextRequest) {
         const container = await getContainer();
 
         // Get the current brand key
-        let brandKey = "portalpay";
+        let brandKey = "basaltsurge";
         try {
-            brandKey = getBrandKey() || "portalpay";
+            brandKey = getBrandKey() || "basaltsurge";
         } catch {
-            brandKey = "portalpay";
+            brandKey = "basaltsurge";
         }
-        let targetBrand = brandKey.toLowerCase();
-        if (targetBrand === "basaltsurge") targetBrand = "portalpay";
+        const targetBrand = brandKey.toLowerCase();
 
         // Query ALL shop configs for this wallet to see what's available
         // We'll filter in code to be safe and to debug

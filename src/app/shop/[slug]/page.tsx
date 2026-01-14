@@ -199,12 +199,14 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
     })
     .fetchAll();
 
+  const resolvedWallet = config.wallet || configs.find((c: any) => c.wallet)?.wallet || "";
+
   return (
     <ShopClient
       config={config}
       items={items}
       reviews={reviews}
-      merchantWallet={config.wallet}
+      merchantWallet={resolvedWallet}
       cleanSlug={config.slug || cleanSlug}
     />
   );

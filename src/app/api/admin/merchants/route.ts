@@ -19,14 +19,18 @@ export async function GET(req: NextRequest) {
 
         const container = await getContainer();
 
-        // specific query to get relevant fields for the explorer
-        const spec = {
-            query: `
-        SELECT c.id, c.wallet, c.name, c.industryPack, c.loyalty, c.industryPackActivatedAt, c.slug, c.theme
-        FROM c
-        WHERE c.type='shop_config'
-      `,
-        };
+        const url = new URL(req.url);
+        const brandKey = url.searchParams.get("brandKey");
+
+        let query = "SELECT c.id, c.wallet, c.name, c.industryPack, c.loyalty, c.industryPackActivatedAt, c.slug, c.theme, c.kioskEnabled, c.terminalEnabled FROM c WHERE c.type='shop_config'";
+        const parameters: any[] = [];
+
+        if (brandKey) {
+            query += " AND c.theme.brandKey = @brandKey";
+            parameters.push({ name: "@brandKey", value: brandKey });
+        }
+
+        const spec = { query, parameters };
 
         const { resources } = await container.items.query(spec).fetchAll();
 
@@ -42,7 +46,9 @@ export async function GET(req: NextRequest) {
             platformOptIn: !!r?.loyalty?.platformOptIn,
             joinedAt: r.industryPackActivatedAt || 0,
             slug: r.slug,
-            logo: r.theme?.brandLogoUrl
+            logo: r.theme?.brandLogoUrl,
+            kioskEnabled: !!r.kioskEnabled,
+            terminalEnabled: !!r.terminalEnabled
         })) : [];
 
         return NextResponse.json({ ok: true, merchants }, { headers: { "x-correlation-id": correlationId } });

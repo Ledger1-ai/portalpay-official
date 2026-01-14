@@ -126,7 +126,25 @@ export default function PartnerManagementPanel() {
   }
 
   // Merchants under selected partner
-  const [users, setUsers] = useState<Array<{ merchant: string; splitAddress?: string }>>([]);
+  const [users, setUsers] = useState<Array<{ merchant: string; splitAddress?: string; kioskEnabled?: boolean; terminalEnabled?: boolean }>>([]);
+
+  async function toggleMerchantFeature(merchant: string, feature: 'kioskEnabled' | 'terminalEnabled', value: boolean) {
+    // Optimistic update
+    setUsers(prev => prev.map(u => u.merchant === merchant ? { ...u, [feature]: value } : u));
+    try {
+      const r = await fetch(`/api/merchants/${merchant}/features`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [feature]: value })
+      });
+      if (!r.ok) throw new Error("Failed to update");
+    } catch (e) {
+      // Revert on error
+      setUsers(prev => prev.map(u => u.merchant === merchant ? { ...u, [feature]: !value } : u));
+      // Use explicit window.alert or setError state if accessible, otherwise just console error and revert
+      console.error("Failed to update feature setting");
+    }
+  }
 
   // Per-merchant platform release info microtext
   const [releaseInfo, setReleaseInfo] = useState<Record<string, string>>({});
@@ -236,7 +254,12 @@ export default function PartnerManagementPanel() {
             : Array.isArray(ju)
               ? ju
               : [];
-      setUsers(itemsArr.map((it: any) => ({ merchant: String(it.merchant || ""), splitAddress: it.splitAddress })));
+      setUsers(itemsArr.map((it: any) => ({
+        merchant: String(it.merchant || ""),
+        splitAddress: it.splitAddress,
+        kioskEnabled: !!it.kioskEnabled,
+        terminalEnabled: !!it.terminalEnabled
+      })));
     } catch (e: any) {
       setError(e?.message || "Failed to load partner data");
     } finally {
@@ -1682,6 +1705,7 @@ export default function PartnerManagementPanel() {
                       }
                     }}
                   />
+
                   <button
                     className="px-3 py-1.5 rounded-md border text-sm"
                     title="Generate favicon from existing logo"
@@ -2097,6 +2121,8 @@ export default function PartnerManagementPanel() {
                   <tr className="bg-foreground/5">
                     <th className="text-left px-3 py-2 font-medium">Merchant Wallet</th>
                     <th className="text-left px-3 py-2 font-medium">Split</th>
+                    <th className="text-center px-3 py-2 font-medium">Kiosk</th>
+                    <th className="text-center px-3 py-2 font-medium">Terminal</th>
                     <th className="text-left px-3 py-2 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -2121,6 +2147,22 @@ export default function PartnerManagementPanel() {
                             <TruncatedAddress address={u.merchant} />
                           </td>
                           <td className="px-3 py-2 font-mono">{u.splitAddress || "—"}</td>
+                          <td className="px-3 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4"
+                              checked={!!u.kioskEnabled}
+                              onChange={(e) => toggleMerchantFeature(u.merchant, 'kioskEnabled', e.target.checked)}
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4"
+                              checked={!!u.terminalEnabled}
+                              onChange={(e) => toggleMerchantFeature(u.merchant, 'terminalEnabled', e.target.checked)}
+                            />
+                          </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <button

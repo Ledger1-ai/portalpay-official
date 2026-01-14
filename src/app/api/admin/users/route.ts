@@ -18,6 +18,8 @@ type UsersAggRow = {
   splitAddress?: string;
   transactionCount?: number;
   totalVolumeEth?: number;
+  kioskEnabled?: boolean;
+  terminalEnabled?: boolean;
 };
 
 export async function GET(req: NextRequest) {
@@ -203,6 +205,16 @@ export async function GET(req: NextRequest) {
       cumulativePlatformReleases?: Record<string, number>;
     }> = [];
 
+    // Query indexed split data from Cosmos (single source of truth from blockchain)
+    // (Redeclaration removed, reusing variable from above if it existed, but better to just use one. 
+    // The previous edit added a second declaration block. I will remove the second block header and just keep the try/catch logic populating it if I can.
+    // Wait, the variable 'splitIndexRows' IS used in line 236 inside the try block.
+    // I will remove the 'let splitIndexRows ... = []' lines and just use the try block to assign to it, assuming it was declared earlier.
+    // However, the earlier declaration (line 192) was:
+    // let splitIndexRows: Array<{...}> = [];
+    // So I can just remove the lines 209-222 entirely? No, I need the comment.
+    // I will remove the declaration lines.
+
     try {
       const spec = {
         query: `
@@ -219,6 +231,73 @@ export async function GET(req: NextRequest) {
       console.log(`[ADMIN USERS] Found ${splitIndexRows.length} indexed split records in Cosmos`);
     } catch (e) {
       console.error(`[ADMIN USERS] Error querying split_index:`, e);
+    }
+
+    // Fetch merchant feature settings from shop_config
+    let featureRows: Array<{ wallet?: string; kioskEnabled?: boolean; terminalEnabled?: boolean }> = [];
+    try {
+      const spec = {
+        query: `
+          SELECT c.wallet, c.kioskEnabled, c.terminalEnabled, c.brandKey
+          FROM c
+          WHERE c.type='shop_config'
+        `,
+      };
+      const { resources } = await container.items.query(spec as any).fetchAll();
+      featureRows = Array.isArray(resources) ? resources as any[] : [];
+    } catch { }
+    const featuresMap = new Map<string, { kioskEnabled: boolean; terminalEnabled: boolean }>();
+
+    // Priority map to track which brandKey we have currently stored for a wallet
+    // We want 'basaltsurge' to override 'portalpay' or others.
+    const brandPriorityMap = new Map<string, string>();
+
+    for (const r of featureRows) {
+      if (r.wallet) {
+        const w = String(r.wallet).toLowerCase();
+        const b = String((r as any).brandKey || "portalpay").toLowerCase(); // Default to portalpay if missing
+
+        const existingPriority = brandPriorityMap.get(w);
+
+        // Priority Logic:
+        // 1. If we have no entry, take it.
+        // 2. If new row is 'basaltsurge', ALWAYS take it (overwriting portalpay).
+        // 3. If new row is 'portalpay' and we already have 'basaltsurge', IGNORE it.
+        // 4. Partner brands? Just take them. (Assuming distinct wallet per partner usually, but here filtering matters).
+
+        let shouldUpdate = false;
+        if (!existingPriority) {
+          shouldUpdate = true;
+        } else if (b === 'basaltsurge') {
+          shouldUpdate = true;
+        } else if (existingPriority === 'basaltsurge' && b !== 'basaltsurge') {
+          shouldUpdate = false;
+        } else {
+          // Overwrite others
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
+          const current = featuresMap.get(w) || { kioskEnabled: false, terminalEnabled: false };
+
+          // Log collision for debugging
+          if (existingPriority && b !== existingPriority) {
+            console.log(`[ADMIN] Brand collision for ${w}: Keep ${b} over ${existingPriority}. NewKiosk: ${r.kioskEnabled}, OldKiosk: ${current.kioskEnabled}`);
+          }
+
+          // Only overwrite if explicitly defined in the higher priority record, 
+          // OR if we didn't have a record at all yet.
+          // If the new 'basaltsurge' record has undefined flags, don't clobber the 'portalpay' true flags.
+          const newKiosk = r.kioskEnabled !== undefined ? !!r.kioskEnabled : current.kioskEnabled;
+          const newTerminal = r.terminalEnabled !== undefined ? !!r.terminalEnabled : current.terminalEnabled;
+
+          featuresMap.set(w, {
+            kioskEnabled: newKiosk,
+            terminalEnabled: newTerminal
+          });
+          brandPriorityMap.set(w, b);
+        }
+      }
     }
 
     // Build maps from indexed data - store the complete indexed metrics
@@ -365,6 +444,8 @@ export async function GET(req: NextRequest) {
           splitAddress,
           transactionCount,
           totalVolumeEth,
+          kioskEnabled: featuresMap.get(m)?.kioskEnabled ?? false,
+          terminalEnabled: featuresMap.get(m)?.terminalEnabled ?? false,
         };
       })
       .sort((a, b) => b.totalEarnedUsd - a.totalEarnedUsd);
