@@ -21,8 +21,14 @@ export async function POST(req: NextRequest) {
     const slug = String(req.headers.get("x-slug") || (args?.slug ?? "") || "").toLowerCase();
 
     // Prefer internal base URL to avoid external egress (e.g., AFD/CDN); fallback to request origin or app URL
+    // Use localhost IP to avoid DNS issues in some environments
     const base = process.env.INTERNAL_BASE_URL || (() => {
-      try { return new URL(req.url).origin; } catch { return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"; }
+      try {
+        const u = new URL(req.url);
+        return u.origin;
+      } catch {
+        return process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
+      }
     })();
 
     // Preserve session cookies/authorization if present
@@ -49,6 +55,146 @@ export async function POST(req: NextRequest) {
       } catch (e: any) {
         return { ok: false, json: { error: e?.message || "network_error" }, status: 0, target: input };
       }
+    };
+
+    // Helper to extract modifiers/variants from an item
+    const extractItemOptions = (item: any) => {
+      // Debug: log the raw item structure
+      console.log("[extractItemOptions] raw item:", JSON.stringify({
+        id: item?.id,
+        name: item?.name,
+        attributes: item?.attributes,
+        modifierGroups: item?.modifierGroups,
+        description: item?.description,
+      }, null, 2));
+
+      // Extract modifier info from attributes (the correct field name per types/inventory.ts)
+      // Modifiers can be stored in multiple places:
+      // 1. item.attributes.data.modifierGroups (when type is "restaurant" or "general")
+      // 2. item.attributes.modifierGroups (legacy/direct)
+      // 3. item.modifierGroups (legacy top-level)
+      const attrs = item?.attributes || {};
+      let industryType = String(attrs?.type || "general");
+      const data = attrs?.data || {};
+
+      // Try to find modifierGroups in all possible locations
+      let modifierGroups: any[] | null = null;
+      let modifierSource = "none";
+      if (Array.isArray(data?.modifierGroups) && data.modifierGroups.length > 0) {
+        modifierGroups = data.modifierGroups;
+        modifierSource = "attributes.data.modifierGroups";
+      } else if (Array.isArray(attrs?.modifierGroups) && attrs.modifierGroups.length > 0) {
+        modifierGroups = attrs.modifierGroups;
+        modifierSource = "attributes.modifierGroups";
+      } else if (Array.isArray(item?.modifierGroups) && item.modifierGroups.length > 0) {
+        modifierGroups = item.modifierGroups;
+        modifierSource = "item.modifierGroups";
+      }
+
+      // Also check for dietaryTags to detect restaurant items
+      const dietaryTags: any[] = Array.isArray(data?.dietaryTags) ? data.dietaryTags
+        : Array.isArray(attrs?.dietaryTags) ? attrs.dietaryTags
+          : Array.isArray(item?.dietaryTags) ? item.dietaryTags
+            : [];
+
+      // If we found modifierGroups or dietaryTags, treat as restaurant type
+      if ((modifierGroups && modifierGroups.length > 0) || dietaryTags.length > 0) {
+        industryType = "restaurant";
+      }
+
+      // Parse modifiers from description if none found in structured data
+      // Format: "Optional: Bacon +$0.50, Extra Croutons +$1.00" or similar
+      if (!modifierGroups || modifierGroups.length === 0) {
+        const desc = String(item?.description || "");
+        const optionalMatch = desc.match(/(?:Optional|Add-ons?|Extras?|Modifiers?):\s*(.+)/i);
+        if (optionalMatch) {
+          const optionsText = optionalMatch[1];
+          // Parse comma-separated options like "Bacon +$0.50, Extra Croutons +$1.00"
+          const optionMatches = optionsText.matchAll(/([^,]+?)\s*\+?\$?([\d.]+)?/g);
+          const parsedModifiers: any[] = [];
+          let idx = 0;
+          for (const match of optionMatches) {
+            const optName = String(match[1] || "").trim();
+            const optPrice = match[2] ? parseFloat(match[2]) : 0;
+            if (optName) {
+              parsedModifiers.push({
+                id: `desc-mod-${idx}`,
+                name: optName,
+                priceAdjustment: optPrice,
+                default: false,
+                available: true,
+              });
+              idx++;
+            }
+          }
+          if (parsedModifiers.length > 0) {
+            modifierGroups = [{
+              id: "description-modifiers",
+              name: "Optional Add-ons",
+              required: false,
+              minSelect: 0,
+              maxSelect: parsedModifiers.length,
+              selectionType: "multiple",
+              modifiers: parsedModifiers,
+            }];
+            modifierSource = "parsed_from_description";
+            industryType = "restaurant";
+          }
+        }
+      }
+
+      console.log("[extractItemOptions] parsed:", { modifierSource, modifierGroupsCount: modifierGroups?.length, industryType });
+
+      let modifiers: any = null;
+      let variants: any = null;
+
+      if (modifierGroups && modifierGroups.length > 0) {
+        // Restaurant modifiers: { modifierGroups: RestaurantModifierGroup[] }
+        modifiers = modifierGroups.map((g: any) => ({
+          groupId: String(g?.id || ""),
+          groupName: String(g?.name || ""),
+          required: Boolean(g?.required),
+          minSelect: Number(g?.minSelect || 0),
+          maxSelect: Number(g?.maxSelect || 99),
+          selectionType: String(g?.selectionType || "multiple"),
+          options: Array.isArray(g?.modifiers)
+            ? g.modifiers.map((m: any) => ({
+              modifierId: String(m?.id || ""),
+              name: String(m?.name || ""),
+              priceAdjustment: Number(m?.priceAdjustment || 0),
+              default: Boolean(m?.default),
+              available: m?.available !== false,
+            }))
+            : [],
+        }));
+      } else if (industryType === "retail") {
+        // Retail variants: { variationGroups: RetailVariationGroup[], variants: RetailProductVariant[] }
+        const variationGroups = Array.isArray(data?.variationGroups) ? data.variationGroups : [];
+        const productVariants = Array.isArray(data?.variants) ? data.variants : [];
+
+        variants = {
+          variationGroups: variationGroups.map((vg: any) => ({
+            groupId: String(vg?.id || ""),
+            groupName: String(vg?.name || ""),
+            options: Array.isArray(vg?.options)
+              ? vg.options.map((o: any) => ({
+                optionId: String(o?.id || ""),
+                value: String(o?.value || ""),
+              }))
+              : [],
+          })),
+          variants: productVariants.map((v: any) => ({
+            variantId: String(v?.id || ""),
+            sku: String(v?.sku || ""),
+            name: String(v?.name || ""),
+            priceUsd: Number(v?.priceUsd || item?.priceUsd || 0),
+            stockQty: Number(v?.stockQty ?? item?.stockQty ?? -1),
+            options: v?.options || {},
+          })),
+        };
+      }
+
+      return { industryType, modifiers, variants };
     };
 
     // Case: getShopDetails
@@ -105,6 +251,7 @@ export async function POST(req: NextRequest) {
       const priceMin = Number.isFinite(Number(args?.priceMin)) ? Number(args?.priceMin) : 0;
       const priceMax = Number.isFinite(Number(args?.priceMax)) ? Number(args?.priceMax) : Number.MAX_SAFE_INTEGER;
       const sort = String(args?.sort || "name-asc");
+      const includeModifiers = args?.includeModifiers !== false; // default true
 
       if (query) {
         items = items.filter((it) =>
@@ -146,17 +293,25 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      const mapped = items.map((it) => ({
-        id: String(it?.id || ""),
-        sku: String(it?.sku || ""),
-        name: String(it?.name || ""),
-        priceUsd: Number(it?.priceUsd || 0),
-        stockQty: Number(it?.stockQty || 0),
-        category: typeof it?.category === "string" ? String(it?.category) : undefined,
-        description: typeof it?.description === "string" ? String(it?.description) : undefined,
-        tags: Array.isArray(it?.tags) ? it?.tags : [],
-        images: Array.isArray(it?.images) ? it?.images : [],
-      }));
+      const mapped = items.map((it) => {
+        const baseItem = {
+          id: String(it?.id || ""),
+          sku: String(it?.sku || ""),
+          name: String(it?.name || ""),
+          priceUsd: Number(it?.priceUsd || 0),
+          stockQty: Number(it?.stockQty || 0),
+          category: typeof it?.category === "string" ? String(it?.category) : undefined,
+          description: typeof it?.description === "string" ? String(it?.description) : undefined,
+          tags: Array.isArray(it?.tags) ? it?.tags : [],
+          images: Array.isArray(it?.images) ? it?.images : [],
+        };
+
+        if (includeModifiers) {
+          const { modifiers, variants, industryType } = extractItemOptions(it);
+          return { ...baseItem, industryType, modifiers, variants };
+        }
+        return baseItem;
+      });
 
       if (name === "getInventory") {
         return NextResponse.json({ result: { ok: true, data: mapped } });
@@ -187,6 +342,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Case: getItemModifiers - fetch modifier/variant info for a specific item
+    // Note: getInventory now returns this info if includeModifiers=true, but we keep this for granular lookups
     if (name === "getItemModifiers") {
       const { ok, json, status, target } = await safeJsonFetch(`${base}/api/inventory`, { method: "GET", headers: forwardHeaders() });
       if (!ok) return NextResponse.json({ result: { ok: false, error: json?.error || `inventory_failed_${status}`, target } });
@@ -216,140 +372,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ result: { ok: false, error: "item_not_found" } });
       }
 
-      // Debug: log the raw item structure
-      console.log("[getItemModifiers] raw item:", JSON.stringify({
-        id: item?.id,
-        name: item?.name,
-        attributes: item?.attributes,
-        modifierGroups: item?.modifierGroups,
-        description: item?.description,
-      }, null, 2));
-
-      // Extract modifier info from attributes (the correct field name per types/inventory.ts)
-      // Modifiers can be stored in multiple places:
-      // 1. item.attributes.data.modifierGroups (when type is "restaurant" or "general")
-      // 2. item.attributes.modifierGroups (legacy/direct)
-      // 3. item.modifierGroups (legacy top-level)
-      const attrs = item?.attributes || {};
-      let industryType = String(attrs?.type || "general");
-      const data = attrs?.data || {};
-
-      // Try to find modifierGroups in all possible locations
-      let modifierGroups: any[] | null = null;
-      let modifierSource = "none";
-      if (Array.isArray(data?.modifierGroups) && data.modifierGroups.length > 0) {
-        modifierGroups = data.modifierGroups;
-        modifierSource = "attributes.data.modifierGroups";
-      } else if (Array.isArray(attrs?.modifierGroups) && attrs.modifierGroups.length > 0) {
-        modifierGroups = attrs.modifierGroups;
-        modifierSource = "attributes.modifierGroups";
-      } else if (Array.isArray(item?.modifierGroups) && item.modifierGroups.length > 0) {
-        modifierGroups = item.modifierGroups;
-        modifierSource = "item.modifierGroups";
-      }
-
-      // Also check for dietaryTags to detect restaurant items
-      const dietaryTags: any[] = Array.isArray(data?.dietaryTags) ? data.dietaryTags
-        : Array.isArray(attrs?.dietaryTags) ? attrs.dietaryTags
-        : Array.isArray(item?.dietaryTags) ? item.dietaryTags
-        : [];
-      
-      // If we found modifierGroups or dietaryTags, treat as restaurant type
-      if ((modifierGroups && modifierGroups.length > 0) || dietaryTags.length > 0) {
-        industryType = "restaurant";
-      }
-
-      // Parse modifiers from description if none found in structured data
-      // Format: "Optional: Bacon +$0.50, Extra Croutons +$1.00" or similar
-      if (!modifierGroups || modifierGroups.length === 0) {
-        const desc = String(item?.description || "");
-        const optionalMatch = desc.match(/(?:Optional|Add-ons?|Extras?|Modifiers?):\s*(.+)/i);
-        if (optionalMatch) {
-          const optionsText = optionalMatch[1];
-          // Parse comma-separated options like "Bacon +$0.50, Extra Croutons +$1.00"
-          const optionMatches = optionsText.matchAll(/([^,]+?)\s*\+?\$?([\d.]+)?/g);
-          const parsedModifiers: any[] = [];
-          let idx = 0;
-          for (const match of optionMatches) {
-            const optName = String(match[1] || "").trim();
-            const optPrice = match[2] ? parseFloat(match[2]) : 0;
-            if (optName) {
-              parsedModifiers.push({
-                id: `desc-mod-${idx}`,
-                name: optName,
-                priceAdjustment: optPrice,
-                default: false,
-                available: true,
-              });
-              idx++;
-            }
-          }
-          if (parsedModifiers.length > 0) {
-            modifierGroups = [{
-              id: "description-modifiers",
-              name: "Optional Add-ons",
-              required: false,
-              minSelect: 0,
-              maxSelect: parsedModifiers.length,
-              selectionType: "multiple",
-              modifiers: parsedModifiers,
-            }];
-            modifierSource = "parsed_from_description";
-            industryType = "restaurant";
-          }
-        }
-      }
-
-      console.log("[getItemModifiers] parsed:", { modifierSource, modifierGroupsCount: modifierGroups?.length, industryType });
-
-      let modifiers: any = null;
-      let variants: any = null;
-
-      if (modifierGroups && modifierGroups.length > 0) {
-        // Restaurant modifiers: { modifierGroups: RestaurantModifierGroup[] }
-        modifiers = modifierGroups.map((g: any) => ({
-          groupId: String(g?.id || ""),
-          groupName: String(g?.name || ""),
-          required: Boolean(g?.required),
-          minSelect: Number(g?.minSelect || 0),
-          maxSelect: Number(g?.maxSelect || 99),
-          selectionType: String(g?.selectionType || "multiple"),
-          options: Array.isArray(g?.modifiers)
-            ? g.modifiers.map((m: any) => ({
-                modifierId: String(m?.id || ""),
-                name: String(m?.name || ""),
-                priceAdjustment: Number(m?.priceAdjustment || 0),
-                default: Boolean(m?.default),
-                available: m?.available !== false,
-              }))
-            : [],
-        }));
-      } else if (industryType === "retail") {
-        // Retail variants: { variationGroups: RetailVariationGroup[], variants: RetailProductVariant[] }
-        const variationGroups = Array.isArray(data?.variationGroups) ? data.variationGroups : [];
-        const productVariants = Array.isArray(data?.variants) ? data.variants : [];
-
-        variants = {
-          variationGroups: variationGroups.map((vg: any) => ({
-            groupId: String(vg?.id || ""),
-            groupName: String(vg?.name || ""),
-            options: Array.isArray(vg?.options)
-              ? vg.options.map((o: any) => ({
-                  optionId: String(o?.id || ""),
-                  value: String(o?.value || ""),
-                }))
-              : [],
-          })),
-          variants: productVariants.map((v: any) => ({
-            variantId: String(v?.id || ""),
-            sku: String(v?.sku || ""),
-            name: String(v?.name || ""),
-            priceUsd: Number(v?.priceUsd || item?.priceUsd || 0),
-            stockQty: Number(v?.stockQty ?? item?.stockQty ?? -1),
-            options: v?.options || {},
-          })),
-        };
-      }
+      const { modifiers, variants, industryType } = extractItemOptions(item);
 
       return NextResponse.json({
         result: {
@@ -370,8 +393,8 @@ export async function POST(req: NextRequest) {
 
     // Case: Cart operations - these are client-side tools that modify React state
     // The server acknowledges them but they should be executed via the client-side dispatcher
-    if (name === "addToCart" || name === "editCartItem" || name === "removeFromCart" || 
-        name === "updateCartItem" || name === "updateCartItemQty" || name === "clearCart" || name === "getCartSummary") {
+    if (name === "addToCart" || name === "editCartItem" || name === "removeFromCart" ||
+      name === "updateCartItem" || name === "updateCartItemQty" || name === "clearCart" || name === "getCartSummary") {
       // Return a special response indicating this is a client-side tool
       // The client's realtime voice agent should intercept this and execute via local dispatcher
       return NextResponse.json({

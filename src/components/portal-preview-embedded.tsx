@@ -195,30 +195,6 @@ export function PortalPreviewEmbedded({
 
   const displayBrandName = (!rawThemeName || isGenericThemeName) ? titleizedKey : rawThemeName;
 
-  const effectivePrimaryColor = theme.primaryColor;
-  const effectiveSecondaryColor = theme.secondaryColor;
-  const effectiveBrandName = theme.brandName || displayBrandName;
-  const effectiveLogoApp = theme.brandLogoUrl;
-  const effectiveLogoSymbol = theme.symbolLogoUrl;
-  const effectiveLogoFavicon = theme.brandFaviconUrl;
-
-  // Helper to get best logo for different contexts
-  const getHeaderLogo = () => {
-    const key = (theme as any)?.brandKey || (brandCtx as any)?.key;
-    // For header, prefer full-width app logo
-    const themeLogo = theme.brandLogoUrl || theme.symbolLogoUrl || theme.brandFaviconUrl;
-    const brandLogo = (brandCtx as any)?.logos?.app || (brandCtx as any)?.logos?.symbol;
-    return resolveBrandAppLogo(themeLogo || brandLogo, key);
-  };
-  const getSymbolLogo = () => {
-    const key = (theme as any)?.brandKey || (brandCtx as any)?.key;
-    // For receipt symbol, prefer brand.logos.symbol first (matches landing page hero)
-    // then fall back to theme values
-    const brandSymbol = (brandCtx as any)?.logos?.symbol || (brandCtx as any)?.logos?.app;
-    const themeLogo = theme.symbolLogoUrl || theme.brandFaviconUrl || theme.brandLogoUrl;
-    return resolveBrandSymbol(brandSymbol || themeLogo, key);
-  };
-
   // Currency and rates
   const [rates, setRates] = useState<EthRates>({});
   const [usdRates, setUsdRates] = useState<Record<string, number>>({});
@@ -326,13 +302,15 @@ export function PortalPreviewEmbedded({
 
   // Track if we've initialized from site config (only do it once)
   const tokenInitialized = useRef(false);
+  // Local theme override from fetch
+  const [previewTheme, setPreviewTheme] = useState<Partial<SiteTheme> | null>(null);
 
   // Honor defaultPaymentToken from site config (admin/console) - only on first load
   // Validate token is available and has a configured address for non-ETH, otherwise fall back to ETH
   useEffect(() => {
     if (tokenInitialized.current) return;
-    if (availableTokens.length === 0) return;
 
+    // Allow fetching even if no tokens are locally defined yet, to get branding
     const walletForDefault = (() => {
       try {
         const w = String(recipient || "").toLowerCase();
@@ -341,6 +319,10 @@ export function PortalPreviewEmbedded({
         return "";
       }
     })();
+
+    // Only fetch if we have a wallet/recipient to look up
+    if (!walletForDefault && availableTokens.length === 0) return;
+
     const baseUrl = walletForDefault ? `/api/site/config?wallet=${encodeURIComponent(walletForDefault)}` : "/api/site/config";
 
     fetch(baseUrl)
@@ -350,6 +332,12 @@ export function PortalPreviewEmbedded({
         tokenInitialized.current = true;
         const cfg = j?.config || {};
 
+        // 1. Process Branding/Theme
+        if (cfg?.theme) {
+          setPreviewTheme(cfg.theme);
+        }
+
+        // 2. Process Tokens
         let currentTokens = availableTokens;
         if (cfg?.tokens && Array.isArray(cfg.tokens) && cfg.tokens.length > 0) {
           const runtimeTokens = cfg.tokens as TokenDef[];
@@ -368,6 +356,31 @@ export function PortalPreviewEmbedded({
         tokenInitialized.current = true;
       });
   }, [availableTokens, recipient]);
+
+  // Compute effective theme values, prioritizing fetched previewTheme -> props theme -> defaults
+  const effectivePrimaryColor = previewTheme?.primaryColor || theme.primaryColor;
+  const effectiveSecondaryColor = previewTheme?.secondaryColor || theme.secondaryColor;
+  const effectiveBrandName = previewTheme?.brandName || theme.brandName || displayBrandName;
+  const effectiveLogoApp = previewTheme?.brandLogoUrl || theme.brandLogoUrl;
+  const effectiveLogoSymbol = previewTheme?.symbolLogoUrl || theme.symbolLogoUrl;
+  const effectiveLogoFavicon = previewTheme?.brandFaviconUrl || theme.brandFaviconUrl;
+
+  // Helper to get best logo for different contexts
+  const getHeaderLogo = () => {
+    const key = (previewTheme as any)?.brandKey || (theme as any)?.brandKey || (brandCtx as any)?.key;
+    // For header, prefer full-width app logo
+    const themeLogo = effectiveLogoApp || effectiveLogoSymbol || effectiveLogoFavicon;
+    const brandLogo = (brandCtx as any)?.logos?.app || (brandCtx as any)?.logos?.symbol;
+    return resolveBrandAppLogo(themeLogo || brandLogo, key);
+  };
+  const getSymbolLogo = () => {
+    const key = (previewTheme as any)?.brandKey || (theme as any)?.brandKey || (brandCtx as any)?.key;
+    // For receipt symbol, prefer brand.logos.symbol first (matches landing page hero)
+    // then fall back to theme values
+    const brandSymbol = (brandCtx as any)?.logos?.symbol || (brandCtx as any)?.logos?.app;
+    const themeLogo = effectiveLogoSymbol || effectiveLogoFavicon || effectiveLogoApp;
+    return resolveBrandSymbol(brandSymbol || themeLogo, key);
+  };
 
   // Auto-rotate through tokens to make preview feel alive
   // Shows cycling through ETH, USDC, USDT, cbBTC, cbXRP every 5 seconds

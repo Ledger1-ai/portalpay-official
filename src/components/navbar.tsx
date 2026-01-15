@@ -233,8 +233,20 @@ export function Navbar() {
         const sanitizeLogoForPartner = (logo: string | undefined) => {
             if (!isPartnerContainer) return logo;
             const s = String(logo || '').toLowerCase();
-            if (s.includes('basaltsurge') || s.includes('bssymbol') || s.includes('bswide')) {
-                return ''; // Block BasaltSurge logos for partners
+            // Only block specific known platform assets, not just any URL containing the string
+            // This prevents blocking valid logos that might have 'basaltsurge' in the path (e.g. blob storage account)
+            const filename = s.split('/').pop()?.split('?')[0] || '';
+            const isPlatformAsset =
+                filename === 'basaltsurge.png' ||
+                filename === 'basaltsurgewided.png' ||
+                filename === 'basaltsurged.png' ||
+                filename === 'bssymbol.png' ||
+                filename === 'bswide.png' ||
+                filename === 'ppsymbol.png' ||
+                filename === 'cblogod.png';
+
+            if (isPlatformAsset) {
+                return ''; // Block default platform logos for partners
             }
             return logo;
         };
