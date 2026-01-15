@@ -15,6 +15,7 @@ type ReserveBalancesResponse = {
     {
       units?: number;
       usd?: number;
+      address?: string | null;
     }
   >;
   totalUsd?: number;
@@ -61,10 +62,10 @@ export function ReserveAnalytics() {
           r === "not_due_payment"
             ? "No funds due to this account"
             : r === "signature_mismatch"
-            ? "Contract method signature mismatch (overload)"
-            : r === "token_address_not_configured"
-            ? "Token address not configured"
-            : r;
+              ? "Contract method signature mismatch (overload)"
+              : r === "token_address_not_configured"
+                ? "Token address not configured"
+                : r;
         parts.push(friendly);
       }
       if (rr?.transactionHash) {
@@ -111,23 +112,23 @@ export function ReserveAnalytics() {
       const envTokens: Record<string, { address?: `0x${string}`; decimals?: number }> = {
         ETH: { address: undefined, decimals: 18 },
         USDC: {
-          address: (process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS || "").toLowerCase() as any,
+          address: (data?.balances?.["USDC"]?.address || process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913").toLowerCase() as any,
           decimals: Number(process.env.NEXT_PUBLIC_BASE_USDC_DECIMALS || 6),
         },
         USDT: {
-          address: (process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS || "").toLowerCase() as any,
+          address: (data?.balances?.["USDT"]?.address || process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS || "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2").toLowerCase() as any,
           decimals: Number(process.env.NEXT_PUBLIC_BASE_USDT_DECIMALS || 6),
         },
         cbBTC: {
-          address: (process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS || "").toLowerCase() as any,
+          address: (data?.balances?.["cbBTC"]?.address || process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS || "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf").toLowerCase() as any,
           decimals: Number(process.env.NEXT_PUBLIC_BASE_CBBTC_DECIMALS || 8),
         },
         cbXRP: {
-          address: (process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS || "").toLowerCase() as any,
+          address: (data?.balances?.["cbXRP"]?.address || process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS || "0xcb585250f852C6c6bf90434AB21A00f02833a4af").toLowerCase() as any,
           decimals: Number(process.env.NEXT_PUBLIC_BASE_CBXRP_DECIMALS || 6),
         },
         SOL: {
-          address: (process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS || "").toLowerCase() as any,
+          address: (data?.balances?.["SOL"]?.address || process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS || "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82").toLowerCase() as any,
           decimals: Number(process.env.NEXT_PUBLIC_BASE_SOL_DECIMALS || 9),
         },
       };
@@ -240,7 +241,7 @@ export function ReserveAnalytics() {
         }
       }
 
-      try { await fetchBalances(); } catch {}
+      try { await fetchBalances(); } catch { }
     } catch (e: any) {
       setWithdrawError(e?.message || "Withdraw failed");
     } finally {
@@ -294,7 +295,7 @@ export function ReserveAnalytics() {
           await fetch(`/api/site/metrics?range=24h`, {
             headers: { "x-wallet": account?.address || "" },
           });
-        } catch {}
+        } catch { }
         await fetchBalances();
       } finally {
         if (!cancelled) setIndexing(false);
@@ -466,52 +467,52 @@ export function ReserveAnalytics() {
             aria-modal="true"
             tabIndex={-1}
           >
-              <div className="w-full max-w-sm rounded-md border bg-background p-4">
-                <div className="text-sm font-medium mb-2">Withdrawing to Wallet</div>
-                <div className="microtext text-muted-foreground mb-2">
-                  {withdrawProcessed} / {Math.max(0, withdrawQueue.length)} processed
-                </div>
-                <div className="h-2 w-full bg-foreground/10 rounded">
-                  <div
-                    className="h-2 bg-green-500 rounded"
-                    style={{
-                      width: `${Math.min(100, Math.floor((withdrawProcessed / Math.max(1, withdrawQueue.length)) * 100))}%`,
-                    }}
-                  />
-                </div>
-                <div className="mt-3 max-h-40 overflow-auto microtext">
-                  {withdrawQueue.map((sym) => {
-                    const st = withdrawStatuses[sym];
-                    const cls = st
-                      ? st.status === "failed"
-                        ? "text-red-500"
-                        : st.status === "skipped"
+            <div className="w-full max-w-sm rounded-md border bg-background p-4">
+              <div className="text-sm font-medium mb-2">Withdrawing to Wallet</div>
+              <div className="microtext text-muted-foreground mb-2">
+                {withdrawProcessed} / {Math.max(0, withdrawQueue.length)} processed
+              </div>
+              <div className="h-2 w-full bg-foreground/10 rounded">
+                <div
+                  className="h-2 bg-green-500 rounded"
+                  style={{
+                    width: `${Math.min(100, Math.floor((withdrawProcessed / Math.max(1, withdrawQueue.length)) * 100))}%`,
+                  }}
+                />
+              </div>
+              <div className="mt-3 max-h-40 overflow-auto microtext">
+                {withdrawQueue.map((sym) => {
+                  const st = withdrawStatuses[sym];
+                  const cls = st
+                    ? st.status === "failed"
+                      ? "text-red-500"
+                      : st.status === "skipped"
                         ? "text-amber-600"
                         : "text-muted-foreground"
-                      : "text-muted-foreground";
-                    const fallback =
-                      withdrawProcessed <= withdrawQueue.indexOf(sym) ? "queued" : "working…";
-                    return (
-                      <div key={sym} className={cls}>
-                        {sym}: {st?.status || fallback}
-                        {st?.tx ? ` • ${String(st.tx).slice(0, 10)}…` : ""}
-                        {st?.reason ? ` • ${st.reason}` : ""}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-3 flex justify-end gap-2">
-                  <button
-                    className="px-3 py-1.5 rounded-md border text-sm"
-                    onClick={() => setWithdrawModalOpen(false)}
-                  >
-                    Close
-                  </button>
-                </div>
+                    : "text-muted-foreground";
+                  const fallback =
+                    withdrawProcessed <= withdrawQueue.indexOf(sym) ? "queued" : "working…";
+                  return (
+                    <div key={sym} className={cls}>
+                      {sym}: {st?.status || fallback}
+                      {st?.tx ? ` • ${String(st.tx).slice(0, 10)}…` : ""}
+                      {st?.reason ? ` • ${st.reason}` : ""}
+                    </div>
+                  );
+                })}
               </div>
-            </div>,
-            document.body
-          )
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  className="px-3 py-1.5 rounded-md border text-sm"
+                  onClick={() => setWithdrawModalOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
         : null}
     </div>
   );

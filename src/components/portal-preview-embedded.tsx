@@ -52,10 +52,10 @@ function getBuildTimeTokens(): TokenDef[] {
   const tokens: TokenDef[] = [];
   tokens.push({ symbol: "ETH", type: "native" });
 
-  const usdc = (process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS || "").trim();
-  const usdt = (process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS || "").trim();
-  const cbbtc = (process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS || "").trim();
-  const cbxrp = (process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS || "").trim();
+  const usdc = (process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913").trim();
+  const usdt = (process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS || "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2").trim();
+  const cbbtc = (process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS || "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf").trim();
+  const cbxrp = (process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS || "0xcb585250f852C6c6bf90434AB21A00f02833a4af").trim();
 
   if (usdc)
     tokens.push({
@@ -87,7 +87,7 @@ function getBuildTimeTokens(): TokenDef[] {
     });
 
   // Add SOL for display purposes (Solana native token shown in rotation)
-  const sol = (process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS || "").trim();
+  const sol = (process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS || "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82").trim();
   if (sol)
     tokens.push({
       symbol: "SOL",
