@@ -178,6 +178,7 @@ export default function TerminalSessionManager({ config, merchantWallet }: { con
             merchantWallet={merchantWallet}
             employeeId={activeSession.staffId}
             employeeName={`${activeSession.name} • ${statsStr}`}
+            employeeRole={activeSession.role}
             sessionId={activeSession.sessionId}
             onLogout={handleLogout}
             brandName={config.name}

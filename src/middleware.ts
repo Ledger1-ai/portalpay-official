@@ -282,11 +282,20 @@ export function middleware(req: NextRequest) {
 
     // Only rewrite if it's a "page" request, not an API or asset request
     const isAsset = url.pathname.includes(".") || url.pathname.startsWith("/_next") || url.pathname.startsWith("/api");
-    if (!isAsset && url.pathname === "/") {
-      const target = new URL(`/shop/${hostname}`, req.url);
-      const res = NextResponse.rewrite(target);
-      applySecurityHeaders(req, res);
-      return res;
+    if (!isAsset) {
+      if (url.pathname === "/") {
+        const target = new URL(`/shop/${hostname}`, req.url);
+        const res = NextResponse.rewrite(target);
+        applySecurityHeaders(req, res);
+        return res;
+      } else if (url.pathname.startsWith("/product/")) {
+        // Rewrite /product/[id] -> /shop/[hostname]/product/[id]
+        const suffix = url.pathname.replace("/product/", "");
+        const target = new URL(`/shop/${hostname}/product/${suffix}`, req.url);
+        const res = NextResponse.rewrite(target);
+        applySecurityHeaders(req, res);
+        return res;
+      }
     }
   }
 

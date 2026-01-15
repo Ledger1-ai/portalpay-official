@@ -13,6 +13,7 @@ interface TerminalInterfaceProps {
     merchantWallet: string; // The wallet receiving funds
     employeeId?: string;    // Optional employee ID to track
     employeeName?: string;
+    employeeRole?: string;
     sessionId?: string;     // Optional active session ID
     onLogout?: () => void;
     brandName?: string;
@@ -20,10 +21,11 @@ interface TerminalInterfaceProps {
     theme?: any;
 }
 
-export default function TerminalInterface({ merchantWallet, employeeId, employeeName, sessionId, onLogout, brandName, logoUrl }: TerminalInterfaceProps) {
+export default function TerminalInterface({ merchantWallet, employeeId, employeeName, employeeRole, sessionId, onLogout, brandName, logoUrl }: TerminalInterfaceProps) {
     const [amountStr, setAmountStr] = useState<string>("");
     const [itemLabel, setItemLabel] = useState<string>("");
     const [loading, setLoading] = useState(false);
+    const [reportLoading, setReportLoading] = useState(false);
     const [error, setError] = useState("");
     const [terminalCurrency, setTerminalCurrency] = useState("USD");
 
@@ -55,11 +57,6 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
     function clearAmount() { setAmountStr(""); }
 
     const baseUsd = parseAmount();
-    // Simplified fee logic for standalone terminal (assume inclusive or calculated elsewhere, 
-    // but for visual parody we just show total = base for now unless we fetch config).
-    // Let's assume Fees are calculated on RECEIPT GENERATION side or we just show a simplified view.
-    // The original code calculated tax/fees. Let's keep it simple: What you type is what you charge.
-
     const totalUsd = baseUsd;
 
     // Conversion
@@ -112,11 +109,57 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
         }
     }
 
+    async function handleEndOfDayReport() {
+        if (reportLoading) return;
+        setReportLoading(true);
+        setError("");
+
+        try {
+            // Calculate start/end of day in local time (or just send UTC range if preferred, but local is better for "End of Day")
+            // We'll stick to simple 00:00 - 23:59 local client time converted to ISO or timestamp
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+            const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+            const startTs = Math.floor(startOfDay.getTime() / 1000);
+            const endTs = Math.floor(endOfDay.getTime() / 1000);
+
+            const res = await fetch(`/api/terminal/reports/end-of-day?sessionId=${sessionId}&start=${startTs}&end=${endTs}`, {
+                method: "GET",
+                headers: { "x-wallet": merchantWallet }
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Failed to generate report");
+            }
+
+            // Download Blob
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `end-of-day-${new Date().toISOString().split('T')[0]}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+        } catch (e: any) {
+            console.error(e);
+            setError(e.message || "Report generation failed");
+        } finally {
+            setReportLoading(false);
+        }
+    }
+
     // Portal URL for QR
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const portalUrl = selected
         ? `${origin}/portal/${encodeURIComponent(selected.receiptId)}?recipient=${encodeURIComponent(merchantWallet)}`
         : "";
+
+    const isManagerOrKeyholder = employeeRole === 'manager' || employeeRole === 'keyholder';
 
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
@@ -128,11 +171,22 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
                         {employeeName && <div className="text-sm text-muted-foreground">Operator: {employeeName}</div>}
                     </div>
                 </div>
-                {onLogout && (
-                    <button onClick={onLogout} className="px-4 py-2 text-sm border rounded-md hover:bg-muted">
-                        Logout
-                    </button>
-                )}
+                <div className="flex gap-2">
+                    {isManagerOrKeyholder && (
+                        <button
+                            onClick={handleEndOfDayReport}
+                            disabled={reportLoading}
+                            className="px-4 py-2 text-sm border bg-background rounded-md hover:bg-muted disabled:opacity-50"
+                        >
+                            {reportLoading ? "Generating..." : "End-of-Day Report"}
+                        </button>
+                    )}
+                    {onLogout && (
+                        <button onClick={onLogout} className="px-4 py-2 text-sm border rounded-md hover:bg-muted">
+                            Logout
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
