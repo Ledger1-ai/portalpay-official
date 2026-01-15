@@ -58,7 +58,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
         // 2. Fetch Inventory Items for this Wallet
         const { resources: items } = await container.items
             .query({
-                query: "SELECT * FROM c WHERE c.type='inventory_item' AND c.wallet=@wallet AND ((NOT IS_DEFINED(c.attributes) OR c.attributes.type != 'publishing') OR (c.attributes.type = 'publishing' AND (c.approvalStatus != 'ARCHIVED' OR NOT IS_DEFINED(c.approvalStatus))))",
+                query: "SELECT * FROM c WHERE c.type='inventory_item' AND c.wallet=@wallet AND ((NOT IS_DEFINED(c.attributes) OR NOT IS_DEFINED(c.attributes.type) OR c.attributes.type != 'publishing') OR (c.attributes.type = 'publishing' AND (c.approvalStatus != 'ARCHIVED' OR NOT IS_DEFINED(c.approvalStatus))))",
                 parameters: [{ name: "@wallet", value: wallet }]
             })
             .fetchAll();
