@@ -21,14 +21,25 @@ function json(obj: any, init?: { status?: number; headers?: Record<string, strin
 
 /**
  * Get base touchpoint APK bytes from local filesystem
+ * Falls back to portalpay APK if surge-touchpoint doesn't exist
  */
 async function getBaseTouchpointApk(): Promise<Uint8Array | null> {
-    const basePath = path.join(process.cwd(), "android", "launcher", "recovered", "surge-touchpoint-signed.apk");
+    // Try touchpoint base first
+    const touchpointPath = path.join(process.cwd(), "android", "launcher", "recovered", "surge-touchpoint-signed.apk");
     try {
-        const data = await fs.readFile(basePath);
+        const data = await fs.readFile(touchpointPath);
+        console.log("[Touchpoint Build] Using surge-touchpoint-signed.apk as base");
         return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     } catch {
-        return null;
+        // Fall back to portalpay APK as base
+        console.log("[Touchpoint Build] surge-touchpoint not found, using portalpay as base");
+        const portalPayPath = path.join(process.cwd(), "android", "launcher", "recovered", "portalpay-signed.apk");
+        try {
+            const data = await fs.readFile(portalPayPath);
+            return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+        } catch {
+            return null;
+        }
     }
 }
 
@@ -226,7 +237,7 @@ export async function POST(req: NextRequest) {
         if (!baseApk) {
             return json({
                 error: "base_apk_not_found",
-                message: "Base touchpoint APK not found at android/launcher/recovered/surge-touchpoint-signed.apk"
+                message: "No base APK found. Looked for surge-touchpoint-signed.apk and portalpay-signed.apk in android/launcher/recovered/"
             }, { status: 404 });
         }
 

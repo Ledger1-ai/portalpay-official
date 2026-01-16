@@ -197,7 +197,7 @@ export default function TouchpointMonitoringPanel() {
                         </p>
                     </div>
                 </div>
-                <div className="flex items- center gap-2">
+                <div className="flex items-center gap-2">
                     <button
                         onClick={fetchDevices}
                         disabled={loading}
