@@ -24,59 +24,35 @@ function json(obj: any, init?: { status?: number; headers?: Record<string, strin
  * Tries Azure blob first, then local filesystem
  * Falls back to portalpay APK if surge-touchpoint doesn't exist
  */
-async function getBaseTouchpointApk(): Promise<Uint8Array | null> {
-    // Prefer Azure Blob Storage if configured
-    const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
-    const container = String(process.env.PP_APK_CONTAINER || "portalpay").trim();
+async function getBaseTouchpointApk(brandKey: string = ""): Promise<Uint8Array | null> {
+    // ALWAYS start from the clean, lightweight local base.
+    // Do NOT fetch from Blob Storage, as that contains the *output* of previous builds (which might be bloated).
 
-    if (conn && container) {
-        const prefix = String(process.env.PP_APK_BLOB_PREFIX || "brands").trim().replace(/^\/+|\/+$/g, "");
-        const { BlobServiceClient } = await import("@azure/storage-blob");
-        const bsc = BlobServiceClient.fromConnectionString(conn);
-        const cont = bsc.getContainerClient(container);
+    // Default to portalpay-unsigned.apk (35MB) instead of signed (277MB)
+    // This ensures a fresh build and small file size.
+    let rel = path.join("android", "launcher", "recovered", "portalpay-unsigned.apk");
 
-        // Try surge-touchpoint first
-        try {
-            const blobName = prefix ? `${prefix}/surge-touchpoint-signed.apk` : `surge-touchpoint-signed.apk`;
-            const blob = cont.getBlockBlobClient(blobName);
-            if (await blob.exists()) {
-                const buf = await blob.downloadToBuffer();
-                console.log(`[Touchpoint Build] Using ${blobName} from blob storage`);
-                return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-            }
-        } catch (e) {
-            console.log("[Touchpoint Build] surge-touchpoint not in blob, trying portalpay");
-        }
-
-        // Fall back to portalpay APK
-        try {
-            const fallbackBlobName = prefix ? `${prefix}/portalpay-signed.apk` : `portalpay-signed.apk`;
-            const fallbackBlob = cont.getBlockBlobClient(fallbackBlobName);
-            if (await fallbackBlob.exists()) {
-                const buf = await fallbackBlob.downloadToBuffer();
-                console.log(`[Touchpoint Build] Using ${fallbackBlobName} from blob storage as base`);
-                return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-            }
-        } catch (e) {
-            console.log("[Touchpoint Build] portalpay not in blob either");
-        }
+    // Check if separate paynex base exists (if needed)
+    if (brandKey === "paynex") {
+        rel = path.join("android", "launcher", "recovered", "paynex-unsigned.apk");
     }
 
-    // Local filesystem fallback
-    const touchpointPath = path.join(process.cwd(), "android", "launcher", "recovered", "surge-touchpoint-signed.apk");
     try {
-        const data = await fs.readFile(touchpointPath);
-        console.log("[Touchpoint Build] Using local surge-touchpoint-signed.apk");
+        const filePath = path.join(process.cwd(), rel);
+        // Verify it exists
+        await fs.access(filePath);
+        const data = await fs.readFile(filePath);
+        console.log(`[Touchpoint Build] Using local base: ${rel} (${data.byteLength} bytes)`);
         return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     } catch {
-        // Fall back to local portalpay APK
-        console.log("[Touchpoint Build] Trying local portalpay as last resort");
-        const portalPayPath = path.join(process.cwd(), "android", "launcher", "recovered", "portalpay-signed.apk");
+        // Fallback to signed if unsigned missing (though unusual)
         try {
-            const data = await fs.readFile(portalPayPath);
-            console.log("[Touchpoint Build] Using local portalpay-signed.apk as base");
-            return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-        } catch {
+            const fallbackRel = rel.replace("unsigned", "signed");
+            const fd = await fs.readFile(path.join(process.cwd(), fallbackRel));
+            console.warn(`[Touchpoint Build] Unsigned base missing. Fallback to signed: ${fallbackRel}`);
+            return new Uint8Array(fd.buffer, fd.byteOffset, fd.byteLength);
+        } catch (e) {
+            console.error(`[Touchpoint Build] Failed to find base APK for ${brandKey}:`, e);
             return null;
         }
     }
