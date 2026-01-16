@@ -40,6 +40,7 @@ import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import AdminHero from "@/components/admin/admin-hero";
 import InstallerPackagesPanel from "@/app/admin/panels/InstallerPackagesPanel";
 import DeviceInstallerPanel from "@/app/admin/panels/DeviceInstallerPanel";
+import TouchpointMonitoringPanel from "@/app/admin/panels/TouchpointMonitoringPanel";
 import AdminManagementPanel from "@/app/admin/panels/AdminManagementPanel";
 import IntegrationsPanel from "@/app/admin/panels/IntegrationsPanel";
 import ShopifyIntegrationPanel from "@/app/admin/panels/ShopifyIntegrationPanel";
@@ -9181,6 +9182,8 @@ export default function AdminPage() {
             Download the ZIP for your brand, run the included Windows .bat (adb install -r), then launch the app.
             The APK phones home on first launch to record the install in Devices.
           </div>
+          <TouchpointMonitoringPanel />
+          <div className="h-px bg-border my-6" />
           <DeviceInstallerPanel />
           <div className="h-px bg-border my-6" />
           <InstallerPackagesPanel />

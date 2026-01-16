@@ -1652,18 +1652,18 @@ export default function DeviceInstallerPanel() {
   const touchpointApkName = `${effectiveBrandName.replace(/\s+/g, "")}Touchpoint`;
 
   function downloadTouchpointApk() {
-    // Navigate to API endpoint to trigger download (it returns Content-Disposition attachment/inline)
-    let url = "/api/admin/apk/touchpoint";
+    // Navigate to ZIP endpoint to trigger download of installer package
+    let url = "/api/admin/apk/zips/touchpoint";
     if (targetBrand) {
       url += `?brand=${encodeURIComponent(targetBrand)}`;
     }
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${touchpointApkName}.apk`;
+    a.download = `${touchpointApkName}-installer.zip`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    log(`Started download for ${touchpointApkName} APK`);
+    log(`Started download for ${touchpointApkName} installer ZIP`);
   }
 
   return (
@@ -1718,10 +1718,10 @@ export default function DeviceInstallerPanel() {
             onClick={downloadTouchpointApk}
             className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors shadow-sm"
           >
-            Download {effectiveBrandName} APK
+            Download {effectiveBrandName} Installer ZIP
           </button>
           <span className="microtext text-muted-foreground">
-            Filename: <code className="bg-background px-1 rounded">{touchpointApkName}.apk</code>
+            Includes APK + install scripts (.bat/.sh)
           </span>
         </div>
       </div>

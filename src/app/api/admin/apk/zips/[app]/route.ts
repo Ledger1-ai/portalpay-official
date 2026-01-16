@@ -38,6 +38,7 @@ async function getApkBytes(appKey: string): Promise<Uint8Array | null> {
     const APP_TO_PATH: Record<string, string> = {
         portalpay: path.join("android", "launcher", "recovered", "portalpay-signed.apk"),
         paynex: path.join("android", "launcher", "recovered", "paynex-signed.apk"),
+        "surge-touchpoint": path.join("android", "launcher", "recovered", "surge-touchpoint-signed.apk"),
     };
     const rel = APP_TO_PATH[appKey];
     if (!rel) return null;
@@ -50,14 +51,15 @@ async function getApkBytes(appKey: string): Promise<Uint8Array | null> {
     }
 }
 
-function buildInstallerBat(appKey: string): string {
+function buildInstallerBat(appKey: string, isTouchpoint: boolean = false): string {
     // Windows .bat script to assist operator installs via adb.exe
     // Assumes adb.exe available in PATH (Android Platform Tools)
     const apkName = `${appKey}.apk`;
+    const title = isTouchpoint ? "Touchpoint" : "PortalPay/Paynex";
     return [
         "@echo off",
         "setlocal",
-        "echo PortalPay/Paynex Installer",
+        `echo ${title} Installer`,
         "echo.",
         "where adb >nul 2>nul",
         "if %ERRORLEVEL% NEQ 0 (",
@@ -86,14 +88,15 @@ function buildInstallerBat(appKey: string): string {
     ].join("\r\n");
 }
 
-function buildInstallerSh(appKey: string): string {
+function buildInstallerSh(appKey: string, isTouchpoint: boolean = false): string {
     // macOS/Linux shell script to assist operator installs via adb
     // Assumes adb available in PATH (Android Platform Tools)
     const apkName = `${appKey}.apk`;
+    const title = isTouchpoint ? "Touchpoint" : "PortalPay/Paynex";
     return [
         "#!/bin/bash",
         "",
-        '# PortalPay/Paynex Installer for macOS/Linux',
+        `# ${title} Installer for macOS/Linux`,
         'set -e',
         "",
         'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
@@ -135,8 +138,10 @@ function buildInstallerSh(appKey: string): string {
     ].join("\n");
 }
 
-function buildReadme(appKey: string, brandKey: string): string {
-    const appLabel = appKey === "paynex" ? "Paynex" : "PortalPay";
+function buildReadme(appKey: string, brandKey: string, isTouchpoint: boolean = false): string {
+    const appLabel = isTouchpoint
+        ? `${brandKey.charAt(0).toUpperCase() + brandKey.slice(1)} Touchpoint`
+        : (appKey === "paynex" ? "Paynex" : "PortalPay");
     return [
         `PortalPay Installer Package (${appLabel})`,
         ``,
@@ -191,34 +196,51 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ app: string
 
         const containerType = getContainerType();
         const envBrand = getBrandKey();
+        const { searchParams } = new URL(req.url);
+        const brandParam = searchParams.get("brand");
 
         const { app } = await ctx.params;
-        const key = String(app || "").toLowerCase().trim();
-        if (!key) {
+        const requestedApp = String(app || "").toLowerCase().trim();
+        if (!requestedApp) {
             return NextResponse.json({ error: "app_key_required" }, { status: 400 });
         }
 
-        // Partner containers can only access their own brand
+        // Resolve touchpoint to brand-specific APK key
+        let effectiveKey = requestedApp;
+        let isTouchpoint = false;
+        if (requestedApp === "touchpoint") {
+            isTouchpoint = true;
+            if (containerType === "platform" && brandParam) {
+                effectiveKey = `${brandParam.toLowerCase()}-touchpoint`;
+            } else {
+                effectiveKey = (envBrand && containerType === "partner")
+                    ? `${envBrand}-touchpoint`
+                    : "surge-touchpoint";
+            }
+        }
+
+        // Partner container gating
         if (containerType === "partner") {
-            if (!envBrand || key !== envBrand) {
+            // Allow touchpoint (resolves to their brand) or exact brand match
+            if (requestedApp !== "touchpoint" && (!envBrand || requestedApp !== envBrand)) {
                 return NextResponse.json({ error: "zip_not_visible" }, { status: 404 });
             }
         }
 
-        const apkBytes = await getApkBytes(key);
+        const apkBytes = await getApkBytes(effectiveKey);
         if (!apkBytes) {
             return NextResponse.json({ error: "apk_not_found" }, { status: 404 });
         }
 
         const zip = new JSZip();
-        zip.file(`${key}.apk`, apkBytes);
-        zip.file(`install_${key}.bat`, buildInstallerBat(key));
-        zip.file(`install_${key}.sh`, buildInstallerSh(key));
-        zip.file(`README.txt`, buildReadme(key, envBrand || "portalpay"));
+        zip.file(`${effectiveKey}.apk`, apkBytes);
+        zip.file(`install_${effectiveKey}.bat`, buildInstallerBat(effectiveKey, isTouchpoint));
+        zip.file(`install_${effectiveKey}.sh`, buildInstallerSh(effectiveKey, isTouchpoint));
+        zip.file(`README.txt`, buildReadme(effectiveKey, envBrand || brandParam || "platform", isTouchpoint));
 
         // Generate ZIP as ArrayBuffer for type-safe Response BodyInit
         const arr = await zip.generateAsync({ type: "arraybuffer", compression: "DEFLATE", compressionOptions: { level: 9 } });
-        const filename = `${key}-installer.zip`;
+        const filename = `${effectiveKey}-installer.zip`;
 
         return new Response(arr, {
             headers: {
