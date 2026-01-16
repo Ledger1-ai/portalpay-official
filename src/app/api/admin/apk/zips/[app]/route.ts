@@ -20,18 +20,41 @@ async function getApkBytes(appKey: string): Promise<Uint8Array | null> {
     const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
     const container = String(process.env.PP_APK_CONTAINER || "portalpay").trim();
     if (conn && container) {
-        try {
-            const prefix = String(process.env.PP_APK_BLOB_PREFIX || "brands").trim().replace(/^\/+|\/+$/g, "");
-            const blobName = prefix ? `${prefix}/${appKey}-signed.apk` : `${appKey}-signed.apk`;
-            const { BlobServiceClient } = await import("@azure/storage-blob");
-            const bsc = BlobServiceClient.fromConnectionString(conn);
-            const cont = bsc.getContainerClient(container);
-            const blob = cont.getBlockBlobClient(blobName);
-            const buf = await blob.downloadToBuffer();
-            return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-        } catch {
-            // fall through to local fs
+        const prefix = String(process.env.PP_APK_BLOB_PREFIX || "brands").trim().replace(/^\/+|\/+$/g, "");
+        const { BlobServiceClient } = await import("@azure/storage-blob");
+        const bsc = BlobServiceClient.fromConnectionString(conn);
+        const cont = bsc.getContainerClient(container);
+
+        // Try brand-specific APK from blob (works for portalpay, paynex, and ALL touchpoint variants)
+        const tryBlob = async (key: string) => {
+            try {
+                const blobName = prefix ? `${prefix}/${key}-signed.apk` : `${key}-signed.apk`;
+                console.log(`[APK ZIP] Checking blob: ${blobName}`);
+                const blob = cont.getBlockBlobClient(blobName);
+                if (await blob.exists()) {
+                    const buf = await blob.downloadToBuffer();
+                    console.log(`[APK ZIP] Found ${blobName} (${buf.length} bytes)`);
+                    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+                }
+            } catch (e: any) {
+                console.warn(`[APK ZIP] Failed to check ${key}:`, e.message);
+            }
+            return null;
+        };
+
+        // 1. Try exact match
+        let bytes = await tryBlob(appKey);
+
+        // 2. Try aliases (surge <-> basaltsurge)
+        if (!bytes) {
+            if (appKey === "surge-touchpoint") {
+                bytes = await tryBlob("basaltsurge-touchpoint");
+            } else if (appKey === "basaltsurge-touchpoint") {
+                bytes = await tryBlob("surge-touchpoint");
+            }
         }
+
+        if (bytes) return bytes;
     }
 
     // Local filesystem fallback
@@ -45,6 +68,7 @@ async function getApkBytes(appKey: string): Promise<Uint8Array | null> {
     try {
         const filePath = path.join(process.cwd(), rel);
         const data = await fs.readFile(filePath);
+        console.log(`[APK ZIP] Found ${appKey} in local filesystem`);
         return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     } catch {
         return null;
