@@ -142,50 +142,78 @@ export default function RebrandingHero({ brandName = "BasaltSurge", logoUrl = "/
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d", { alpha: true }); // optimize
         if (!ctx) return;
 
         let animationId: number;
         let particles: Particle[] = [];
+        let frameCount = 0;
 
         const resize = () => {
             if (containerRef.current && canvas) {
-                canvas.width = containerRef.current.clientWidth;
-                canvas.height = containerRef.current.clientHeight;
+                // Handle high DPI displays
+                const dpr = window.devicePixelRatio || 1;
+                const rect = containerRef.current.getBoundingClientRect();
+
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+
+                ctx.scale(dpr, dpr);
+                canvas.style.width = `${rect.width}px`;
+                canvas.style.height = `${rect.height}px`;
             }
         };
+
         window.addEventListener("resize", resize);
         resize();
 
         const loop = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // Standard clear
+            frameCount++;
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+
+            ctx.clearRect(0, 0, width, height);
 
             // Dynamic Emitter based on stage
             // Partners get a gentle constant ambient effect
             if (isPartner) {
-                if (Math.random() < 0.2) particles.push(new Particle(canvas.width, canvas.height, "blue_spark"));
+                if (Math.random() < 0.2) particles.push(new Particle(width, height, "blue_spark"));
             } else {
                 if (stage === "blueprint") {
-                    if (Math.random() < 0.3) particles.push(new Particle(canvas.width, canvas.height, "blue_spark"));
+                    if (Math.random() < 0.3) particles.push(new Particle(width, height, "blue_spark"));
                 } else if (stage === "overheat") {
                     // Intense central sparks
-                    for (let i = 0; i < 8; i++) particles.push(new Particle(canvas.width, canvas.height, "hot_spark"));
+                    // Limit creation rate to avoid flooding
+                    if (frameCount % 2 === 0) {
+                        for (let i = 0; i < 4; i++) particles.push(new Particle(width, height, "hot_spark"));
+                    }
                 } else if (stage === "eruption") {
-                    // EXPLOSION
-                    for (let i = 0; i < 50; i++) particles.push(new Particle(canvas.width, canvas.height, "magma"));
-                    if (Math.random() < 0.5) particles.push(new Particle(canvas.width, canvas.height, "shockwave"));
+                    // EXPLOSION - Burst only occasionally or limit flow
+                    if (frameCount % 3 === 0) {
+                        for (let i = 0; i < 5; i++) particles.push(new Particle(width, height, "magma"));
+                    }
+                    if (Math.random() < 0.05) particles.push(new Particle(width, height, "shockwave"));
                 } else if (stage === "harden") {
                     // Gentle floating ash
-                    if (Math.random() < 0.4) particles.push(new Particle(canvas.width, canvas.height, "ash"));
+                    if (Math.random() < 0.3) particles.push(new Particle(width, height, "ash"));
                 }
             }
 
             // Update & Draw
-            particles.forEach((p, index) => {
+            // Use reverse loop for efficient splicing
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
                 p.update();
                 p.draw(ctx);
-                if (p.life <= 0) particles.splice(index, 1);
-            });
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Limit total particles for safety
+            if (particles.length > 400) {
+                particles.splice(0, particles.length - 400);
+            }
 
             animationId = requestAnimationFrame(loop);
         };
