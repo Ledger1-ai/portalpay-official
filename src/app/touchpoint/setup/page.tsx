@@ -77,7 +77,18 @@ export default function TouchpointSetupPage() {
     }
 
     useEffect(() => {
-        const id = getOrCreateInstallationId();
+        // Check for installationId in query params (passed by APK wrapper)
+        const params = new URLSearchParams(window.location.search);
+        let id = params.get("installationId");
+
+        if (id) {
+            // Trust the wrapper's ID and persist it
+            localStorage.setItem(INSTALLATION_ID_KEY, id);
+        } else {
+            // Fallback to local storage or generate new
+            id = getOrCreateInstallationId();
+        }
+
         setInstallationId(id);
 
         fetchConfig(id).then(cfg => {

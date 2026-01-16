@@ -96,23 +96,45 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
     if (wrapHtmlFile) {
         let content = await wrapHtmlFile.async("string");
 
-        // Replace the default endpoint
-        const endpointPattern = /var\s+src\s*=\s*qp\.get\s*\(\s*["']src["']\s*\)\s*\|\|\s*["']([^"']+)["']/;
-        const match = content.match(endpointPattern);
+        // We want to replace the basic URL assignment with a robust installationId handler.
+        // Target: var qp = new URLSearchParams(...); var src = ...;
+        // matching the block to replace it entirely
+        const targetBlockRegex = /var\s+qp\s*=\s*new\s*URLSearchParams\(window\.location\.search\);\s*var\s+src\s*=\s*qp\.get\s*\(\s*["']src["']\s*\)\s*\|\|\s*["'][^"']+["'];/;
 
-        if (match) {
-            content = content.replace(
-                endpointPattern,
-                `var src = qp.get("src") || "${endpoint}"`
-            );
-            console.log(`[Touchpoint APK] Modified wrap.html endpoint for ${brandKey}: ${endpoint}`);
+        const injectionScript = `
+        // --- INJECTED: Installation ID & Endpoint Logic ---
+        var installationId = localStorage.getItem("installationId");
+        if (!installationId) {
+            // Generate UUID v4
+            installationId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+            localStorage.setItem("installationId", installationId);
+        }
+
+        var qp = new URLSearchParams(window.location.search);
+        var src = qp.get("src") || "${endpoint}";
+
+        // Append installationId to src so the web app can use it
+        if (src) {
+             var sep = src.indexOf("?") !== -1 ? "&" : "?";
+             src += sep + "installationId=" + installationId;
+        }
+        // --------------------------------------------------
+        `;
+
+        // Attempt replacement
+        if (targetBlockRegex.test(content)) {
+            content = content.replace(targetBlockRegex, injectionScript);
+            console.log(`[Touchpoint APK] Injected installationId logic and endpoint: ${endpoint}`);
         } else {
-            // Fallback replacement
+            console.warn("[Touchpoint APK] Could not find exact JS block to replace in wrap.html. Falling back to simple endpoint replacement.");
+            // Fallback: Just replace the URL string if the block match fails
             content = content.replace(
                 /https:\/\/[a-z0-9-]+\.azurewebsites\.net/g,
                 endpoint
             );
-            console.log(`[Touchpoint APK] Replaced default endpoint with ${endpoint}`);
         }
 
         apkZip.file(wrapHtmlPath, content);
@@ -120,7 +142,7 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         console.warn(`[Touchpoint APK] wrap.html not found at ${wrapHtmlPath}`);
     }
 
-    // Remove old signature files
+    // Remove old signature files (Uber signer handles this, but good practice to clear)
     const filesToRemove: string[] = [];
     apkZip.forEach((relativePath) => {
         if (relativePath.startsWith("META-INF/")) {
@@ -132,40 +154,74 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
     }
     console.log(`[Touchpoint APK] Removed ${filesToRemove.length} signature files`);
 
-    // Re-generate APK with proper compression
-    const mustBeUncompressed = (filePath: string): boolean => {
-        const name = filePath.split("/").pop() || "";
-        return name === "resources.arsc";
-    };
-
-    const newApkZip = new JSZip();
-    const allFiles: { path: string; file: JSZip.JSZipObject }[] = [];
-    apkZip.forEach((relativePath, file) => {
-        if (!file.dir) {
-            allFiles.push({ path: relativePath, file });
-        }
-    });
-
-    let uncompressedCount = 0;
-    for (const { path: filePath, file } of allFiles) {
-        const content = await file.async("nodebuffer");
-        const compress = !mustBeUncompressed(filePath);
-
-        if (!compress) uncompressedCount++;
-
-        newApkZip.file(filePath, content, {
-            compression: compress ? "DEFLATE" : "STORE",
-            compressionOptions: compress ? { level: 6 } : undefined,
-        });
-    }
-    console.log(`[Touchpoint APK] ${uncompressedCount} files stored uncompressed`);
-
-    const modifiedApk = await newApkZip.generateAsync({
+    // Re-generate APK (unsigned)
+    // Note: JSZip GenerateAsync is slow but necessary to serialize the modified zip
+    const modifiedApkUnsigned = await apkZip.generateAsync({
         type: "nodebuffer",
         platform: "UNIX",
     });
 
-    return new Uint8Array(modifiedApk.buffer, modifiedApk.byteOffset, modifiedApk.byteLength);
+    console.log(`[Touchpoint APK] Generated unsigned APK (${modifiedApkUnsigned.byteLength} bytes). Starting signing process...`);
+
+    // --- SIGNING PROCESS ---
+    // 1. Write temp unsigned APK
+    const tempDir = path.join(process.cwd(), "tmp");
+    await fs.mkdir(tempDir, { recursive: true });
+    const tempId = Math.random().toString(36).substring(7);
+    const unsignedPath = path.join(tempDir, `${brandKey}-${tempId}-unsigned.apk`);
+    const signedPath = path.join(tempDir, `${brandKey}-${tempId}-unsigned-aligned-debugSigned.apk`); // Default uber-signer output pattern
+
+    await fs.writeFile(unsignedPath, modifiedApkUnsigned);
+
+    // 2. Spawn Java Process to sign
+    // Requires java on PATH and tools/uber-apk-signer.jar
+    // Command: java -jar tools/uber-apk-signer.jar -a tmp/x.apk --allowResign
+    const signerPath = path.join(process.cwd(), "tools", "uber-apk-signer.jar");
+
+    // Check if signer exists
+    try {
+        await fs.access(signerPath);
+    } catch {
+        // Fallback: Return unsigned if signer missing (prevent crash, but warn)
+        console.error("[Touchpoint APK] CRITICAL: uber-apk-signer.jar not found in tools/. Returning unsigned APK.");
+        await fs.unlink(unsignedPath).catch(() => { });
+        return new Uint8Array(modifiedApkUnsigned.buffer, modifiedApkUnsigned.byteOffset, modifiedApkUnsigned.byteLength);
+    }
+
+    console.log(`[Touchpoint APK] Executing signer: java -jar ${signerPath} -a ${unsignedPath} --allowResign`);
+
+    const { spawn } = await import("child_process");
+
+    await new Promise<void>((resolve, reject) => {
+        const child = spawn("java", ["-jar", signerPath, "-a", unsignedPath, "--allowResign"], {
+            stdio: "inherit", // Pipe output to console for debugging
+        });
+
+        child.on("close", (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`Signer process exited with code ${code}`));
+        });
+
+        child.on("error", (err) => reject(err));
+    });
+
+    // 3. Read signed APK
+    console.log("[Touchpoint APK] Signing complete. Reading output...");
+    try {
+        const signedData = await fs.readFile(signedPath);
+        console.log(`[Touchpoint APK] Successfully read signed APK (${signedData.byteLength} bytes)`);
+
+        // Cleanup
+        await fs.unlink(unsignedPath).catch(() => { });
+        await fs.unlink(signedPath).catch(() => { });
+
+        return new Uint8Array(signedData.buffer, signedData.byteOffset, signedData.byteLength);
+    } catch (e) {
+        console.error("[Touchpoint APK] Failed to read signed APK:", e);
+        // Fallback to unsigned if read fails 
+        await fs.unlink(unsignedPath).catch(() => { });
+        return new Uint8Array(modifiedApkUnsigned.buffer, modifiedApkUnsigned.byteOffset, modifiedApkUnsigned.byteLength);
+    }
 }
 
 /**
@@ -267,8 +323,8 @@ export async function POST(req: NextRequest) {
         // Default endpoint if not provided
         if (!endpoint) {
             endpoint = brandKey === "surge" || brandKey === "platform"
-                ? "https://basaltsurge.com"
-                : `https://${brandKey}.azurewebsites.net`;
+                ? "https://basaltsurge.com/touchpoint/setup"
+                : `https://${brandKey}.azurewebsites.net/touchpoint/setup`;
         }
 
         // Get base touchpoint APK
