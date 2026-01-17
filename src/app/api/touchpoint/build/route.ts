@@ -3,6 +3,16 @@ import { requireThirdwebAuth } from "@/lib/auth";
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
+import archiver from "archiver";
+import { Readable } from "node:stream";
+
+// Try to import sharp safely (it might not be available in all envs)
+let sharp: any;
+try {
+    sharp = require("sharp");
+} catch (e) {
+    console.warn("[Touchpoint Build] 'sharp' not found. Icon generation will be skipped.");
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,11 +82,53 @@ async function getBaseTouchpointApk(brandKey: string = ""): Promise<Uint8Array |
 }
 
 /**
- * Modify touchpoint APK to set brand-specific endpoint
- * Similar to modifyApkEndpoint but for touchpoint configuration
+ * Android Icon Standards
  */
-import archiver from "archiver";
-import { Readable } from "node:stream";
+const ICON_SIZES: Record<string, number> = {
+    "mipmap-mdpi-v4": 48,
+    "mipmap-hdpi-v4": 72,
+    "mipmap-xhdpi-v4": 96,
+    "mipmap-xxhdpi-v4": 144,
+    "mipmap-xxxhdpi-v4": 192,
+};
+
+async function getBrandLogoBuffer(brandKey: string): Promise<Buffer | null> {
+    // Look for logo candidates in public/brands/[brandKey]/
+    const brandDir = path.join(process.cwd(), "public", "brands", brandKey);
+    const candidates = [
+        "app-icon.png",
+        "logo.png",
+        "icon.png",
+        `${brandKey}-logo.png`,
+        "XoinPay X logo.png", // Specific override for user
+        "Xoinpay transparent logo.png"
+    ];
+
+    try {
+        await fs.access(brandDir);
+        const files = await fs.readdir(brandDir);
+
+        // Find first matching candidate (case-insensitive)
+        for (const c of candidates) {
+            const match = files.find(f => f.toLowerCase() === c.toLowerCase());
+            if (match) {
+                const p = path.join(brandDir, match);
+                console.log(`[Touchpoint Build] Found brand logo: ${p}`);
+                return await fs.readFile(p);
+            }
+        }
+    } catch {
+        // ignore
+    }
+    return null;
+}
+
+/**
+ * Modify touchpoint APK to set brand-specific endpoint
+ * Uses simple string replacement for wrap.html and robust re-zipping
+ * to ensure resources.arsc remains uncompressed (Android R+ requirement).
+ */
+
 
 /**
  * Modify touchpoint APK to set brand-specific endpoint
@@ -131,7 +183,25 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         console.warn(`[Touchpoint APK] wrap.html not found at ${wrapHtmlPath}`);
     }
 
-    // 2. Stream Re-Zipping using Archiver (Critical for APK alignment rules)
+    // 2. Prepare Brand Icons (Background processing)
+    const iconBuffers: Record<string, Buffer> = {};
+    if (sharp) {
+        const logo = await getBrandLogoBuffer(brandKey);
+        if (logo) {
+            console.log("[Touchpoint Build] Generating brand icons...");
+            for (const [folder, size] of Object.entries(ICON_SIZES)) {
+                try {
+                    const resized = await sharp(logo).resize(size, size).toBuffer();
+                    iconBuffers[`res/${folder}/ic_launcher.png`] = resized;
+                    iconBuffers[`res/${folder}/ic_launcher_round.png`] = resized;
+                } catch (e) {
+                    console.error(`[Touchpoint Build] Failed to resize icon for ${folder}:`, e);
+                }
+            }
+        }
+    }
+
+    // 3. Stream Re-Zipping using Archiver (Critical for APK alignment rules)
     // Android R+ requires resources.arsc to be STORED (uncompressed) and 4-byte aligned.
     // uber-apk-signer handles alignment, but we must ensure it is NOT compressed beforehand.
     console.log("[Touchpoint APK] Re-packing APK with mixed compression (STORE resources.arsc)...");
@@ -156,6 +226,9 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         // Skip wrap.html (we add modified version later)
         if (filename === wrapHtmlPath) continue;
 
+        // Skip icons if we have replacements
+        if (iconBuffers[filename]) continue;
+
         const file = apkZip.file(filename);
         if (!file || file.dir) continue;
 
@@ -171,6 +244,11 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
     // Add modified wrap.html
     if (modifiedWrapHtml) {
         archive.append(modifiedWrapHtml, { name: wrapHtmlPath }); // Default DEFLATE
+    }
+
+    // Add injected icons
+    for (const [path, buffer] of Object.entries(iconBuffers)) {
+        archive.append(buffer, { name: path });
     }
 
     // Finalize
