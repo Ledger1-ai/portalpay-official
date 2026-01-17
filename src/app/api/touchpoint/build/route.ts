@@ -148,6 +148,8 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
     const modifiedApkUnsigned = await apkZip.generateAsync({
         type: "nodebuffer",
         platform: "UNIX",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 }, // 6 provides good balance of speed vs size
     });
 
     console.log(`[Touchpoint APK] Generated unsigned APK (${modifiedApkUnsigned.byteLength} bytes). Starting signing process...`);
@@ -158,7 +160,8 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
     await fs.mkdir(tempDir, { recursive: true });
     const tempId = Math.random().toString(36).substring(7);
     const unsignedPath = path.join(tempDir, `${brandKey}-${tempId}-unsigned.apk`);
-    const signedPath = path.join(tempDir, `${brandKey}-${tempId}-unsigned-aligned-debugSigned.apk`); // Default uber-signer output pattern
+    // uber-apk-signer intelligently strips "-unsigned" before appending suffixes
+    const signedPath = path.join(tempDir, `${brandKey}-${tempId}-aligned-debugSigned.apk`);
 
     await fs.writeFile(unsignedPath, modifiedApkUnsigned);
 
@@ -189,26 +192,46 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         console.log("[Touchpoint APK] Portable JRE not found, using global 'java'");
     }
 
+    // 3. Spawn Java Process to sign
     console.log(`[Touchpoint APK] Executing signer: ${javaPath} -jar ${signerPath} -a ${unsignedPath} --allowResign`);
 
     const { spawn } = await import("child_process");
 
     await new Promise<void>((resolve, reject) => {
         const child = spawn(javaPath, ["-jar", signerPath, "-a", unsignedPath, "--allowResign"], {
-            stdio: "inherit", // Pipe output to console for debugging
+            stdio: "pipe", // Capture stdio
+        });
+
+        let stdout = "";
+        let stderr = "";
+
+        child.stdout?.on("data", (d) => {
+            const s = d.toString();
+            stdout += s;
+            process.stdout.write(`[Signer STDOUT] ${s}`); // streaming log
+        });
+
+        child.stderr?.on("data", (d) => {
+            const s = d.toString();
+            stderr += s;
+            process.stderr.write(`[Signer STDERR] ${s}`);
         });
 
         child.on("close", (code) => {
             if (code === 0) resolve();
-            else reject(new Error(`Signer process exited with code ${code}`));
+            else reject(new Error(`Signer process exited with code ${code}.\nSTDERR: ${stderr}\nSTDOUT: ${stdout}`));
         });
 
         child.on("error", (err) => reject(err));
     });
 
-    // 3. Read signed APK
+    // 4. Read signed APK
     console.log("[Touchpoint APK] Signing complete. Reading output...");
     try {
+        if (!await fs.stat(signedPath).catch(() => false)) {
+            throw new Error("Signed output file verification failed: File does not exist: " + signedPath);
+        }
+
         const signedData = await fs.readFile(signedPath);
         console.log(`[Touchpoint APK] Successfully read signed APK (${signedData.byteLength} bytes)`);
 
@@ -219,9 +242,8 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         return new Uint8Array(signedData.buffer, signedData.byteOffset, signedData.byteLength);
     } catch (e) {
         console.error("[Touchpoint APK] Failed to read signed APK:", e);
-        // Fallback to unsigned if read fails 
-        await fs.unlink(unsignedPath).catch(() => { });
-        return new Uint8Array(modifiedApkUnsigned.buffer, modifiedApkUnsigned.byteOffset, modifiedApkUnsigned.byteLength);
+        // Do NOT fallback to unsigned. Fail hard so we know.
+        throw e;
     }
 }
 
