@@ -7,7 +7,7 @@ import archiver from "archiver";
 import { Readable } from "node:stream";
 
 // Try to import sharp safely (it might not be available in all envs)
-// Try to import sharp safely (it might not be available in all envs)
+
 let sharp: any;
 try {
     sharp = require("sharp");
@@ -97,6 +97,118 @@ const ICON_SIZES: Record<string, number> = {
     "mipmap-xxxhdpi-v4": 192,
 };
 
+async function getBrandIconsFromFolder(brandKey: string): Promise<Record<string, Buffer> | null> {
+    const brandDir = path.join(process.cwd(), "public", "brands", brandKey);
+    const strategies = ["res", "android/res", "android"];
+
+    for (const sub of strategies) {
+        const resDir = path.join(brandDir, sub);
+        try {
+            await fs.access(resDir);
+            console.log(`[Touchpoint Build] Found pre-existing icon folder: ${resDir}`);
+            const icons: Record<string, Buffer> = {};
+
+            // Recursive walker for res folder
+            // We assume structure: [resDir]/mipmap-hdpi/ic_launcher.png
+            const entries = await fs.readdir(resDir, { withFileTypes: true });
+
+            for (const e of entries) {
+                if (e.isDirectory() && e.name.startsWith("mipmap")) {
+                    // This is a mipmap folder (e.g. mipmap-hdpi)
+                    const mipmapDir = path.join(resDir, e.name);
+                    const files = await fs.readdir(mipmapDir);
+                    for (const f of files) {
+                        if (f.startsWith("ic_launcher") || f === "icon.png") {
+                            if (f.includes("ic_launcher")) {
+                                const buf = await fs.readFile(path.join(mipmapDir, f));
+                                icons[`res/${e.name}/${f}`] = buf;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (Object.keys(icons).length > 0) {
+                console.log(`[Touchpoint Build] Loaded ${Object.keys(icons).length} icons from folder.`);
+                return icons;
+            }
+        } catch {
+            continue;
+        }
+    }
+    return null;
+}
+
+/**
+ * Fetch brand assets from Azure Blob Storage
+ * Priority:
+ * 1. brands/{key}/icons.zip -> Unzip and use as pre-generated icons
+ * 2. brands/{key}/logo.png -> Return as single buffer for Sharp generation
+ */
+async function getBrandAssetsFromBlob(brandKey: string): Promise<{ icons?: Record<string, Buffer>; logo?: Buffer } | null> {
+    const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
+    const containerName = String(process.env.PP_APK_CONTAINER || "portalpay").trim();
+
+    if (!conn || !containerName) return null;
+
+    try {
+        const { BlobServiceClient } = await import("@azure/storage-blob");
+        const bsc = BlobServiceClient.fromConnectionString(conn);
+        const container = bsc.getContainerClient(containerName);
+
+        // 1. Try icons.zip
+        // Expecting brands/{key}/icons.zip
+        const zipName = `brands/${brandKey}/icons.zip`;
+        const zipBlob = container.getBlockBlobClient(zipName);
+
+        if (await zipBlob.exists()) {
+            console.log(`[Touchpoint Build] Found remote icons.zip: ${zipName}`);
+            const buf = await zipBlob.downloadToBuffer();
+            const zip = await JSZip.loadAsync(buf);
+
+            const icons: Record<string, Buffer> = {};
+            // Walk zip for mipmap folders
+            for (const filename of Object.keys(zip.files)) {
+                if (filename.includes("mipmap") && filename.includes("ic_launcher")) {
+                    // Normalize path to res/mipmap-xx/ic_launcher.png
+                    // Zip path might be: "icons/mipmap-hdpi/ic_launcher.png" or just "mipmap-hdpi/..."
+                    // We need to map it to "res/" relative path in APK
+
+                    // Simple heuristic: grab the segment starting with mipmap
+                    const parts = filename.split("/");
+                    const mipmapPart = parts.find(p => p.startsWith("mipmap"));
+                    if (mipmapPart) {
+                        const isRound = filename.includes("round");
+                        const targetName = isRound ? "ic_launcher_round.png" : "ic_launcher.png";
+                        const targetPath = `res/${mipmapPart}/${targetName}`;
+
+                        icons[targetPath] = await zip.files[filename].async("nodebuffer");
+                    }
+                }
+            }
+            if (Object.keys(icons).length > 0) {
+                console.log(`[Touchpoint Build] Extracted ${Object.keys(icons).length} icons from remote zip.`);
+                return { icons };
+            }
+        }
+
+        // 2. Try logo.png (or app-icon.png)
+        const candidates = [`brands/${brandKey}/logo.png`, `brands/${brandKey}/app-icon.png`];
+        for (const c of candidates) {
+            const blob = container.getBlockBlobClient(c);
+            if (await blob.exists()) {
+                console.log(`[Touchpoint Build] Found remote logo: ${c}`);
+                const buf = await blob.downloadToBuffer();
+                return { logo: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as Buffer };
+            }
+        }
+
+    } catch (e) {
+        console.error("[Touchpoint Build] Failed to fetch remote brand assets:", e);
+    }
+    return null;
+}
+
 async function getBrandLogoBuffer(brandKey: string): Promise<Buffer | null> {
     // Look for logo candidates in public/brands/[brandKey]/
     const brandDir = path.join(process.cwd(), "public", "brands", brandKey);
@@ -128,11 +240,7 @@ async function getBrandLogoBuffer(brandKey: string): Promise<Buffer | null> {
     return null;
 }
 
-/**
- * Modify touchpoint APK to set brand-specific endpoint
- * Uses simple string replacement for wrap.html and robust re-zipping
- * to ensure resources.arsc remains uncompressed (Android R+ requirement).
- */
+
 
 
 /**
@@ -171,11 +279,27 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         var qp = new URLSearchParams(window.location.search);
         var src = qp.get("src") || "${endpoint}";
 
-        // Append installationId to src so the web app can use it
+        // Append installationId
         if (src) {
              var sep = src.indexOf("?") !== -1 ? "&" : "?";
              src += sep + "installationId=" + installationId;
         }
+        
+        // --- DEBUG OVERLAY ---
+        // Verify what is actually loading
+        var debugDiv = document.createElement("div");
+        debugDiv.style.position = "fixed";
+        debugDiv.style.bottom = "10px";
+        debugDiv.style.left = "10px";
+        debugDiv.style.backgroundColor = "rgba(0,0,0,0.8)";
+        debugDiv.style.color = "#0f0";
+        debugDiv.style.padding = "10px";
+        debugDiv.style.fontSize = "12px";
+        debugDiv.style.zIndex = "99999";
+        debugDiv.style.pointerEvents = "none";
+        debugDiv.innerHTML = "<b>Target:</b> " + src + "<br><b>ID:</b> " + installationId;
+        document.body.appendChild(debugDiv);
+        // ---------------------
         // --------------------------------------------------
         `;
 
@@ -197,26 +321,62 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         console.warn(`[Touchpoint APK] wrap.html not found at ${wrapHtmlPath}`);
     }
 
-    // 2. Prepare Brand Icons (Background processing)
-    const iconBuffers: Record<string, Buffer> = {};
-    if (sharp) {
-        const logo = await getBrandLogoBuffer(brandKey);
-        if (logo) {
-            console.log("[Touchpoint Build] Generating brand icons...");
+    // 2. Prepare Brand Icons
+    // Priority: 
+    // 1. Remote Blob Zip (icons.zip)
+    // 2. Local Folder (res/)
+    // 3. Remote Blob Logo (logo.png) -> Sharp
+    // 4. Local File (logo.png) -> Sharp
+
+    let iconBuffers: Record<string, Buffer> = {};
+    let sourceLogoBuffer: Buffer | null = null;
+
+    // Check Remote Assets first
+    const remoteAssets = await getBrandAssetsFromBlob(brandKey);
+    if (remoteAssets?.icons) {
+        console.log("[Touchpoint Build] Using remote pre-generated icons.");
+        iconBuffers = remoteAssets.icons;
+    }
+
+    // If no remote icons, check local folder
+    if (Object.keys(iconBuffers).length === 0) {
+        const folderIcons = await getBrandIconsFromFolder(brandKey);
+        if (folderIcons) {
+            console.log("[Touchpoint Build] Using local pre-generated icons.");
+            iconBuffers = folderIcons;
+        }
+    }
+
+    // If still no icons, we need to generate them via Sharp
+    if (Object.keys(iconBuffers).length === 0) {
+        // Did we get a remote logo?
+        if (remoteAssets?.logo) {
+            sourceLogoBuffer = remoteAssets.logo;
+            console.log("[Touchpoint Build] Using remote logo for generation.");
+        } else {
+            // Check local logo
+            sourceLogoBuffer = await getBrandLogoBuffer(brandKey);
+            if (sourceLogoBuffer) console.log("[Touchpoint Build] Using local logo for generation.");
+        }
+
+        if (sourceLogoBuffer && sharp) {
+            console.log("[Touchpoint Build] Generating brand icons from logo...");
             for (const [folder, size] of Object.entries(ICON_SIZES)) {
                 try {
-                    const resized = await sharp(logo).resize(size, size).toBuffer();
+                    const resized = await sharp(sourceLogoBuffer).resize(size, size).toBuffer();
                     iconBuffers[`res/${folder}/ic_launcher.png`] = resized;
                     iconBuffers[`res/${folder}/ic_launcher_round.png`] = resized;
                 } catch (e) {
                     console.error(`[Touchpoint Build] Failed to resize icon for ${folder}:`, e);
                 }
             }
-        } else {
-            console.warn(`[Touchpoint Build] No brand logo found for ${brandKey}. Skipping icon injection.`);
+        } else if (!sourceLogoBuffer) {
+            console.warn(`[Touchpoint Build] No brand logo found (remote or local). Skipping icon injection.`);
+        } else if (!sharp) {
+            // We have a logo but no sharp
+            // Only throw if we strictly need generation
+            throw new Error("[Touchpoint Build] 'sharp' dependency is missing AND no pre-generated icons found. Cannot brand this APK.");
         }
-    } else {
-        throw new Error("[Touchpoint Build] 'sharp' dependency is missing. Cannot generate branded APK icons. Please ensure 'sharp' is installed and native binaries are present.");
     }
 
     // 3. Stream Re-Zipping using Archiver (Critical for APK alignment rules)
@@ -254,6 +414,10 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         // resources.arsc MUST be STORED (store: true). Everything else DEFLATE (store: false).
         const isArsc = filename === "resources.arsc" || filename.endsWith(".so");
         const store = isArsc;
+
+        if (store) {
+            console.log(`[Touchpoint Build] Storing uncompressed: ${filename}`);
+        }
 
         const content = await file.async("nodebuffer");
         archive.append(content, { name: filename, store: store });
