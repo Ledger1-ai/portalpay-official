@@ -142,10 +142,11 @@ export default function InstallerPackagesPanel() {
     })();
   }, [containerType, brandEnv, containers]);
 
-  // Generate package for a brand with optional custom endpoint
+  // Generate package for a brand with optional custom endpoint (async with polling)
   const handleGeneratePackage = async (brandKey: string, endpoint?: string) => {
     setGeneratingPackage(brandKey);
     try {
+      // Start job - returns immediately with jobId
       const res = await fetch("/api/admin/devices/package", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,19 +154,42 @@ export default function InstallerPackagesPanel() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(`Failed to generate package: ${data?.message || data?.error || "Unknown error"}`);
+        alert(`Failed to start package generation: ${data?.message || data?.error || "Unknown error"}`);
         return;
       }
-      // Show info about APK source
-      if (data?.apkSource?.includes("base APK")) {
-        console.log(`Package generated using ${data.apkSource}`);
+
+      const jobId = data?.jobId;
+      if (!jobId) {
+        alert("No job ID returned from server");
+        return;
       }
-      // Refresh containers to update state
-      await fetchContainers();
-      // Open download link if available
-      if (data?.sasUrl) {
-        window.open(data.sasUrl, "_blank");
+
+      // Poll for completion
+      let pollCount = 0;
+      const maxPolls = 120; // 4 minutes max (2s intervals)
+
+      while (pollCount < maxPolls) {
+        await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds
+        pollCount++;
+
+        const statusRes = await fetch(`/api/admin/devices/package?jobId=${jobId}`);
+        const status = await statusRes.json().catch(() => ({}));
+
+        if (status.status === "completed") {
+          // Success!
+          await fetchContainers();
+          if (status.sasUrl) {
+            window.open(status.sasUrl, "_blank");
+          }
+          return;
+        } else if (status.status === "failed") {
+          alert(`Package generation failed: ${status.error || "Unknown error"}`);
+          return;
+        }
+        // Still processing - continue polling
       }
+
+      alert("Package generation timed out after 4 minutes. Check server logs.");
     } catch (e: any) {
       alert(`Error: ${e?.message || "Failed to generate package"}`);
     } finally {
@@ -173,7 +197,7 @@ export default function InstallerPackagesPanel() {
     }
   };
 
-  // Generate Touchpoint APK for a brand (uses same process as Partner but with /touchpoint?scale=0.75 endpoint)
+  // Generate Touchpoint APK for a brand (uses same process but with /touchpoint?scale=0.75 endpoint)
   const handleGenerateTouchpoint = async (brandKey: string, baseEndpoint?: string) => {
     setGeneratingTouchpoint(brandKey);
     try {
@@ -184,6 +208,7 @@ export default function InstallerPackagesPanel() {
       // Append touchpoint path
       touchpointEndpoint = `${touchpointEndpoint}/touchpoint?scale=0.75`;
 
+      // Start job - returns immediately with jobId
       const res = await fetch("/api/admin/devices/package", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -191,17 +216,43 @@ export default function InstallerPackagesPanel() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(`Failed to generate Touchpoint package: ${data?.message || data?.error || "Unknown error"}`);
+        alert(`Failed to start Touchpoint generation: ${data?.message || data?.error || "Unknown error"}`);
         return;
       }
-      // Refresh containers to update state
-      await fetchContainers();
-      // Save touchpoint package URL for this brand
-      if (data?.sasUrl || data?.packageUrl) {
-        setTouchpointPackages(prev => ({ ...prev, [brandKey]: data.sasUrl || data.packageUrl }));
-        window.open(data.sasUrl || data.packageUrl, "_blank");
+
+      const jobId = data?.jobId;
+      if (!jobId) {
+        alert("No job ID returned from server");
+        return;
       }
-      alert(`Touchpoint APK generated for ${brandKey}!\nEndpoint: ${touchpointEndpoint}`);
+
+      // Poll for completion
+      let pollCount = 0;
+      const maxPolls = 120; // 4 minutes max (2s intervals)
+
+      while (pollCount < maxPolls) {
+        await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds
+        pollCount++;
+
+        const statusRes = await fetch(`/api/admin/devices/package?jobId=${jobId}`);
+        const status = await statusRes.json().catch(() => ({}));
+
+        if (status.status === "completed") {
+          // Success!
+          await fetchContainers();
+          if (status.sasUrl || status.downloadUrl) {
+            setTouchpointPackages(prev => ({ ...prev, [brandKey]: status.sasUrl || status.downloadUrl }));
+            window.open(status.sasUrl || status.downloadUrl, "_blank");
+          }
+          return;
+        } else if (status.status === "failed") {
+          alert(`Touchpoint generation failed: ${status.error || "Unknown error"}`);
+          return;
+        }
+        // Still processing - continue polling
+      }
+
+      alert("Touchpoint generation timed out after 4 minutes. Check server logs.");
     } catch (e: any) {
       alert(`Error: ${e?.message || "Failed to generate Touchpoint package"}`);
     } finally {

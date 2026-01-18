@@ -3,9 +3,35 @@ import { requireThirdwebAuth } from "@/lib/auth";
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
+import { randomUUID } from "node:crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// Background job types and storage
+type JobStatus = {
+  status: "pending" | "processing" | "completed" | "failed";
+  progress?: string;
+  downloadUrl?: string;
+  sasUrl?: string;
+  error?: string;
+  createdAt: number;
+  brandKey: string;
+};
+
+// In-memory job store (survives across requests in same process)
+const jobStore = new Map<string, JobStatus>();
+
+// Cleanup old jobs (older than 1 hour)
+function cleanupOldJobs() {
+  const ONE_HOUR = 60 * 60 * 1000;
+  const now = Date.now();
+  for (const [id, job] of jobStore.entries()) {
+    if (now - job.createdAt > ONE_HOUR) {
+      jobStore.delete(id);
+    }
+  }
+}
 
 function json(obj: any, init?: { status?: number; headers?: Record<string, string> }) {
   const s = JSON.stringify(obj);
@@ -648,7 +674,7 @@ async function generateAndUploadPackage(
  * POST /api/admin/devices/package
  * 
  * Generate an installer package (.zip) for a brand and upload to blob storage.
- * If the signed APK doesn't exist, returns an error.
+ * Returns immediately with a jobId - use GET to poll for completion.
  * 
  * Body:
  * {
@@ -659,11 +685,8 @@ async function generateAndUploadPackage(
  * Response:
  * {
  *   "ok": true,
- *   "brandKey": "xoinpay",
- *   "endpoint": "https://xoinpay.azurewebsites.net",
- *   "packageUrl": "https://...",
- *   "sasUrl": "https://...?sv=...",
- *   "size": 12345678
+ *   "jobId": "abc-123-def",
+ *   "message": "Job started, poll GET /api/admin/devices/package?jobId=abc-123-def for status"
  * }
  */
 export async function POST(req: NextRequest) {
@@ -710,42 +733,79 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Get APK bytes
-  const apkResult = await getApkBytes(brandKey);
-  if (!apkResult) {
-    return json({
-      error: "apk_not_found",
-      message: `No signed APK found for brand '${brandKey}' and no base APK available for fallback.`,
-      hint: `Expected blob path: brands/${brandKey}-signed.apk in container '${process.env.PP_APK_CONTAINER || "portalpay"}'. For white-label brands, ensure brands/portalpay-signed.apk exists as a base.`
-    }, { status: 404 });
-  }
+  // Cleanup old jobs
+  cleanupOldJobs();
 
-  // Generate and upload package
-  const result = await generateAndUploadPackage(brandKey, apkResult.bytes, endpoint);
+  // Create job ID and initial status
+  const jobId = randomUUID();
+  const job: JobStatus = {
+    status: "pending",
+    progress: "Job queued...",
+    createdAt: Date.now(),
+    brandKey,
+  };
+  jobStore.set(jobId, job);
 
-  if (!result.success) {
-    return json({
-      error: "package_failed",
-      message: result.error
-    }, { status: 500 });
-  }
+  // Start async processing in background (non-blocking)
+  setImmediate(async () => {
+    try {
+      // Update status: processing
+      job.status = "processing";
+      job.progress = "Downloading base APK...";
+      jobStore.set(jobId, { ...job });
 
+      // Get APK bytes
+      const apkResult = await getApkBytes(brandKey);
+      if (!apkResult) {
+        job.status = "failed";
+        job.error = `No signed APK found for brand '${brandKey}' and no base APK available for fallback.`;
+        jobStore.set(jobId, { ...job });
+        return;
+      }
+
+      job.progress = "Modifying and signing APK...";
+      jobStore.set(jobId, { ...job });
+
+      // Generate and upload package
+      const result = await generateAndUploadPackage(brandKey, apkResult.bytes, endpoint);
+
+      if (!result.success) {
+        job.status = "failed";
+        job.error = result.error || "Package generation failed";
+        jobStore.set(jobId, { ...job });
+        return;
+      }
+
+      // Success!
+      job.status = "completed";
+      job.progress = "Complete!";
+      job.downloadUrl = result.blobUrl;
+      job.sasUrl = result.sasUrl;
+      jobStore.set(jobId, { ...job });
+
+      console.log(`[APK Job ${jobId}] Completed for ${brandKey}`);
+    } catch (e: any) {
+      job.status = "failed";
+      job.error = e?.message || "Unknown error";
+      jobStore.set(jobId, { ...job });
+      console.error(`[APK Job ${jobId}] Failed:`, e);
+    }
+  });
+
+  // Return immediately with job ID
   return json({
     ok: true,
+    jobId,
     brandKey,
-    endpoint: result.endpoint,
-    packageUrl: result.blobUrl,
-    sasUrl: result.sasUrl,
-    size: result.size,
-    apkSize: apkResult.bytes.byteLength,
-    apkSource: apkResult.source,
+    message: `Job started, poll GET /api/admin/devices/package?jobId=${jobId} for status`,
   });
 }
 
 /**
- * GET /api/admin/devices/package?brandKey=xoinpay
+ * GET /api/admin/devices/package?jobId=xxx  - Poll for job status
+ * GET /api/admin/devices/package?brandKey=xoinpay  - Check if package exists
  * 
- * Check if a package exists for a brand and return its download URL.
+ * Poll for job status or check if a package exists for a brand.
  */
 export async function GET(req: NextRequest) {
   // Auth: Admin or Superadmin only
@@ -760,10 +820,32 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url);
+
+  // Check if this is a job status poll
+  const jobId = url.searchParams.get("jobId");
+  if (jobId) {
+    const job = jobStore.get(jobId);
+    if (!job) {
+      return json({ error: "job_not_found", jobId }, { status: 404 });
+    }
+
+    return json({
+      jobId,
+      status: job.status,
+      progress: job.progress,
+      brandKey: job.brandKey,
+      downloadUrl: job.downloadUrl,
+      sasUrl: job.sasUrl,
+      error: job.error,
+      createdAt: job.createdAt,
+    });
+  }
+
+  // Otherwise check for brandKey package lookup
   const brandKey = url.searchParams.get("brandKey")?.toLowerCase().trim();
 
   if (!brandKey) {
-    return json({ error: "brandKey_required" }, { status: 400 });
+    return json({ error: "brandKey_or_jobId_required" }, { status: 400 });
   }
 
   const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
