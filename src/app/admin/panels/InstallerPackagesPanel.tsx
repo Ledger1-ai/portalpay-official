@@ -67,6 +67,7 @@ export default function InstallerPackagesPanel() {
   const [error, setError] = React.useState<string | null>(null);
   const [generatingPackage, setGeneratingPackage] = React.useState<string | null>(null);
   const [generatingTouchpoint, setGeneratingTouchpoint] = React.useState<string | null>(null);
+  const [touchpointPackages, setTouchpointPackages] = React.useState<Record<string, string>>({});  // brandKey -> sasUrl
   const [appInstallTotals, setAppInstallTotals] = React.useState<Record<string, number>>({});
 
   // Fetch container type and brand
@@ -195,9 +196,10 @@ export default function InstallerPackagesPanel() {
       }
       // Refresh containers to update state
       await fetchContainers();
-      // Open download link if available
-      if (data?.sasUrl) {
-        window.open(data.sasUrl, "_blank");
+      // Save touchpoint package URL for this brand
+      if (data?.sasUrl || data?.packageUrl) {
+        setTouchpointPackages(prev => ({ ...prev, [brandKey]: data.sasUrl || data.packageUrl }));
+        window.open(data.sasUrl || data.packageUrl, "_blank");
       }
       alert(`Touchpoint APK generated for ${brandKey}!\nEndpoint: ${touchpointEndpoint}`);
     } catch (e: any) {
@@ -324,15 +326,37 @@ export default function InstallerPackagesPanel() {
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       {container.hasPackage && container.packageUrl ? (
-                        <a
-                          href={container.packageUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2 py-1 rounded border text-xs hover:bg-foreground/5"
-                          title="Download installer package"
-                        >
-                          Download ZIP
-                        </a>
+                        <>
+                          <a
+                            href={container.packageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-1 rounded border text-xs hover:bg-foreground/5"
+                            title="Download installer package"
+                          >
+                            Download ZIP
+                          </a>
+                          {touchpointPackages[container.brandKey] ? (
+                            <a
+                              href={touchpointPackages[container.brandKey]}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50"
+                              title="Download Touchpoint installer package"
+                            >
+                              Download Touchpoint
+                            </a>
+                          ) : (
+                            <button
+                              onClick={() => handleGenerateTouchpoint(container.brandKey, container.url)}
+                              disabled={generatingTouchpoint === container.brandKey}
+                              className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50 disabled:opacity-50"
+                              title="Generate Touchpoint APK (uses /touchpoint?scale=0.75 endpoint)"
+                            >
+                              {generatingTouchpoint === container.brandKey ? "Generating..." : "Touchpoint APK"}
+                            </button>
+                          )}
+                        </>
                       ) : (
                         <>
                           <button
@@ -343,14 +367,26 @@ export default function InstallerPackagesPanel() {
                           >
                             {generatingPackage === container.brandKey ? "Generating..." : "Generate Package"}
                           </button>
-                          <button
-                            onClick={() => handleGenerateTouchpoint(container.brandKey, container.url)}
-                            disabled={generatingTouchpoint === container.brandKey}
-                            className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50 disabled:opacity-50"
-                            title="Generate Touchpoint APK (uses /touchpoint?scale=0.75 endpoint)"
-                          >
-                            {generatingTouchpoint === container.brandKey ? "Generating..." : "Touchpoint APK"}
-                          </button>
+                          {touchpointPackages[container.brandKey] ? (
+                            <a
+                              href={touchpointPackages[container.brandKey]}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50"
+                              title="Download Touchpoint installer package"
+                            >
+                              Download Touchpoint
+                            </a>
+                          ) : (
+                            <button
+                              onClick={() => handleGenerateTouchpoint(container.brandKey, container.url)}
+                              disabled={generatingTouchpoint === container.brandKey}
+                              className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50 disabled:opacity-50"
+                              title="Generate Touchpoint APK (uses /touchpoint?scale=0.75 endpoint)"
+                            >
+                              {generatingTouchpoint === container.brandKey ? "Generating..." : "Touchpoint APK"}
+                            </button>
+                          )}
                         </>
                       )}
 
@@ -491,14 +527,26 @@ export default function InstallerPackagesPanel() {
                 >
                   {generatingPackage === partner.brandKey ? "Generating..." : "Generate Package"}
                 </button>
-                <button
-                  onClick={() => handleGenerateTouchpoint(partner.brandKey, partner.appUrl)}
-                  disabled={generatingTouchpoint === partner.brandKey}
-                  className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50 disabled:opacity-50"
-                  title={`Generate Touchpoint APK for ${partner.brandKey}`}
-                >
-                  {generatingTouchpoint === partner.brandKey ? "Generating..." : "Touchpoint APK"}
-                </button>
+                {touchpointPackages[partner.brandKey] ? (
+                  <a
+                    href={touchpointPackages[partner.brandKey]}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50"
+                    title={`Download Touchpoint installer package for ${partner.brandKey}`}
+                  >
+                    Download Touchpoint
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => handleGenerateTouchpoint(partner.brandKey, partner.appUrl)}
+                    disabled={generatingTouchpoint === partner.brandKey}
+                    className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50 disabled:opacity-50"
+                    title={`Generate Touchpoint APK for ${partner.brandKey}`}
+                  >
+                    {generatingTouchpoint === partner.brandKey ? "Generating..." : "Touchpoint APK"}
+                  </button>
+                )}
               </div>
             ))}
           </div>
