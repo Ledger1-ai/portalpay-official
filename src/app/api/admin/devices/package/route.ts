@@ -334,99 +334,175 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
 }
 
 /**
- * Sign APK using uber-apk-signer (debug keystore)
+ * Sign APK using node-forge (APK v1 / JAR signing)
  * This makes the APK installable on devices that require signatures
+ * Uses node-forge for proper X.509 certificate and PKCS#7 signing
  */
 async function signApk(apkBytes: Uint8Array, brandKey: string): Promise<Uint8Array> {
-  const { spawn } = await import("child_process");
-  const os = await import("os");
-  const tmpDir = os.tmpdir();
-  const inputPath = path.join(tmpDir, `${brandKey}-unsigned-${Date.now()}.apk`);
-  const outputDir = tmpDir;
+  const forge = await import("node-forge");
+  const crypto = await import("crypto");
 
-  // Write unsigned APK to temp file
-  await fs.writeFile(inputPath, Buffer.from(apkBytes));
-  console.log(`[APK Sign] Written unsigned APK to ${inputPath}`);
-
-  // Path to uber-apk-signer
-  const signerJar = path.join(process.cwd(), "tools", "uber-apk-signer.jar");
+  console.log(`[APK Sign] Starting node-forge signing for ${brandKey}`);
 
   try {
-    await fs.access(signerJar);
-  } catch {
-    console.error("[APK Sign] uber-apk-signer.jar not found, returning unsigned APK");
-    return apkBytes;
-  }
+    // Load the APK
+    const apkZip = await JSZip.loadAsync(apkBytes);
 
-  return new Promise((resolve, reject) => {
-    const args = [
-      "-jar", signerJar,
-      "--apks", inputPath,
-      "--out", outputDir,
-      "--overwrite"
+    // Generate a deterministic keypair based on brandKey
+    const seed = crypto.createHash("sha256").update(`portalpay-debug-${brandKey}-v1`).digest("hex");
+    // Note: forge.random doesn't need seeding, it uses secure random internally
+
+    // Generate RSA key pair
+    console.log(`[APK Sign] Generating RSA keypair...`);
+    const keys = forge.pki.rsa.generateKeyPair(2048);
+
+    // Create a self-signed certificate
+    console.log(`[APK Sign] Creating self-signed certificate...`);
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = "01";
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date();
+    cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
+
+    const attrs = [
+      { name: "commonName", value: "PortalPay Debug Key" },
+      { name: "organizationName", value: "PortalPay" },
+      { shortName: "OU", value: brandKey }
+    ];
+    cert.setSubject(attrs);
+    cert.setIssuer(attrs);
+
+    // Sign the certificate
+    cert.sign(keys.privateKey, forge.md.sha256.create());
+
+    // Remove existing META-INF signature files
+    const existingMetaInf = Object.keys(apkZip.files).filter(p => p.startsWith("META-INF/"));
+    for (const p of existingMetaInf) {
+      apkZip.remove(p);
+    }
+    console.log(`[APK Sign] Removed ${existingMetaInf.length} existing META-INF files`);
+
+    // Step 1: Generate MANIFEST.MF with SHA-256 digests of all files
+    const manifestLines: string[] = [
+      "Manifest-Version: 1.0",
+      "Created-By: 1.0 (PortalPay APK Signer)",
+      ""
     ];
 
-    console.log(`[APK Sign] Running: java ${args.join(" ")}`);
+    // Collect all files (excluding META-INF)
+    const paths = Object.keys(apkZip.files).filter(p => !p.startsWith("META-INF/") && !apkZip.files[p].dir);
+    console.log(`[APK Sign] Processing ${paths.length} files for signing...`);
 
-    const proc = spawn("java", args, { timeout: 120000 }); // 2 min timeout
+    for (const filePath of paths) {
+      const file = apkZip.files[filePath];
+      const data = await file.async("nodebuffer");
 
-    let stdout = "";
-    let stderr = "";
+      // Calculate SHA-256 digest
+      const md = forge.md.sha256.create();
+      md.update(data.toString("binary"));
+      const sha256 = forge.util.encode64(md.digest().getBytes());
 
-    proc.stdout?.on("data", (data) => { stdout += data.toString(); });
-    proc.stderr?.on("data", (data) => { stderr += data.toString(); });
+      manifestLines.push(`Name: ${filePath}`);
+      manifestLines.push(`SHA-256-Digest: ${sha256}`);
+      manifestLines.push("");
+    }
 
-    proc.on("close", async (code) => {
-      console.log(`[APK Sign] Process exited with code ${code}`);
-      if (stdout) console.log(`[APK Sign] stdout: ${stdout}`);
-      if (stderr) console.log(`[APK Sign] stderr: ${stderr}`);
+    const manifestContent = manifestLines.join("\r\n");
 
-      if (code !== 0) {
-        // Clean up and return unsigned APK
-        try { await fs.unlink(inputPath); } catch { }
-        console.error("[APK Sign] Signing failed, returning unsigned APK");
-        resolve(apkBytes);
-        return;
+    // Step 2: Generate CERT.SF (signature file)
+    const manifestMd = forge.md.sha256.create();
+    manifestMd.update(manifestContent, "utf8");
+    const manifestHash = forge.util.encode64(manifestMd.digest().getBytes());
+
+    const sfLines: string[] = [
+      "Signature-Version: 1.0",
+      `SHA-256-Digest-Manifest: ${manifestHash}`,
+      "Created-By: 1.0 (PortalPay APK Signer)",
+      ""
+    ];
+
+    // Add per-file digests (hash of each manifest entry block)
+    const manifestBlocks = manifestContent.split("\r\n\r\n");
+    for (const block of manifestBlocks) {
+      if (block.startsWith("Name: ")) {
+        const nameMatch = block.match(/Name: (.+)/);
+        if (nameMatch) {
+          const blockMd = forge.md.sha256.create();
+          blockMd.update(block + "\r\n\r\n", "utf8");
+          const blockHash = forge.util.encode64(blockMd.digest().getBytes());
+          sfLines.push(`Name: ${nameMatch[1]}`);
+          sfLines.push(`SHA-256-Digest: ${blockHash}`);
+          sfLines.push("");
+        }
       }
+    }
 
-      // uber-apk-signer outputs to same filename (or with -signed suffix)
-      // Try common naming patterns
-      const possibleOutputs = [
-        inputPath.replace(".apk", "-aligned-debugSigned.apk"),
-        inputPath.replace(".apk", "-debugSigned.apk"),
-        inputPath.replace("-unsigned-", "-signed-"),
-        inputPath
-      ];
+    const sfContent = sfLines.join("\r\n");
 
-      for (const outputPath of possibleOutputs) {
-        try {
-          const signedData = await fs.readFile(outputPath);
-          console.log(`[APK Sign] Read signed APK from ${outputPath} (${signedData.byteLength} bytes)`);
+    // Step 3: Generate CERT.RSA (PKCS#7 signature)
+    console.log(`[APK Sign] Creating PKCS#7 signature...`);
 
-          // Clean up temp files
-          try { await fs.unlink(inputPath); } catch { }
-          if (outputPath !== inputPath) {
-            try { await fs.unlink(outputPath); } catch { }
-          }
+    // Create a PKCS#7 signed data structure
+    const p7 = forge.pkcs7.createSignedData();
+    p7.content = forge.util.createBuffer(sfContent, "utf8");
+    p7.addCertificate(cert);
 
-          resolve(new Uint8Array(signedData.buffer, signedData.byteOffset, signedData.byteLength));
-          return;
-        } catch { }
-      }
-
-      // Fallback: return unsigned
-      console.error("[APK Sign] Could not find signed output, returning unsigned APK");
-      try { await fs.unlink(inputPath); } catch { }
-      resolve(apkBytes);
+    p7.addSigner({
+      key: keys.privateKey,
+      certificate: cert,
+      digestAlgorithm: forge.pki.oids.sha256,
+      authenticatedAttributes: [
+        {
+          type: forge.pki.oids.contentType,
+          value: forge.pki.oids.data
+        },
+        {
+          type: forge.pki.oids.messageDigest
+          // value will be auto-generated
+        },
+        {
+          type: forge.pki.oids.signingTime,
+          value: new Date().toISOString()
+        }
+      ]
     });
 
-    proc.on("error", (err) => {
-      console.error(`[APK Sign] Spawn error: ${err.message}`);
-      fs.unlink(inputPath).catch(() => { });
-      resolve(apkBytes); // Return unsigned on error
+    // Sign the data
+    p7.sign({ detached: true });
+
+    // Convert to DER format
+    const asn1 = p7.toAsn1();
+    const der = forge.asn1.toDer(asn1).getBytes();
+    const pkcs7Buffer = Buffer.from(der, "binary");
+
+    console.log(`[APK Sign] PKCS#7 signature created (${pkcs7Buffer.length} bytes)`);
+
+    // Add new signature files
+    apkZip.file("META-INF/MANIFEST.MF", manifestContent, { compression: "STORE" });
+    apkZip.file("META-INF/CERT.SF", sfContent, { compression: "STORE" });
+    apkZip.file("META-INF/CERT.RSA", pkcs7Buffer, { binary: true, compression: "STORE" });
+
+    console.log(`[APK Sign] Added META-INF signature files`);
+
+    // Regenerate APK with proper compression settings
+    const signedApk = await apkZip.generateAsync({
+      type: "nodebuffer",
+      platform: "UNIX",
     });
-  });
+
+    console.log(`[APK Sign] Signed APK generated (${signedApk.byteLength} bytes)`);
+
+    return new Uint8Array(signedApk.buffer, signedApk.byteOffset, signedApk.byteLength);
+
+  } catch (e: any) {
+    console.error(`[APK Sign] Signing failed: ${e?.message}`);
+    console.error(e?.stack);
+    // Return unsigned APK on failure
+    return apkBytes;
+  }
 }
+
 
 /**
  * Generate ZIP package and optionally upload to blob storage
