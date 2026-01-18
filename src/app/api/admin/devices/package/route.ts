@@ -537,8 +537,45 @@ XSx/tDaus4PyhrX57y3P7cSQxaCrWaoSXUk7EK0Usg4OR4m8eTzkSg==
 
     console.log(`[APK Sign] Added META-INF signature files`);
 
-    // Regenerate APK with proper compression settings
-    const signedApk = await apkZip.generateAsync({
+    // Helper to check if file must be uncompressed (same as modifyApkEndpoint)
+    const mustBeUncompressed = (filePath: string): boolean => {
+      const name = filePath.split("/").pop() || "";
+      // resources.arsc MUST be uncompressed and aligned for Android R+
+      if (name === "resources.arsc") return true;
+      // META-INF files should also be uncompressed
+      if (filePath.startsWith("META-INF/")) return true;
+      return false;
+    };
+
+    // Rebuild APK with proper per-file compression (like modifyApkEndpoint)
+    const newApkZip = new JSZip();
+
+    // Get all files
+    const allFiles: { path: string; file: JSZip.JSZipObject }[] = [];
+    apkZip.forEach((relativePath, file) => {
+      if (!file.dir) {
+        allFiles.push({ path: relativePath, file });
+      }
+    });
+
+    // Rebuild with proper compression settings
+    let uncompressedCount = 0;
+    for (const { path: filePath, file } of allFiles) {
+      const content = await file.async("nodebuffer");
+      const compress = !mustBeUncompressed(filePath);
+
+      if (!compress) uncompressedCount++;
+
+      newApkZip.file(filePath, content, {
+        compression: compress ? "DEFLATE" : "STORE",
+        compressionOptions: compress ? { level: 6 } : undefined,
+      });
+    }
+
+    console.log(`[APK Sign] ${uncompressedCount} files stored uncompressed (resources.arsc, META-INF)`);
+
+    // Generate the final signed APK
+    const signedApk = await newApkZip.generateAsync({
       type: "nodebuffer",
       platform: "UNIX",
     });
