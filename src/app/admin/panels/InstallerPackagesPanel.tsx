@@ -336,16 +336,34 @@ export default function InstallerPackagesPanel() {
                           >
                             Download ZIP
                           </a>
+                          <button
+                            onClick={() => handleGeneratePackage(container.brandKey)}
+                            disabled={generatingPackage === container.brandKey}
+                            className="px-2 py-1 rounded border text-xs hover:bg-amber-500/20 border-amber-500/50 disabled:opacity-50"
+                            title="Regenerate installer package"
+                          >
+                            {generatingPackage === container.brandKey ? "..." : "↻"}
+                          </button>
                           {touchpointPackages[container.brandKey] ? (
-                            <a
-                              href={touchpointPackages[container.brandKey]}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50"
-                              title="Download Touchpoint installer package"
-                            >
-                              Download Touchpoint
-                            </a>
+                            <>
+                              <a
+                                href={touchpointPackages[container.brandKey]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50"
+                                title="Download Touchpoint installer package"
+                              >
+                                Download Touchpoint
+                              </a>
+                              <button
+                                onClick={() => handleGenerateTouchpoint(container.brandKey, container.url)}
+                                disabled={generatingTouchpoint === container.brandKey}
+                                className="px-2 py-1 rounded border text-xs hover:bg-amber-500/20 border-amber-500/50 disabled:opacity-50"
+                                title="Regenerate Touchpoint APK"
+                              >
+                                {generatingTouchpoint === container.brandKey ? "..." : "↻"}
+                              </button>
+                            </>
                           ) : (
                             <button
                               onClick={() => handleGenerateTouchpoint(container.brandKey, container.url)}

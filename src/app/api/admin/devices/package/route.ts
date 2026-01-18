@@ -334,6 +334,101 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
 }
 
 /**
+ * Sign APK using uber-apk-signer (debug keystore)
+ * This makes the APK installable on devices that require signatures
+ */
+async function signApk(apkBytes: Uint8Array, brandKey: string): Promise<Uint8Array> {
+  const { spawn } = await import("child_process");
+  const os = await import("os");
+  const tmpDir = os.tmpdir();
+  const inputPath = path.join(tmpDir, `${brandKey}-unsigned-${Date.now()}.apk`);
+  const outputDir = tmpDir;
+
+  // Write unsigned APK to temp file
+  await fs.writeFile(inputPath, Buffer.from(apkBytes));
+  console.log(`[APK Sign] Written unsigned APK to ${inputPath}`);
+
+  // Path to uber-apk-signer
+  const signerJar = path.join(process.cwd(), "tools", "uber-apk-signer.jar");
+
+  try {
+    await fs.access(signerJar);
+  } catch {
+    console.error("[APK Sign] uber-apk-signer.jar not found, returning unsigned APK");
+    return apkBytes;
+  }
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      "-jar", signerJar,
+      "--apks", inputPath,
+      "--out", outputDir,
+      "--overwrite"
+    ];
+
+    console.log(`[APK Sign] Running: java ${args.join(" ")}`);
+
+    const proc = spawn("java", args, { timeout: 120000 }); // 2 min timeout
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout?.on("data", (data) => { stdout += data.toString(); });
+    proc.stderr?.on("data", (data) => { stderr += data.toString(); });
+
+    proc.on("close", async (code) => {
+      console.log(`[APK Sign] Process exited with code ${code}`);
+      if (stdout) console.log(`[APK Sign] stdout: ${stdout}`);
+      if (stderr) console.log(`[APK Sign] stderr: ${stderr}`);
+
+      if (code !== 0) {
+        // Clean up and return unsigned APK
+        try { await fs.unlink(inputPath); } catch { }
+        console.error("[APK Sign] Signing failed, returning unsigned APK");
+        resolve(apkBytes);
+        return;
+      }
+
+      // uber-apk-signer outputs to same filename (or with -signed suffix)
+      // Try common naming patterns
+      const possibleOutputs = [
+        inputPath.replace(".apk", "-aligned-debugSigned.apk"),
+        inputPath.replace(".apk", "-debugSigned.apk"),
+        inputPath.replace("-unsigned-", "-signed-"),
+        inputPath
+      ];
+
+      for (const outputPath of possibleOutputs) {
+        try {
+          const signedData = await fs.readFile(outputPath);
+          console.log(`[APK Sign] Read signed APK from ${outputPath} (${signedData.byteLength} bytes)`);
+
+          // Clean up temp files
+          try { await fs.unlink(inputPath); } catch { }
+          if (outputPath !== inputPath) {
+            try { await fs.unlink(outputPath); } catch { }
+          }
+
+          resolve(new Uint8Array(signedData.buffer, signedData.byteOffset, signedData.byteLength));
+          return;
+        } catch { }
+      }
+
+      // Fallback: return unsigned
+      console.error("[APK Sign] Could not find signed output, returning unsigned APK");
+      try { await fs.unlink(inputPath); } catch { }
+      resolve(apkBytes);
+    });
+
+    proc.on("error", (err) => {
+      console.error(`[APK Sign] Spawn error: ${err.message}`);
+      fs.unlink(inputPath).catch(() => { });
+      resolve(apkBytes); // Return unsigned on error
+    });
+  });
+}
+
+/**
  * Generate ZIP package and optionally upload to blob storage
  */
 async function generateAndUploadPackage(
@@ -357,6 +452,16 @@ async function generateAndUploadPackage(
       console.error(`[APK] Failed to modify endpoint: ${e?.message}`);
       // Continue with original APK if modification fails
     }
+  }
+
+  // Sign the APK (required for installation on devices)
+  try {
+    console.log(`[APK] Signing APK for ${brandKey}...`);
+    finalApkBytes = await signApk(finalApkBytes, brandKey);
+    console.log(`[APK] APK signed successfully (${finalApkBytes.byteLength} bytes)`);
+  } catch (e: any) {
+    console.error(`[APK] Failed to sign APK: ${e?.message}`);
+    // Continue with unsigned APK if signing fails
   }
 
   // Create ZIP
