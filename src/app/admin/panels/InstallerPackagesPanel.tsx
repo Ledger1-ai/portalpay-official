@@ -69,6 +69,7 @@ export default function InstallerPackagesPanel() {
   const [generatingTouchpoint, setGeneratingTouchpoint] = React.useState<string | null>(null);
   const [touchpointPackages, setTouchpointPackages] = React.useState<Record<string, string>>({});  // brandKey -> sasUrl
   const [appInstallTotals, setAppInstallTotals] = React.useState<Record<string, number>>({});
+  const [jobProgress, setJobProgress] = React.useState<string | null>(null);  // Current job progress message
 
   // Fetch container type and brand
   React.useEffect(() => {
@@ -142,118 +143,162 @@ export default function InstallerPackagesPanel() {
     })();
   }, [containerType, brandEnv, containers]);
 
-  // Generate package for a brand with optional custom endpoint (async with polling)
+  // Generate package for a brand with optional custom endpoint (uses SSE for progress)
   const handleGeneratePackage = async (brandKey: string, endpoint?: string) => {
     setGeneratingPackage(brandKey);
+    setJobProgress("Starting...");
+
     try {
-      // Start job - returns immediately with jobId
+      // Start SSE stream request
       const res = await fetch("/api/admin/devices/package", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandKey, endpoint: endpoint || undefined }),
       });
-      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         alert(`Failed to start package generation: ${data?.message || data?.error || "Unknown error"}`);
         return;
       }
 
-      const jobId = data?.jobId;
-      if (!jobId) {
-        alert("No job ID returned from server");
+      // Read SSE stream
+      const reader = res.body?.getReader();
+      if (!reader) {
+        alert("Failed to read response stream");
         return;
       }
 
-      // Poll for completion
-      let pollCount = 0;
-      const maxPolls = 120; // 4 minutes max (2s intervals)
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-      while (pollCount < maxPolls) {
-        await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds
-        pollCount++;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        const statusRes = await fetch(`/api/admin/devices/package?jobId=${jobId}`);
-        const status = await statusRes.json().catch(() => ({}));
+        buffer += decoder.decode(value, { stream: true });
 
-        if (status.status === "completed") {
-          // Success!
-          await fetchContainers();
-          if (status.sasUrl) {
-            window.open(status.sasUrl, "_blank");
+        // Parse SSE messages (format: "data: {...}\n\n")
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || ""; // Keep incomplete message in buffer
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              // Update progress display
+              if (data.progress) {
+                setJobProgress(data.progress);
+              }
+
+              if (data.status === "completed") {
+                setJobProgress(null);
+                await fetchContainers();
+                if (data.sasUrl) {
+                  window.open(data.sasUrl, "_blank");
+                }
+                return;
+              } else if (data.status === "failed") {
+                setJobProgress(null);
+                alert(`Package generation failed: ${data.progress || data.error || "Unknown error"}`);
+                return;
+              }
+            } catch (e) {
+              console.error("Failed to parse SSE message:", line, e);
+            }
           }
-          return;
-        } else if (status.status === "failed") {
-          alert(`Package generation failed: ${status.error || "Unknown error"}`);
-          return;
         }
-        // Still processing - continue polling
       }
 
-      alert("Package generation timed out after 4 minutes. Check server logs.");
+      // Stream ended without completion message
+      setJobProgress(null);
+      alert("Stream ended unexpectedly. Check server logs.");
     } catch (e: any) {
+      setJobProgress(null);
       alert(`Error: ${e?.message || "Failed to generate package"}`);
     } finally {
       setGeneratingPackage(null);
     }
   };
 
-  // Generate Touchpoint APK for a brand (uses same process but with /touchpoint?scale=0.75 endpoint)
+  // Generate Touchpoint APK for a brand (uses SSE for real-time progress)
   const handleGenerateTouchpoint = async (brandKey: string, baseEndpoint?: string) => {
     setGeneratingTouchpoint(brandKey);
+    setJobProgress("Starting...");
+
     try {
       // Build touchpoint endpoint: base URL + /touchpoint?scale=0.75
       let touchpointEndpoint = baseEndpoint || `https://${brandKey}.azurewebsites.net`;
-      // Remove trailing slash if present
       touchpointEndpoint = touchpointEndpoint.replace(/\/$/, "");
-      // Append touchpoint path
       touchpointEndpoint = `${touchpointEndpoint}/touchpoint?scale=0.75`;
 
-      // Start job - returns immediately with jobId
+      // Start SSE stream request
       const res = await fetch("/api/admin/devices/package", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandKey: `${brandKey}-touchpoint`, endpoint: touchpointEndpoint }),
       });
-      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         alert(`Failed to start Touchpoint generation: ${data?.message || data?.error || "Unknown error"}`);
         return;
       }
 
-      const jobId = data?.jobId;
-      if (!jobId) {
-        alert("No job ID returned from server");
+      // Read SSE stream
+      const reader = res.body?.getReader();
+      if (!reader) {
+        alert("Failed to read response stream");
         return;
       }
 
-      // Poll for completion
-      let pollCount = 0;
-      const maxPolls = 120; // 4 minutes max (2s intervals)
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-      while (pollCount < maxPolls) {
-        await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds
-        pollCount++;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        const statusRes = await fetch(`/api/admin/devices/package?jobId=${jobId}`);
-        const status = await statusRes.json().catch(() => ({}));
+        buffer += decoder.decode(value, { stream: true });
 
-        if (status.status === "completed") {
-          // Success!
-          await fetchContainers();
-          if (status.sasUrl || status.downloadUrl) {
-            setTouchpointPackages(prev => ({ ...prev, [brandKey]: status.sasUrl || status.downloadUrl }));
-            window.open(status.sasUrl || status.downloadUrl, "_blank");
+        // Parse SSE messages
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.progress) {
+                setJobProgress(data.progress);
+              }
+
+              if (data.status === "completed") {
+                setJobProgress(null);
+                await fetchContainers();
+                if (data.sasUrl || data.downloadUrl) {
+                  setTouchpointPackages(prev => ({ ...prev, [brandKey]: data.sasUrl || data.downloadUrl }));
+                  window.open(data.sasUrl || data.downloadUrl, "_blank");
+                }
+                return;
+              } else if (data.status === "failed") {
+                setJobProgress(null);
+                alert(`Touchpoint generation failed: ${data.progress || data.error || "Unknown error"}`);
+                return;
+              }
+            } catch (e) {
+              console.error("Failed to parse SSE message:", line, e);
+            }
           }
-          return;
-        } else if (status.status === "failed") {
-          alert(`Touchpoint generation failed: ${status.error || "Unknown error"}`);
-          return;
         }
-        // Still processing - continue polling
       }
 
-      alert("Touchpoint generation timed out after 4 minutes. Check server logs.");
+      setJobProgress(null);
+      alert("Stream ended unexpectedly. Check server logs.");
     } catch (e: any) {
+      setJobProgress(null);
       alert(`Error: ${e?.message || "Failed to generate Touchpoint package"}`);
     } finally {
       setGeneratingTouchpoint(null);
@@ -303,6 +348,23 @@ export default function InstallerPackagesPanel() {
           <div className="microtext text-muted-foreground mt-2">
             Showing static installer packages instead. Azure credentials may not be configured.
           </div>
+        </div>
+      )}
+
+      {/* Job Progress Display */}
+      {(generatingPackage || generatingTouchpoint) && (
+        <div className="rounded-md border p-3 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500/50 animate-pulse">
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-emerald-500 animate-ping" />
+            <div className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              {generatingPackage ? `Generating ${generatingPackage}...` : `Generating ${generatingTouchpoint}-touchpoint...`}
+            </div>
+          </div>
+          {jobProgress && (
+            <div className="text-sm text-emerald-600 dark:text-emerald-500 mt-1 ml-5">
+              {jobProgress}
+            </div>
+          )}
         </div>
       )}
 

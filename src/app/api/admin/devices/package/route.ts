@@ -674,7 +674,7 @@ async function generateAndUploadPackage(
  * POST /api/admin/devices/package
  * 
  * Generate an installer package (.zip) for a brand and upload to blob storage.
- * Returns immediately with a jobId - use GET to poll for completion.
+ * Uses Server-Sent Events (SSE) to stream progress updates back to client.
  * 
  * Body:
  * {
@@ -682,12 +682,7 @@ async function generateAndUploadPackage(
  *   "endpoint": "https://xoinpay.azurewebsites.net"  // optional - URL to load in the APK wrapper
  * }
  * 
- * Response:
- * {
- *   "ok": true,
- *   "jobId": "abc-123-def",
- *   "message": "Job started, poll GET /api/admin/devices/package?jobId=abc-123-def for status"
- * }
+ * Response: SSE stream with progress updates, final message contains download URL
  */
 export async function POST(req: NextRequest) {
   // Auth: Admin or Superadmin only
@@ -733,71 +728,66 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Cleanup old jobs
-  cleanupOldJobs();
+  // Create SSE stream for progress updates
+  const encoder = new TextEncoder();
+  const stream = new TransformStream();
+  const writer = stream.writable.getWriter();
 
-  // Create job ID and initial status
-  const jobId = randomUUID();
-  const job: JobStatus = {
-    status: "pending",
-    progress: "Job queued...",
-    createdAt: Date.now(),
-    brandKey,
+  const sendProgress = async (progress: string, status: "processing" | "completed" | "failed", data?: any) => {
+    const message = JSON.stringify({ progress, status, ...data });
+    await writer.write(encoder.encode(`data: ${message}\n\n`));
   };
-  jobStore.set(jobId, job);
 
-  // Start async processing in background (non-blocking)
-  setImmediate(async () => {
+  // Start async processing (this runs while stream is open)
+  (async () => {
     try {
-      // Update status: processing
-      job.status = "processing";
-      job.progress = "Downloading base APK...";
-      jobStore.set(jobId, { ...job });
+      await sendProgress("Starting job...", "processing");
 
       // Get APK bytes
+      await sendProgress("Downloading base APK...", "processing");
       const apkResult = await getApkBytes(brandKey);
       if (!apkResult) {
-        job.status = "failed";
-        job.error = `No signed APK found for brand '${brandKey}' and no base APK available for fallback.`;
-        jobStore.set(jobId, { ...job });
+        await sendProgress(`No signed APK found for brand '${brandKey}'`, "failed", { error: "apk_not_found" });
+        await writer.close();
         return;
       }
 
-      job.progress = "Modifying and signing APK...";
-      jobStore.set(jobId, { ...job });
+      await sendProgress("Modifying and signing APK...", "processing");
 
       // Generate and upload package
       const result = await generateAndUploadPackage(brandKey, apkResult.bytes, endpoint);
 
       if (!result.success) {
-        job.status = "failed";
-        job.error = result.error || "Package generation failed";
-        jobStore.set(jobId, { ...job });
+        await sendProgress(result.error || "Package generation failed", "failed", { error: "package_failed" });
+        await writer.close();
         return;
       }
 
       // Success!
-      job.status = "completed";
-      job.progress = "Complete!";
-      job.downloadUrl = result.blobUrl;
-      job.sasUrl = result.sasUrl;
-      jobStore.set(jobId, { ...job });
+      await sendProgress("Complete!", "completed", {
+        brandKey,
+        downloadUrl: result.blobUrl,
+        sasUrl: result.sasUrl,
+        size: result.size,
+        endpoint: result.endpoint,
+      });
 
-      console.log(`[APK Job ${jobId}] Completed for ${brandKey}`);
+      console.log(`[APK Package] Completed for ${brandKey}`);
     } catch (e: any) {
-      job.status = "failed";
-      job.error = e?.message || "Unknown error";
-      jobStore.set(jobId, { ...job });
-      console.error(`[APK Job ${jobId}] Failed:`, e);
+      console.error(`[APK Package] Failed for ${brandKey}:`, e);
+      await sendProgress(e?.message || "Unknown error", "failed", { error: "exception" });
+    } finally {
+      await writer.close();
     }
-  });
+  })();
 
-  // Return immediately with job ID
-  return json({
-    ok: true,
-    jobId,
-    brandKey,
-    message: `Job started, poll GET /api/admin/devices/package?jobId=${jobId} for status`,
+  // Return SSE stream immediately
+  return new NextResponse(stream.readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+    },
   });
 }
 
