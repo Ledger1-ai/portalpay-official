@@ -751,6 +751,17 @@ export async function POST(req: NextRequest) {
 
   // Start async processing (this runs while stream is open)
   (async () => {
+    // Start heartbeat to keep connection alive (Cloudflare kills after ~100s of no data)
+    let heartbeatCount = 0;
+    const heartbeat = setInterval(async () => {
+      try {
+        heartbeatCount++;
+        await writer.write(encoder.encode(`data: ${JSON.stringify({ heartbeat: heartbeatCount, status: "processing" })}\n\n`));
+      } catch {
+        // Writer might be closed
+      }
+    }, 10000); // Every 10 seconds
+
     try {
       await sendProgress("Starting job...", "processing");
 
@@ -758,6 +769,7 @@ export async function POST(req: NextRequest) {
       await sendProgress("Downloading base APK...", "processing");
       const apkResult = await getApkBytes(brandKey);
       if (!apkResult) {
+        clearInterval(heartbeat);
         await sendProgress(`No signed APK found for brand '${brandKey}'`, "failed", { error: "apk_not_found" });
         await writer.close();
         return;
@@ -767,6 +779,8 @@ export async function POST(req: NextRequest) {
 
       // Generate and upload package
       const result = await generateAndUploadPackage(brandKey, apkResult.bytes, endpoint);
+
+      clearInterval(heartbeat);
 
       if (!result.success) {
         await sendProgress(result.error || "Package generation failed", "failed", { error: "package_failed" });
@@ -785,9 +799,11 @@ export async function POST(req: NextRequest) {
 
       console.log(`[APK Package] Completed for ${brandKey}`);
     } catch (e: any) {
+      clearInterval(heartbeat);
       console.error(`[APK Package] Failed for ${brandKey}:`, e);
       await sendProgress(e?.message || "Unknown error", "failed", { error: "exception" });
     } finally {
+      clearInterval(heartbeat);
       await writer.close();
     }
   })();
