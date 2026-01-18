@@ -149,7 +149,7 @@ export default function TouchpointMonitoringPanel() {
                 throw new Error(data?.message || data?.error || "Build failed");
             }
 
-            alert(`Touchpoint APK built successfully for ${brand}!\n\nUploaded to: ${data.blobUrl}\nSize: ${Math.round(data.size / 1024 / 1024 * 10) / 10} MB`);
+            alert(`Touchpoint Installer Package (ZIP) built successfully for ${brand}!\n\nUploaded to: ${data.blobUrl}\nSize: ${Math.round(data.size / 1024 / 1024 * 10) / 10} MB\n\nDownload and extract the ZIP to find the APK and installer scripts.`);
             setShowBuildForm(false);
             setBuildBrandKey("");
             setBuildEndpoint("");

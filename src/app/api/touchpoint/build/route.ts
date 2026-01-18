@@ -21,8 +21,8 @@ function json(obj: any, init?: { status?: number; headers?: Record<string, strin
 }
 
 /**
- * Get the base Touchpoint APK (xoinpay-touchpoint-signed.apk) or fallback.
- * The user wants strict parity with Partner logic, so we fetch from blob or local.
+ * Get the base Container APK (portalpay-signed.apk / paynex-signed.apk) to act as the base.
+ * Aligned with Partner Container logic.
  */
 async function getBaseApkBytes(brandKey: string): Promise<Uint8Array | null> {
     const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
@@ -35,8 +35,8 @@ async function getBaseApkBytes(brandKey: string): Promise<Uint8Array | null> {
             const bsc = BlobServiceClient.fromConnectionString(conn);
             const cont = bsc.getContainerClient(container);
 
-            // Try brand-specific touchpoint APK
-            const blobName = prefix ? `${prefix}/${brandKey}-touchpoint-signed.apk` : `${brandKey}-touchpoint-signed.apk`;
+            // 1. Try brand-specific signed APK (unlikely for broad touchpoint use, but check)
+            const blobName = prefix ? `${prefix}/${brandKey}-signed.apk` : `${brandKey}-signed.apk`;
             const blob = cont.getBlockBlobClient(blobName);
             if (await blob.exists()) {
                 const buf = await blob.downloadToBuffer();
@@ -44,12 +44,12 @@ async function getBaseApkBytes(brandKey: string): Promise<Uint8Array | null> {
                 return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
             }
 
-            // Fallback: portalpay-touchpoint-signed.apk
-            const fallbackBlobName = prefix ? `${prefix}/portalpay-touchpoint-signed.apk` : `portalpay-touchpoint-signed.apk`;
+            // 2. Fallback: portalpay-signed.apk (The standard container base)
+            const fallbackBlobName = prefix ? `${prefix}/portalpay-signed.apk` : `portalpay-signed.apk`;
             const fallbackBlob = cont.getBlockBlobClient(fallbackBlobName);
             if (await fallbackBlob.exists()) {
                 const buf = await fallbackBlob.downloadToBuffer();
-                console.log(`[Touchpoint Build] Found fallback APK in blob: ${fallbackBlobName}`);
+                console.log(`[Touchpoint Build] Found fallback base APK in blob: ${fallbackBlobName}`);
                 return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
             }
 
@@ -59,12 +59,9 @@ async function getBaseApkBytes(brandKey: string): Promise<Uint8Array | null> {
     }
 
     // Local Fallback (Dev environment)
-    // Common path: android/launcher/recovered/portalpay-touchpoint-signed.apk ??
-    // Let's look for *any* likely candidate.
     const possiblePaths = [
-        path.join(process.cwd(), "android", "launcher", "recovered", "portalpay-touchpoint-signed.apk"),
-        path.join(process.cwd(), "android", "launcher", "recovered", "xoinpay-touchpoint-signed.apk"),
-        path.join(process.cwd(), "android", "launcher", "recovered", "portalpay-signed.apk"), // worst case
+        path.join(process.cwd(), "android", "launcher", "recovered", "portalpay-signed.apk"),
+        path.join(process.cwd(), "android", "launcher", "recovered", "paynex-signed.apk"),
     ];
 
     for (const p of possiblePaths) {
@@ -78,10 +75,135 @@ async function getBaseApkBytes(brandKey: string): Promise<Uint8Array | null> {
     return null;
 }
 
+// --- Installer Script Helpers (Copied from package/route.ts) ---
+
+function buildInstallerBat(brandKey: string): string {
+    const apkName = `${brandKey}-touchpoint.apk`;
+    return [
+        "@echo off",
+        "setlocal",
+        `echo ${brandKey} Touchpoint Installer`,
+        "echo.",
+        "where adb >nul 2>nul",
+        "if %ERRORLEVEL% NEQ 0 (",
+        "  echo ERROR: adb.exe not found in PATH.",
+        "  echo Download Android Platform Tools from https://developer.android.com/tools/releases/platform-tools",
+        "  pause",
+        "  exit /b 1",
+        ")",
+        "adb start-server",
+        "echo Checking devices...",
+        "adb devices",
+        "echo Ensure USB debugging is enabled and the RSA prompt is accepted on the device.",
+        "echo.",
+        `echo Installing ${apkName} ...`,
+        `adb install -r "%~dp0${apkName}"`,
+        "if %ERRORLEVEL% NEQ 0 (",
+        "  echo Install failed. See above adb output.",
+        "  pause",
+        "  exit /b 1",
+        ")",
+        "echo Install succeeded.",
+        "echo Launch the app with network enabled to register the install on first run.",
+        "pause",
+        "endlocal",
+        ""
+    ].join("\r\n");
+}
+
+function buildInstallerSh(brandKey: string): string {
+    const apkName = `${brandKey}-touchpoint.apk`;
+    return [
+        "#!/bin/bash",
+        "",
+        `# ${brandKey} Touchpoint Installer for macOS/Linux`,
+        "set -e",
+        "",
+        'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
+        `APK_NAME="${apkName}"`,
+        "",
+        `echo "${brandKey} Touchpoint Installer"`,
+        'echo ""',
+        "",
+        "# Check if adb is available",
+        "if ! command -v adb &> /dev/null; then",
+        '    echo "ERROR: adb not found in PATH."',
+        '    echo "Download Android Platform Tools from https://developer.android.com/tools/releases/platform-tools"',
+        '    echo "On macOS, you can also install via Homebrew: brew install android-platform-tools"',
+        "    exit 1",
+        "fi",
+        "",
+        "# Start ADB server",
+        "adb start-server",
+        "",
+        "# List connected devices",
+        'echo "Checking devices..."',
+        "adb devices",
+        'echo ""',
+        'echo "Ensure USB debugging is enabled and the RSA prompt is accepted on the device."',
+        'echo ""',
+        "",
+        "# Install the APK",
+        'echo "Installing $APK_NAME ..."',
+        'if adb install -r "$SCRIPT_DIR/$APK_NAME"; then',
+        '    echo ""',
+        '    echo "Install succeeded."',
+        '    echo "Launch the app with network enabled to register the install on first run."',
+        "else",
+        '    echo ""',
+        '    echo "Install failed. See above adb output."',
+        "    exit 1",
+        "fi",
+        ""
+    ].join("\n");
+}
+
+function buildReadme(brandKey: string, endpoint?: string): string {
+    const lines = [
+        `${brandKey} Touchpoint Installer Package`,
+        ``,
+    ];
+
+    if (endpoint) {
+        lines.push(`Target Endpoint: ${endpoint}`);
+        lines.push(``);
+    }
+
+    lines.push(
+        `Contents:`,
+        `- ${brandKey}-touchpoint.apk  (signed APK)`,
+        `- install_${brandKey}.bat  (Windows installer script using adb)`,
+        `- install_${brandKey}.sh   (macOS/Linux installer script using adb)`,
+        ``,
+        `Requirements:`,
+        `- Android Platform Tools (adb) installed and on PATH`,
+        `  - Windows: Download from https://developer.android.com/tools/releases/platform-tools`,
+        `  - macOS: brew install android-platform-tools (or download from above)`,
+        `  - Linux: apt install android-tools-adb (or download from above)`,
+        `- Device with Developer Options -> USB debugging enabled`,
+        `- Accept the RSA fingerprint prompt on first ADB connection`,
+        ``,
+        `Windows Steps:`,
+        `1) Connect the Android device via USB`,
+        `2) Double-click install_${brandKey}.bat (or run in an elevated terminal)`,
+        `3) After install completes, launch the app with network connectivity`,
+        ``,
+        `macOS/Linux Steps:`,
+        `1) Connect the Android device via USB`,
+        `2) Open Terminal and navigate to this folder`,
+        `3) Make the script executable: chmod +x install_${brandKey}.sh`,
+        `4) Run the script: ./install_${brandKey}.sh`,
+        `5) After install completes, launch the app with network connectivity`,
+        ``,
+    );
+
+    return lines.join("\n");
+}
+
+// ----------------------------------------------------------------
 
 /**
  * Modify wrap.html inside the APK (Fast JSZip Method).
- * COPIED FROM src/app/api/admin/devices/package/route.ts
  */
 async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promise<Uint8Array> {
     const apkZip = await JSZip.loadAsync(apkBytes);
@@ -173,6 +295,9 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
     return new Uint8Array(modifiedApk.buffer, modifiedApk.byteOffset, modifiedApk.byteLength);
 }
 
+
+
+
 /**
  * Sign the APK using uber-apk-signer (Java).
  * Required because removing META-INF makes it installable only if re-signed.
@@ -230,30 +355,50 @@ async function signApk(apkBytes: Uint8Array, brandKey: string): Promise<Uint8Arr
 }
 
 /**
- * Upload to Azure Blob
+ * Setup ZIP package and upload
  */
-async function uploadApk(brandKey: string, apkBytes: Uint8Array) {
+async function uploadPackage(brandKey: string, apkBytes: Uint8Array, endpoint?: string) {
     const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
-    const container = String(process.env.PP_APK_CONTAINER || "portalpay").trim();
+    const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim(); // Default to packages container
+
     if (!conn) throw new Error("Azure Storage not configured");
+
+    // Create ZIP containing APK and scripts
+    const zip = new JSZip();
+    zip.file(`${brandKey}-touchpoint.apk`, apkBytes);
+    zip.file(`install_${brandKey}.bat`, buildInstallerBat(brandKey));
+    zip.file(`install_${brandKey}.sh`, buildInstallerSh(brandKey));
+    zip.file(`README.txt`, buildReadme(brandKey, endpoint));
+
+    const zipBuffer = await zip.generateAsync({
+        type: "nodebuffer",
+        compression: "DEFLATE",
+        compressionOptions: { level: 9 }
+    });
 
     const { BlobServiceClient } = await import("@azure/storage-blob");
     const bsc = BlobServiceClient.fromConnectionString(conn);
     const cont = bsc.getContainerClient(container);
     await cont.createIfNotExists({ access: "blob" });
 
-    const prefix = String(process.env.PP_APK_BLOB_PREFIX || "brands").trim().replace(/^\/+|\/+$/g, "");
-    const blobName = prefix ? `${prefix}/${brandKey}-touchpoint-signed.apk` : `${brandKey}-touchpoint-signed.apk`;
+    // Upload ZIP
+    // const prefix = String(process.env.PP_APK_BLOB_PREFIX || "brands").trim().replace(/^\/+|\/+$/g, "");
+    const blobName = `${brandKey}/${brandKey}-touchpoint-installer.zip`;
     const blob = cont.getBlockBlobClient(blobName);
 
-    await blob.uploadData(apkBytes, {
+    await blob.uploadData(zipBuffer, {
         blobHTTPHeaders: {
-            blobContentType: "application/vnd.android.package-archive",
-            blobContentDisposition: `attachment; filename="${brandKey}-touchpoint.apk"`,
+            blobContentType: "application/zip",
+            blobContentDisposition: `attachment; filename="${brandKey}-touchpoint-installer.zip"`,
+        },
+        metadata: {
+            brandKey,
+            createdAt: new Date().toISOString(),
+            type: "touchpoint-installer"
         }
     });
 
-    return { url: blob.url, size: apkBytes.byteLength };
+    return { url: blob.url, size: zipBuffer.byteLength };
 }
 
 /**
@@ -277,7 +422,7 @@ export async function POST(req: NextRequest) {
     try {
         // 1. Get Base APK
         const baseBytes = await getBaseApkBytes(brandKey);
-        if (!baseBytes) return json({ error: "No base APK found for touchpoint" }, { status: 404 });
+        if (!baseBytes) return json({ error: "No base APK found for touchpoint. Expected portalpay-signed.apk in storage." }, { status: 404 });
 
         // 2. Modify Logic (JSZip - Fast)
         let processedBytes = baseBytes;
@@ -286,13 +431,11 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Sign Logic (Uber Apk Signer - Fast)
-        // (Only strictly needed if we modified it, but good practice to ensure it's always signed)
-        if (endpoint) {
-            processedBytes = await signApk(processedBytes, brandKey);
-        }
+        // User confirmed strict parity requires signing
+        processedBytes = await signApk(processedBytes, brandKey);
 
-        // 4. Upload
-        const result = await uploadApk(brandKey, processedBytes);
+        // 4. Upload Package (ZIP)
+        const result = await uploadPackage(brandKey, processedBytes, endpoint);
 
         return json({
             success: true,
