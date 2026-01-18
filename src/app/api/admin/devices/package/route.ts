@@ -28,26 +28,26 @@ async function getApkBytes(brandKey: string): Promise<{ bytes: Uint8Array; sourc
   // Prefer Azure Blob Storage if configured
   const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
   const container = String(process.env.PP_APK_CONTAINER || "portalpay").trim();
-  
+
   if (conn && container) {
     const prefix = String(process.env.PP_APK_BLOB_PREFIX || "brands").trim().replace(/^\/+|\/+$/g, "");
     const { BlobServiceClient } = await import("@azure/storage-blob");
     const bsc = BlobServiceClient.fromConnectionString(conn);
     const cont = bsc.getContainerClient(container);
-    
+
     // Try brand-specific APK first
     try {
       const blobName = prefix ? `${prefix}/${brandKey}-signed.apk` : `${brandKey}-signed.apk`;
       const blob = cont.getBlockBlobClient(blobName);
       if (await blob.exists()) {
         const buf = await blob.downloadToBuffer();
-        return { 
+        return {
           bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength),
           source: `blob:${blobName}`
         };
       }
-    } catch {}
-    
+    } catch { }
+
     // Fall back to base PortalPay APK for white-label brands
     if (brandKey !== "portalpay" && brandKey !== "paynex") {
       try {
@@ -55,12 +55,12 @@ async function getApkBytes(brandKey: string): Promise<{ bytes: Uint8Array; sourc
         const fallbackBlob = cont.getBlockBlobClient(fallbackBlobName);
         if (await fallbackBlob.exists()) {
           const buf = await fallbackBlob.downloadToBuffer();
-          return { 
+          return {
             bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength),
             source: `blob:${fallbackBlobName} (base APK for white-label)`
           };
         }
-      } catch {}
+      } catch { }
     }
   }
 
@@ -69,22 +69,22 @@ async function getApkBytes(brandKey: string): Promise<{ bytes: Uint8Array; sourc
     portalpay: path.join("android", "launcher", "recovered", "portalpay-signed.apk"),
     paynex: path.join("android", "launcher", "recovered", "paynex-signed.apk"),
   };
-  
+
   // Try brand-specific path
   let rel = APP_TO_PATH[brandKey];
-  
+
   // Fall back to portalpay for white-label brands
   if (!rel && brandKey !== "portalpay" && brandKey !== "paynex") {
     rel = APP_TO_PATH["portalpay"];
   }
-  
+
   if (!rel) return null;
-  
+
   try {
     const filePath = path.join(process.cwd(), rel);
     const data = await fs.readFile(filePath);
     const isBase = brandKey !== "portalpay" && brandKey !== "paynex";
-    return { 
+    return {
       bytes: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
       source: isBase ? `local:${rel} (base APK for white-label)` : `local:${rel}`
     };
@@ -179,12 +179,12 @@ function buildReadme(brandKey: string, endpoint?: string): string {
     `${brandKey} Installer Package`,
     ``,
   ];
-  
+
   if (endpoint) {
     lines.push(`Target Endpoint: ${endpoint}`);
     lines.push(``);
   }
-  
+
   lines.push(
     `Contents:`,
     `- ${brandKey}.apk  (signed APK)`,
@@ -214,7 +214,7 @@ function buildReadme(brandKey: string, endpoint?: string): string {
     `6) On first launch, the app will phone-home to register the install for brand '${brandKey}'`,
     ``,
   );
-  
+
   if (endpoint) {
     lines.push(
       `Configured Endpoint:`,
@@ -223,12 +223,12 @@ function buildReadme(brandKey: string, endpoint?: string): string {
       ``
     );
   }
-  
+
   lines.push(
     `Note: If the device blocks ADB installs or staging, use enterprise provisioning (Device Owner) or native ADB CLI.`,
     ``
   );
-  
+
   return lines.join("\n");
 }
 
@@ -241,20 +241,20 @@ function buildReadme(brandKey: string, endpoint?: string): string {
  */
 async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promise<Uint8Array> {
   const apkZip = await JSZip.loadAsync(apkBytes);
-  
+
   // Find and modify wrap.html in assets folder
   const wrapHtmlPath = "assets/wrap.html";
   const wrapHtmlFile = apkZip.file(wrapHtmlPath);
-  
+
   if (wrapHtmlFile) {
     let content = await wrapHtmlFile.async("string");
-    
+
     // Replace the default endpoint in wrap.html
     // Original: var src = qp.get("src") || "https://paynex.azurewebsites.net";
     // We need to replace the fallback URL
     const endpointPattern = /var\s+src\s*=\s*qp\.get\s*\(\s*["']src["']\s*\)\s*\|\|\s*["']([^"']+)["']/;
     const match = content.match(endpointPattern);
-    
+
     if (match) {
       const oldEndpoint = match[1];
       content = content.replace(
@@ -270,12 +270,12 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
       );
       console.log(`[APK] Replaced paynex.azurewebsites.net with ${endpoint} in wrap.html`);
     }
-    
+
     apkZip.file(wrapHtmlPath, content);
   } else {
     console.warn(`[APK] wrap.html not found at ${wrapHtmlPath}`);
   }
-  
+
   // Remove old signature files - APK will be unsigned after modification
   const filesToRemove: string[] = [];
   apkZip.forEach((relativePath) => {
@@ -287,7 +287,7 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
     apkZip.remove(file);
   }
   console.log(`[APK] Removed ${filesToRemove.length} signature files from META-INF/`);
-  
+
   // Re-generate APK with proper per-file compression
   // IMPORTANT: resources.arsc MUST be uncompressed for Android R+ (API 30+)
   const mustBeUncompressed = (filePath: string): boolean => {
@@ -297,10 +297,10 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
     // .so files CAN be compressed - Android extracts them at install time
     return false;
   };
-  
+
   // Create a new ZIP with proper per-file compression settings
   const newApkZip = new JSZip();
-  
+
   // Copy all files with appropriate compression
   const allFiles: { path: string; file: JSZip.JSZipObject }[] = [];
   apkZip.forEach((relativePath, file) => {
@@ -308,28 +308,28 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
       allFiles.push({ path: relativePath, file });
     }
   });
-  
+
+  // Sequential processing for deterministic ZIP generation
+  // (Fixes potential race/memory issues with JSZip on large files)
   let uncompressedCount = 0;
   for (const { path: filePath, file } of allFiles) {
     const content = await file.async("nodebuffer");
     const compress = !mustBeUncompressed(filePath);
-    
-    if (!compress) {
-      uncompressedCount++;
-    }
-    
+
+    if (!compress) uncompressedCount++;
+
     newApkZip.file(filePath, content, {
       compression: compress ? "DEFLATE" : "STORE",
       compressionOptions: compress ? { level: 6 } : undefined,
     });
   }
   console.log(`[APK] ${uncompressedCount} files stored uncompressed (resources.arsc)`);
-  
-  const modifiedApk = await newApkZip.generateAsync({ 
+
+  const modifiedApk = await newApkZip.generateAsync({
     type: "nodebuffer",
     platform: "UNIX",
   });
-  
+
   return new Uint8Array(modifiedApk.buffer, modifiedApk.byteOffset, modifiedApk.byteLength);
 }
 
@@ -337,7 +337,7 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
  * Generate ZIP package and optionally upload to blob storage
  */
 async function generateAndUploadPackage(
-  brandKey: string, 
+  brandKey: string,
   apkBytes: Uint8Array,
   endpoint?: string
 ): Promise<{
@@ -358,39 +358,39 @@ async function generateAndUploadPackage(
       // Continue with original APK if modification fails
     }
   }
-  
+
   // Create ZIP
   const zip = new JSZip();
   zip.file(`${brandKey}.apk`, finalApkBytes);
   zip.file(`install_${brandKey}.bat`, buildInstallerBat(brandKey));
   zip.file(`install_${brandKey}.sh`, buildInstallerSh(brandKey));
   zip.file(`README.txt`, buildReadme(brandKey, endpoint));
-  
-  const zipBuffer = await zip.generateAsync({ 
-    type: "nodebuffer", 
-    compression: "DEFLATE", 
-    compressionOptions: { level: 9 } 
+
+  const zipBuffer = await zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    compressionOptions: { level: 9 }
   });
-  
+
   // Upload to blob storage
   const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
   const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim();
-  
+
   if (!conn) {
     return { success: false, error: "AZURE_STORAGE_CONNECTION_STRING or AZURE_BLOB_CONNECTION_STRING not configured" };
   }
-  
+
   try {
     const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = await import("@azure/storage-blob");
     const bsc = BlobServiceClient.fromConnectionString(conn);
     const cont = bsc.getContainerClient(container);
-    
+
     // Create container if it doesn't exist
     await cont.createIfNotExists({ access: "blob" });
-    
+
     const blobName = `${brandKey}/${brandKey}-installer.zip`;
     const blob = cont.getBlockBlobClient(blobName);
-    
+
     // Upload
     await blob.uploadData(zipBuffer, {
       blobHTTPHeaders: {
@@ -405,7 +405,7 @@ async function generateAndUploadPackage(
         ...(endpoint ? { endpoint } : {}),
       },
     });
-    
+
     // Generate SAS URL for download (valid for 24 hours)
     let sasUrl: string | undefined;
     try {
@@ -420,11 +420,11 @@ async function generateAndUploadPackage(
           startsOn: new Date(),
           expiresOn: new Date(Date.now() + 24 * 3600 * 1000),
         }, sharedKeyCredential).toString();
-        
+
         sasUrl = `${blob.url}?${sasToken}`;
       }
-    } catch {}
-    
+    } catch { }
+
     return {
       success: true,
       blobUrl: blob.url,
@@ -472,7 +472,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return json({ error: "unauthorized" }, { status: 401 });
   }
-  
+
   // Parse body
   let body: { brandKey?: string; endpoint?: string };
   try {
@@ -480,12 +480,12 @@ export async function POST(req: NextRequest) {
   } catch {
     return json({ error: "invalid_body" }, { status: 400 });
   }
-  
+
   const brandKey = String(body?.brandKey || "").toLowerCase().trim();
   if (!brandKey) {
     return json({ error: "brandKey_required" }, { status: 400 });
   }
-  
+
   // Validate and normalize endpoint URL
   let endpoint: string | undefined;
   if (body?.endpoint) {
@@ -502,27 +502,27 @@ export async function POST(req: NextRequest) {
       return json({ error: "invalid_endpoint", message: "Endpoint must be a valid URL" }, { status: 400 });
     }
   }
-  
+
   // Get APK bytes
   const apkResult = await getApkBytes(brandKey);
   if (!apkResult) {
-    return json({ 
+    return json({
       error: "apk_not_found",
       message: `No signed APK found for brand '${brandKey}' and no base APK available for fallback.`,
       hint: `Expected blob path: brands/${brandKey}-signed.apk in container '${process.env.PP_APK_CONTAINER || "portalpay"}'. For white-label brands, ensure brands/portalpay-signed.apk exists as a base.`
     }, { status: 404 });
   }
-  
+
   // Generate and upload package
   const result = await generateAndUploadPackage(brandKey, apkResult.bytes, endpoint);
-  
+
   if (!result.success) {
-    return json({ 
+    return json({
       error: "package_failed",
-      message: result.error 
+      message: result.error
     }, { status: 500 });
   }
-  
+
   return json({
     ok: true,
     brandKey,
@@ -551,42 +551,42 @@ export async function GET(req: NextRequest) {
   } catch {
     return json({ error: "unauthorized" }, { status: 401 });
   }
-  
+
   const url = new URL(req.url);
   const brandKey = url.searchParams.get("brandKey")?.toLowerCase().trim();
-  
+
   if (!brandKey) {
     return json({ error: "brandKey_required" }, { status: 400 });
   }
-  
+
   const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
   const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim();
-  
+
   if (!conn) {
-    return json({ 
-      exists: false, 
-      error: "storage_not_configured" 
+    return json({
+      exists: false,
+      error: "storage_not_configured"
     });
   }
-  
+
   try {
     const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = await import("@azure/storage-blob");
     const bsc = BlobServiceClient.fromConnectionString(conn);
     const cont = bsc.getContainerClient(container);
     const blobName = `${brandKey}/${brandKey}-installer.zip`;
     const blob = cont.getBlockBlobClient(blobName);
-    
+
     const exists = await blob.exists();
     if (!exists) {
-      return json({ 
+      return json({
         exists: false,
         brandKey,
       });
     }
-    
+
     // Get properties
     const props = await blob.getProperties();
-    
+
     // Generate SAS URL
     let sasUrl: string | undefined;
     try {
@@ -601,11 +601,11 @@ export async function GET(req: NextRequest) {
           startsOn: new Date(),
           expiresOn: new Date(Date.now() + 1 * 3600 * 1000), // 1 hour
         }, sharedKeyCredential).toString();
-        
+
         sasUrl = `${blob.url}?${sasToken}`;
       }
-    } catch {}
-    
+    } catch { }
+
     return json({
       exists: true,
       brandKey,
@@ -617,9 +617,9 @@ export async function GET(req: NextRequest) {
       endpoint: props.metadata?.endpoint,
     });
   } catch (e: any) {
-    return json({ 
-      exists: false, 
-      error: e?.message || "Failed to check package" 
+    return json({
+      exists: false,
+      error: e?.message || "Failed to check package"
     });
   }
 }

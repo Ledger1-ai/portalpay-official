@@ -277,15 +277,20 @@ async function modifyApkEndpoint(apkBytes: Uint8Array, endpoint: string): Promis
         if (!file.dir) allFiles.push({ path: relativePath, file });
     });
 
-    const fileWrites = allFiles.map(async ({ path: filePath, file }) => {
+    // Sequential processing to match partner route logic exactly without async concurrency issues
+    let uncompressedCount = 0;
+    for (const { path: filePath, file } of allFiles) {
         const content = await file.async("nodebuffer");
         const compress = !mustBeUncompressed(filePath);
+
+        if (!compress) uncompressedCount++;
+
         newApkZip.file(filePath, content, {
             compression: compress ? "DEFLATE" : "STORE",
             compressionOptions: compress ? { level: 6 } : undefined,
         });
-    });
-    await Promise.all(fileWrites);
+    }
+    console.log(`[Touchpoint Build] ${uncompressedCount} files stored uncompressed (resources.arsc).`);
 
     const modifiedApk = await newApkZip.generateAsync({
         type: "nodebuffer",
