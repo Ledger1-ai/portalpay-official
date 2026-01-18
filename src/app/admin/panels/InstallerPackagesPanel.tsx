@@ -66,6 +66,7 @@ export default function InstallerPackagesPanel() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [generatingPackage, setGeneratingPackage] = React.useState<string | null>(null);
+  const [generatingTouchpoint, setGeneratingTouchpoint] = React.useState<string | null>(null);
   const [appInstallTotals, setAppInstallTotals] = React.useState<Record<string, number>>({});
 
   // Fetch container type and brand
@@ -80,7 +81,7 @@ export default function InstallerPackagesPanel() {
         if (j && typeof j.brandKey === "string") {
           setBrandEnv(String(j.brandKey).toLowerCase());
         }
-      } catch {}
+      } catch { }
     })();
   }, []);
 
@@ -119,10 +120,10 @@ export default function InstallerPackagesPanel() {
     (async () => {
       if (!brandEnv) return;
       try {
-        const brands = containerType === "partner" 
-          ? [brandEnv] 
+        const brands = containerType === "partner"
+          ? [brandEnv]
           : Array.from(new Set([...containers.map(c => c.brandKey), "portalpay", "paynex"]));
-        
+
         const totals: Record<string, number> = {};
         for (const brand of brands) {
           if (!brand) continue;
@@ -136,7 +137,7 @@ export default function InstallerPackagesPanel() {
           }
         }
         setAppInstallTotals(totals);
-      } catch {}
+      } catch { }
     })();
   }, [containerType, brandEnv, containers]);
 
@@ -171,6 +172,41 @@ export default function InstallerPackagesPanel() {
     }
   };
 
+  // Generate Touchpoint APK for a brand (uses same process as Partner but with /touchpoint?scale=0.75 endpoint)
+  const handleGenerateTouchpoint = async (brandKey: string, baseEndpoint?: string) => {
+    setGeneratingTouchpoint(brandKey);
+    try {
+      // Build touchpoint endpoint: base URL + /touchpoint?scale=0.75
+      let touchpointEndpoint = baseEndpoint || `https://${brandKey}.azurewebsites.net`;
+      // Remove trailing slash if present
+      touchpointEndpoint = touchpointEndpoint.replace(/\/$/, "");
+      // Append touchpoint path
+      touchpointEndpoint = `${touchpointEndpoint}/touchpoint?scale=0.75`;
+
+      const res = await fetch("/api/admin/devices/package", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandKey: `${brandKey}-touchpoint`, endpoint: touchpointEndpoint }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(`Failed to generate Touchpoint package: ${data?.message || data?.error || "Unknown error"}`);
+        return;
+      }
+      // Refresh containers to update state
+      await fetchContainers();
+      // Open download link if available
+      if (data?.sasUrl) {
+        window.open(data.sasUrl, "_blank");
+      }
+      alert(`Touchpoint APK generated for ${brandKey}!\nEndpoint: ${touchpointEndpoint}`);
+    } catch (e: any) {
+      alert(`Error: ${e?.message || "Failed to generate Touchpoint package"}`);
+    } finally {
+      setGeneratingTouchpoint(null);
+    }
+  };
+
   // Format date for display
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "—";
@@ -189,7 +225,7 @@ export default function InstallerPackagesPanel() {
       <div className="rounded-md border p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
         <div className="text-sm text-blue-700 dark:text-blue-400">
           <strong>Note:</strong> Each partner brand gets their own APK with their custom endpoint URL embedded.
-          When generating a package, specify the partner&apos;s URL (e.g., xoinpay.azurewebsites.net) and the APK 
+          When generating a package, specify the partner&apos;s URL (e.g., xoinpay.azurewebsites.net) and the APK
           will be modified to load that site instead of the default.
         </div>
       </div>
@@ -230,7 +266,7 @@ export default function InstallerPackagesPanel() {
               Refresh
             </button>
           </div>
-          
+
           <div className="divide-y divide-foreground/10">
             {containers.map((container) => (
               <div key={container.id} className="py-3 first:pt-0 last:pb-0">
@@ -238,11 +274,10 @@ export default function InstallerPackagesPanel() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{container.name}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        container.status === "Running" || container.status === "Succeeded"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                      }`}>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${container.status === "Running" || container.status === "Succeeded"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                        }`}>
                         {container.status || "unknown"}
                       </span>
                       <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
@@ -267,9 +302,9 @@ export default function InstallerPackagesPanel() {
                       Updated: {formatDate(container.updatedAt)}
                     </div>
                     {container.url && (
-                      <a 
-                        href={container.url} 
-                        target="_blank" 
+                      <a
+                        href={container.url}
+                        target="_blank"
                         rel="noreferrer"
                         className="microtext text-blue-600 dark:text-blue-400 hover:underline"
                       >
@@ -277,7 +312,7 @@ export default function InstallerPackagesPanel() {
                       </a>
                     )}
                   </div>
-                  
+
                   <div className="flex flex-col items-end gap-2">
                     {/* Status indicators */}
                     <div className="flex items-center gap-2 text-xs">
@@ -285,7 +320,7 @@ export default function InstallerPackagesPanel() {
                         Package: {container.hasPackage ? "✓" : "✗"}
                       </span>
                     </div>
-                    
+
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       {container.hasPackage && container.packageUrl ? (
@@ -299,16 +334,26 @@ export default function InstallerPackagesPanel() {
                           Download ZIP
                         </a>
                       ) : (
-                        <button
-                          onClick={() => handleGeneratePackage(container.brandKey)}
-                          disabled={generatingPackage === container.brandKey}
-                          className="px-2 py-1 rounded border text-xs hover:bg-foreground/5 disabled:opacity-50"
-                          title="Generate installer package (uses base PortalPay APK)"
-                        >
-                          {generatingPackage === container.brandKey ? "Generating..." : "Generate Package"}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleGeneratePackage(container.brandKey)}
+                            disabled={generatingPackage === container.brandKey}
+                            className="px-2 py-1 rounded border text-xs hover:bg-foreground/5 disabled:opacity-50"
+                            title="Generate installer package (uses base PortalPay APK)"
+                          >
+                            {generatingPackage === container.brandKey ? "Generating..." : "Generate Package"}
+                          </button>
+                          <button
+                            onClick={() => handleGenerateTouchpoint(container.brandKey, container.url)}
+                            disabled={generatingTouchpoint === container.brandKey}
+                            className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50 disabled:opacity-50"
+                            title="Generate Touchpoint APK (uses /touchpoint?scale=0.75 endpoint)"
+                          >
+                            {generatingTouchpoint === container.brandKey ? "Generating..." : "Touchpoint APK"}
+                          </button>
+                        </>
                       )}
-                      
+
                       {container.brandKey && (
                         <span className="microtext text-muted-foreground">
                           Installs: {appInstallTotals[container.brandKey] ?? 0}
@@ -326,7 +371,7 @@ export default function InstallerPackagesPanel() {
       {/* Dynamic Installer Packages - shows available brands based on role */}
       <div className="rounded-md border p-4 bg-foreground/5 space-y-3">
         <div className="text-sm font-medium">Installer Packages</div>
-        
+
         {containerType === "partner" ? (
           /* Partners only see their own brand button */
           <div className="flex items-center gap-3">
@@ -349,24 +394,24 @@ export default function InstallerPackagesPanel() {
             {(() => {
               // Collect all brands from containers AND partners (fully dynamic)
               const brandSet = new Set<string>();
-              
+
               // Add brands from deployed containers
               containers.forEach(c => {
                 if (c.brandKey) {
                   brandSet.add(c.brandKey);
                 }
               });
-              
+
               // Also add brands from partners (fallback when Azure ARM API not available)
               partners.forEach(p => {
                 if (p.brandKey) {
                   brandSet.add(p.brandKey);
                 }
               });
-              
+
               // Sort alphabetically
               const brands = Array.from(brandSet).sort((a, b) => a.localeCompare(b));
-              
+
               if (brands.length === 0 && !loading) {
                 return (
                   <div className="microtext text-muted-foreground">
@@ -374,11 +419,11 @@ export default function InstallerPackagesPanel() {
                   </div>
                 );
               }
-              
+
               if (brands.length === 0) {
                 return null; // Still loading
               }
-              
+
               return brands.map(brand => {
                 const displayName = brand.charAt(0).toUpperCase() + brand.slice(1);
                 const container = containers.find(c => c.brandKey === brand);
@@ -386,7 +431,7 @@ export default function InstallerPackagesPanel() {
                 const hasPackage = container?.hasPackage;
                 const hasSignedApk = container?.hasSignedApk;
                 const hasWebapp = container || partner?.hasWebapp;
-                
+
                 return (
                   <div key={brand} className="flex items-center gap-3">
                     <a
@@ -428,7 +473,7 @@ export default function InstallerPackagesPanel() {
             </div>
           </div>
           <div className="microtext text-amber-600 dark:text-amber-500">
-            These partners are registered in the database but don&apos;t have a matching Azure webapp. 
+            These partners are registered in the database but don&apos;t have a matching Azure webapp.
             The webapp name should match the brandKey.
           </div>
           <div className="divide-y divide-amber-200 dark:divide-amber-800">
@@ -445,6 +490,14 @@ export default function InstallerPackagesPanel() {
                   title={`Generate installer package for ${partner.brandKey}`}
                 >
                   {generatingPackage === partner.brandKey ? "Generating..." : "Generate Package"}
+                </button>
+                <button
+                  onClick={() => handleGenerateTouchpoint(partner.brandKey, partner.appUrl)}
+                  disabled={generatingTouchpoint === partner.brandKey}
+                  className="px-2 py-1 rounded border text-xs hover:bg-emerald-500/20 border-emerald-500/50 disabled:opacity-50"
+                  title={`Generate Touchpoint APK for ${partner.brandKey}`}
+                >
+                  {generatingTouchpoint === partner.brandKey ? "Generating..." : "Touchpoint APK"}
                 </button>
               </div>
             ))}
@@ -523,7 +576,7 @@ export default function InstallerPackagesPanel() {
           <div className="microtext text-muted-foreground">
             Generate an installer package (.zip) for any brand. Each brand gets their own APK with their endpoint URL embedded.
           </div>
-          <GeneratePackageForm 
+          <GeneratePackageForm
             onGenerate={handleGeneratePackage}
             generating={generatingPackage}
           />
@@ -536,17 +589,17 @@ export default function InstallerPackagesPanel() {
 /**
  * Mini form to generate a package for any brand
  */
-function GeneratePackageForm({ 
-  onGenerate, 
-  generating 
-}: { 
+function GeneratePackageForm({
+  onGenerate,
+  generating
+}: {
   onGenerate: (brandKey: string, endpoint?: string) => void;
   generating: string | null;
 }) {
   const [brandKey, setBrandKey] = React.useState("");
   const [endpoint, setEndpoint] = React.useState("");
   const [showEndpoint, setShowEndpoint] = React.useState(false);
-  
+
   // Auto-suggest endpoint when brand key changes
   React.useEffect(() => {
     const key = brandKey.trim().toLowerCase();
@@ -562,7 +615,7 @@ function GeneratePackageForm({
       }
     }
   }, [brandKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const key = brandKey.trim().toLowerCase();
@@ -570,7 +623,7 @@ function GeneratePackageForm({
       onGenerate(key, endpoint.trim() || undefined);
     }
   };
-  
+
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex items-center gap-2">
@@ -591,7 +644,7 @@ function GeneratePackageForm({
           {showEndpoint ? "▲ Hide Endpoint" : "▼ Custom Endpoint"}
         </button>
       </div>
-      
+
       {/* Endpoint input (optional) */}
       {showEndpoint && (
         <div className="space-y-1">
@@ -611,7 +664,7 @@ function GeneratePackageForm({
           </div>
         </div>
       )}
-      
+
       <div className="flex items-center gap-2">
         <button
           type="submit"
