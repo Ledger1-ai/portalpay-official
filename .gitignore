@@ -10,7 +10,6 @@
 !.yarn/releases
 !.yarn/versions
 /portal
-/android
 /mobile
 /dist
 
@@ -47,3 +46,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Android build artifacts
+android/app/build/
+android/.gradle/
+android/build/

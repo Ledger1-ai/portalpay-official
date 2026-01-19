@@ -1,0 +1,3 @@
+<resources>
+    <!-- app_name is now dynamically generated in build.gradle.kts -->
+</resources>
