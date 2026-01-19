@@ -22,12 +22,10 @@ function json(obj: any, init?: { status?: number; headers?: Record<string, strin
 }
 
 /**
- * Get base touchpoint APK bytes from blob storage or local filesystem
- * Tries Azure blob first, then local filesystem
- * Falls back to portalpay APK if surge-touchpoint doesn't exist
+ * Get base APK bytes for touchpoint build
+ * Priority: 1) Brand-specific APK 2) surge-touchpoint 3) portalpay
  */
-async function getBaseTouchpointApk(): Promise<Uint8Array | null> {
-    // Prefer Azure Blob Storage if configured
+async function getBaseTouchpointApk(brandKey: string): Promise<Uint8Array | null> {
     const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
     const container = String(process.env.PP_APK_CONTAINER || "portalpay").trim();
 
@@ -37,50 +35,49 @@ async function getBaseTouchpointApk(): Promise<Uint8Array | null> {
         const bsc = BlobServiceClient.fromConnectionString(conn);
         const cont = bsc.getContainerClient(container);
 
-        // Try surge-touchpoint first
+        // 1. Try brand-specific APK first (e.g., xoinpay-signed.apk)
         try {
-            const blobName = prefix ? `${prefix}/surge-touchpoint-signed.apk` : `surge-touchpoint-signed.apk`;
-            const blob = cont.getBlockBlobClient(blobName);
-            if (await blob.exists()) {
-                const buf = await blob.downloadToBuffer();
-                console.log(`[Touchpoint Build] Using ${blobName} from blob storage`);
+            const brandBlobName = prefix ? `${prefix}/${brandKey}-signed.apk` : `${brandKey}-signed.apk`;
+            const brandBlob = cont.getBlockBlobClient(brandBlobName);
+            if (await brandBlob.exists()) {
+                const buf = await brandBlob.downloadToBuffer();
+                console.log(`[Touchpoint Build] Using brand-specific APK: ${brandBlobName}`);
                 return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
             }
-        } catch (e) {
-            console.log("[Touchpoint Build] surge-touchpoint not in blob, trying portalpay");
-        }
+            console.log(`[Touchpoint Build] Brand APK not found: ${brandBlobName}`);
+        } catch { }
 
-        // Fall back to portalpay APK
+        // 2. Try surge-touchpoint
+        try {
+            const surgeBlobName = prefix ? `${prefix}/surge-touchpoint-signed.apk` : `surge-touchpoint-signed.apk`;
+            const surgeBlob = cont.getBlockBlobClient(surgeBlobName);
+            if (await surgeBlob.exists()) {
+                const buf = await surgeBlob.downloadToBuffer();
+                console.log(`[Touchpoint Build] Using surge-touchpoint: ${surgeBlobName}`);
+                return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+            }
+        } catch { }
+
+        // 3. Fall back to portalpay APK
         try {
             const fallbackBlobName = prefix ? `${prefix}/portalpay-signed.apk` : `portalpay-signed.apk`;
             const fallbackBlob = cont.getBlockBlobClient(fallbackBlobName);
             if (await fallbackBlob.exists()) {
                 const buf = await fallbackBlob.downloadToBuffer();
-                console.log(`[Touchpoint Build] Using ${fallbackBlobName} from blob storage as base`);
+                console.log(`[Touchpoint Build] Using fallback portalpay: ${fallbackBlobName}`);
                 return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
             }
-        } catch (e) {
-            console.log("[Touchpoint Build] portalpay not in blob either");
-        }
+        } catch { }
     }
 
     // Local filesystem fallback
-    const touchpointPath = path.join(process.cwd(), "android", "launcher", "recovered", "surge-touchpoint-signed.apk");
+    const portalPayPath = path.join(process.cwd(), "android", "launcher", "recovered", "portalpay-signed.apk");
     try {
-        const data = await fs.readFile(touchpointPath);
-        console.log("[Touchpoint Build] Using local surge-touchpoint-signed.apk");
+        const data = await fs.readFile(portalPayPath);
+        console.log("[Touchpoint Build] Using local portalpay-signed.apk as base");
         return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     } catch {
-        // Fall back to local portalpay APK
-        console.log("[Touchpoint Build] Trying local portalpay as last resort");
-        const portalPayPath = path.join(process.cwd(), "android", "launcher", "recovered", "portalpay-signed.apk");
-        try {
-            const data = await fs.readFile(portalPayPath);
-            console.log("[Touchpoint Build] Using local portalpay-signed.apk as base");
-            return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-        } catch {
-            return null;
-        }
+        return null;
     }
 }
 
@@ -544,12 +541,12 @@ export async function POST(req: NextRequest) {
                 : `https://${brandKey}.azurewebsites.net/touchpoint/setup`;
         }
 
-        // Get base touchpoint APK
-        const baseApk = await getBaseTouchpointApk();
+        // Get base touchpoint APK (tries brand-specific first, then fallbacks)
+        const baseApk = await getBaseTouchpointApk(brandKey);
         if (!baseApk) {
             return json({
                 error: "base_apk_not_found",
-                message: "No base APK found. Looked for surge-touchpoint-signed.apk and portalpay-signed.apk in android/launcher/recovered/"
+                message: `No base APK found for ${brandKey}. Looked for ${brandKey}-signed.apk, surge-touchpoint-signed.apk, and portalpay-signed.apk`
             }, { status: 404 });
         }
 
