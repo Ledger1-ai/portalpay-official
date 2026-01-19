@@ -4,6 +4,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
 import { randomUUID } from "node:crypto";
+import { zipalign } from "@/utils/zipalign";
+import { getContainer } from "@/lib/cosmos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -569,424 +571,598 @@ async function generateAndUploadPackage(
   size?: number;
   endpoint?: string;
 }> {
-  // Modify APK if endpoint is specified
-  let finalApkBytes = apkBytes;
-  if (endpoint) {
-    try {
-      finalApkBytes = await modifyApkEndpoint(apkBytes, endpoint);
-    } catch (e: any) {
-      console.error(`[APK] Failed to modify endpoint: ${e?.message}`);
-      // Continue with original APK if modification fails
+
+  interface ModifyOptions {
+    endpoint?: string;
+    iconBuffer?: Uint8Array;
+  }
+
+  /**
+   * Customize the APK:
+   * 1. Modify wrap.html (if endpoint provided)
+   * 2. Replace icons (if iconBuffer provided) and remove adaptive icon XMLs to force PNG usage
+   */
+  async function customizeApk(apkBytes: Uint8Array, options: ModifyOptions): Promise<Uint8Array> {
+    // Load ZIP
+    const apkZip = await JSZip.loadAsync(apkBytes);
+
+    // 1. Modify Endpoint (wrap.html)
+    if (options.endpoint) {
+      const wrapHtmlPath = "assets/wrap.html";
+      const wrapHtmlFile = apkZip.file(wrapHtmlPath);
+      if (wrapHtmlFile) {
+        let content = await wrapHtmlFile.async("string");
+
+        // Replace the target URL
+        // We look for the assignment to window.location.href or a meta/script setting
+        // The base APK is expected to have logic like:
+        // const TARGET_URL = "https://pay.ledger1.ai";
+        // OR
+        // window.location.href = "...";
+
+        // Simple regex replacement for the hardcoded URL if present
+        // We replace common placeholders or the known default
+        const defaultUrlForRegex = "https://pay.ledger1.ai";
+        const paynexUrlForRegex = "https://paynex.azurewebsites.net";
+
+        // Dynamic replacement: Find the variable assignment or simple string
+        // We assume the wrap.html has a clear marker or we replace the known defaults
+        // Strategy: Replace the entire variable declaration if possible, or just the URL string
+
+        // Known pattern in wrap.html:  var TARGET_URL = "..."
+        content = content.replace(/var\s+TARGET_URL\s*=\s*"[^"]*"/, `var TARGET_URL = "${options.endpoint}"`);
+        content = content.replace(/const\s+TARGET_URL\s*=\s*"[^"]*"/, `const TARGET_URL = "${options.endpoint}"`);
+
+        // Fallback: Replace specific domains if the var pattern fails
+        if (!content.includes(options.endpoint)) {
+          content = content.split(defaultUrlForRegex).join(options.endpoint);
+          content = content.split(paynexUrlForRegex).join(options.endpoint);
+        }
+
+        apkZip.file(wrapHtmlPath, content, { compression: "DEFLATE" });
+        console.log(`[APK] Updated wrap.html endpoint to ${options.endpoint}`);
+      } else {
+        console.warn("[APK] assets/wrap.html not found. Endpoint modification skipped.");
+      }
     }
+
+    // 2. Replace Icons
+    if (options.iconBuffer) {
+      // Standard mipmap folders
+      const densities = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"];
+      const fileNames = ["ic_launcher.png", "ic_launcher_round.png"];
+
+      // Replace all density PNGs
+      for (const density of densities) {
+        for (const fileName of fileNames) {
+          const path = `res/mipmap-${density}-v4/${fileName}`;
+          // Check if exists (some might be v4, some not)
+          // JSZip file search is exact usually.
+          // Try without -v4 first? standard usually has -v4 or none.
+          // We'll try both paths to be sure.
+
+          apkZip.file(`res/mipmap-${density}/${fileName}`, options.iconBuffer, { compression: "DEFLATE" });
+          apkZip.file(`res/mipmap-${density}-v4/${fileName}`, options.iconBuffer, { compression: "DEFLATE" });
+        }
+      }
+
+      // CRITICAL: Remove adaptive icon XMLs (anydpi) to force Android to use the PNGs we just updated
+      const adaptivePaths = [
+        "res/mipmap-anydpi-v26/ic_launcher.xml",
+        "res/mipmap-anydpi-v26/ic_launcher_round.xml"
+      ];
+      for (const p of adaptivePaths) {
+        if (apkZip.file(p)) {
+          apkZip.remove(p);
+          console.log(`[APK] Removed adaptive icon definition: ${p}`);
+        }
+      }
+      console.log(`[APK] Replaced icons`);
+    }
+
+    // Generate modified APK (unaligned)
+    // We use STORE for everything by default in generateAsync to avoid re-compressing already stored files?
+    // No, we want to compress modified files (html, icon).
+    // But resources.arsc MUST remain STORE.
+    // JSZip generateAsync doesn't let us specify per-file compression easily unless we used .file() with options.
+    // We did use .file(..., {compression: "DEFLATE"}) above.
+
+    // However, generateAsync MIGHT override?
+    // We can't control it fully here.
+    // BUT we have zipalign and signApk later.
+    // signApk REBUILDS the zip iteratively, preserving compression.
+    // So here inside customizeApk, we can just produce a valid zip.
+    // signApk will fix the compression flags for arsc later.
+
+    return await apkZip.generateAsync({ type: "uint8array" });
   }
 
-  // NOTE: We skip signApk - the original APK is already properly signed and 4-byte aligned
-  // Re-signing with JSZip would break alignment (causes Android R+ install failure)
-
-  // Create ZIP
-  const zip = new JSZip();
-  zip.file(`${brandKey}.apk`, finalApkBytes);
-  zip.file(`install_${brandKey}.bat`, buildInstallerBat(brandKey));
-  zip.file(`install_${brandKey}.sh`, buildInstallerSh(brandKey));
-  zip.file(`README.txt`, buildReadme(brandKey, endpoint));
-
-  const zipBuffer = await zip.generateAsync({
-    type: "nodebuffer",
-    compression: "DEFLATE",
-    compressionOptions: { level: 9 }
-  });
-
-  // Upload to blob storage
-  const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
-  const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim();
-
-  if (!conn) {
-    return { success: false, error: "AZURE_STORAGE_CONNECTION_STRING or AZURE_BLOB_CONNECTION_STRING not configured" };
+  async function getBrandIconUrl(brandKey: string): Promise<string | null> {
+    try {
+      const container = await getContainer();
+      // Query for partner application
+      const q = {
+        query: "SELECT TOP 1 * FROM c WHERE c.brandKey = @brandKey AND c.type = 'partner_application' ORDER BY c.createdAt DESC",
+        parameters: [{ name: "@brandKey", value: brandKey }]
+      };
+      const { resources } = await container.items.query(q).fetchAll();
+      if (resources.length > 0 && resources[0].logos?.app) {
+        return resources[0].logos.app;
+      }
+    } catch (e) {
+      console.error("[APK] Failed to fetch brand icon:", e);
+    }
+    return null;
   }
 
-  try {
-    const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = await import("@azure/storage-blob");
-    const bsc = BlobServiceClient.fromConnectionString(conn);
-    const cont = bsc.getContainerClient(container);
+  /**
+   * Generate ZIP package and optionally upload to blob storage
+   */
+  async function generateAndUploadPackage(
+    brandKey: string,
+    apkBytes: Uint8Array,
+    endpoint?: string
+  ): Promise<{
+    success: boolean;
+    blobUrl?: string;
+    sasUrl?: string;
+    error?: string;
+    size?: number;
+    endpoint?: string;
+  }> {
+    console.log(`[APK] Generating package for ${brandKey}. Endpoint: ${endpoint || "default"}`);
 
-    // Create container if it doesn't exist
-    await cont.createIfNotExists({ access: "blob" });
+    // Fetch brand icon if available
+    let iconBuffer: Uint8Array | undefined;
+    try {
+      const iconUrl = await getBrandIconUrl(brandKey);
+      if (iconUrl) {
+        console.log(`[APK] Found icon URL: ${iconUrl}`);
+        const res = await fetch(iconUrl);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          iconBuffer = new Uint8Array(buf);
+        }
+      }
+    } catch (e: any) {
+      console.warn(`[APK] Failed to download icon: ${e?.message}`);
+    }
 
-    const blobName = `${brandKey}/${brandKey}-installer.zip`;
-    const blob = cont.getBlockBlobClient(blobName);
+    // Customize APK (Endpoint + Icons)
+    let finalApkBytes = apkBytes;
+    if (endpoint || iconBuffer) {
+      try {
+        finalApkBytes = await customizeApk(apkBytes, { endpoint, iconBuffer });
+      } catch (e: any) {
+        console.error(`[APK] Failed to modify APK: ${e?.message}`);
+        // Continue with original APK? No, if URL was needed.
+        // But we can warn.
+      }
+    }
 
-    // Upload
-    await blob.uploadData(zipBuffer, {
-      blobHTTPHeaders: {
-        blobContentType: "application/zip",
-        blobContentDisposition: `attachment; filename="${brandKey}-installer.zip"`,
-      },
-      metadata: {
-        brandKey,
-        createdAt: new Date().toISOString(),
-        apkSize: String(finalApkBytes.byteLength),
-        zipSize: String(zipBuffer.byteLength),
-        ...(endpoint ? { endpoint } : {}),
-      },
+    // Sign the APK (required for installation on devices)
+    try {
+      console.log(`[APK] Signing APK for ${brandKey}...`);
+      finalApkBytes = await signApk(finalApkBytes, brandKey);
+      console.log(`[APK] APK signed successfully (${finalApkBytes.byteLength} bytes)`);
+    } catch (e: any) {
+      console.error(`[APK] Failed to sign APK: ${e?.message}`);
+      // Continue with unsigned APK if signing fails (will likely fail install)
+    }
+
+    // Zipalign the APK (required for Android R+)
+    try {
+      console.log(`[APK] Aligning APK for ${brandKey}...`);
+      finalApkBytes = await zipalign(finalApkBytes);
+      console.log(`[APK] APK aligned successfully (${finalApkBytes.byteLength} bytes)`);
+    } catch (e: any) {
+      console.error(`[APK] Failed to align APK: ${e?.message}`);
+    }
+
+    // Create ZIP
+    const zip = new JSZip();
+    zip.file(`${brandKey}.apk`, finalApkBytes);
+    zip.file(`install_${brandKey}.bat`, buildInstallerBat(brandKey));
+    zip.file(`install_${brandKey}.sh`, buildInstallerSh(brandKey));
+    zip.file(`README.txt`, buildReadme(brandKey, endpoint));
+
+    const zipBuffer = await zip.generateAsync({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+      compressionOptions: { level: 9 }
     });
 
-    // Generate SAS URL for download (valid for 24 hours)
-    let sasUrl: string | undefined;
-    try {
-      // More robust regex for parsing connection string
-      const accountMatch = conn.match(/AccountName\s*=\s*([^;]+)/i);
-      const keyMatch = conn.match(/AccountKey\s*=\s*([^;]+)/i);
+    // Upload to blob storage
+    const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
+    const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim();
 
-      if (accountMatch && keyMatch) {
-        console.log(`[APK] Generating SAS for ${blobName} using account ${accountMatch[1]}`);
-        const sharedKeyCredential = new StorageSharedKeyCredential(accountMatch[1], keyMatch[1]);
-        const sasToken = generateBlobSASQueryParameters({
-          containerName: container,
-          blobName,
-          permissions: BlobSASPermissions.parse("r"),
-          startsOn: new Date(),
-          expiresOn: new Date(Date.now() + 24 * 3600 * 1000),
-        }, sharedKeyCredential).toString();
-
-        sasUrl = `${blob.url}?${sasToken}`;
-        console.log(`[APK] SAS URL generated successfully`);
-      } else {
-        console.warn(`[APK] Could not parse AccountName/AccountKey from connection string. SAS generation skipped.`);
-        // Log obscured connection string for debugging
-        const obscured = conn.replace(/AccountKey=[^;]+/, "AccountKey=***");
-        console.log(`[APK] Connection string format: ${obscured}`);
-      }
-    } catch (e: any) {
-      console.error(`[APK] Failed to generate SAS: ${e?.message}`);
+    if (!conn) {
+      return { success: false, error: "AZURE_STORAGE_CONNECTION_STRING or AZURE_BLOB_CONNECTION_STRING not configured" };
     }
-
-    return {
-      success: true,
-      blobUrl: blob.url,
-      sasUrl,
-      size: zipBuffer.byteLength,
-      endpoint,
-    };
-  } catch (e: any) {
-    return { success: false, error: e?.message || "Failed to upload package" };
-  }
-}
-
-/**
- * POST /api/admin/devices/package
- * 
- * Generate an installer package (.zip) for a brand and upload to blob storage.
- * Uses Server-Sent Events (SSE) to stream progress updates back to client.
- * 
- * Body:
- * {
- *   "brandKey": "xoinpay",  // required
- *   "endpoint": "https://xoinpay.azurewebsites.net"  // optional - URL to load in the APK wrapper
- * }
- * 
- * Response: SSE stream with progress updates, final message contains download URL
- */
-export async function POST(req: NextRequest) {
-  // Auth: Admin or Superadmin only
-  let caller: { wallet: string; roles: string[] };
-  try {
-    const c = await requireThirdwebAuth(req);
-    const roles = Array.isArray(c?.roles) ? c.roles : [];
-    if (!roles.includes("admin") && !roles.includes("superadmin")) {
-      return json({ error: "forbidden" }, { status: 403 });
-    }
-    caller = { wallet: c.wallet, roles };
-  } catch {
-    return json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  // Parse body
-  let body: { brandKey?: string; endpoint?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: "invalid_body" }, { status: 400 });
-  }
-
-  const brandKey = String(body?.brandKey || "").toLowerCase().trim();
-  if (!brandKey) {
-    return json({ error: "brandKey_required" }, { status: 400 });
-  }
-
-  // Validate and normalize endpoint URL
-  let endpoint: string | undefined;
-  if (body?.endpoint) {
-    let rawEndpoint = String(body.endpoint).trim();
-    // Ensure it has a protocol
-    if (rawEndpoint && !rawEndpoint.startsWith("http://") && !rawEndpoint.startsWith("https://")) {
-      rawEndpoint = `https://${rawEndpoint}`;
-    }
-    // Validate it's a valid URL
-    try {
-      new URL(rawEndpoint);
-      endpoint = rawEndpoint;
-    } catch {
-      return json({ error: "invalid_endpoint", message: "Endpoint must be a valid URL" }, { status: 400 });
-    }
-  }
-
-  // Create SSE stream for progress updates
-  const encoder = new TextEncoder();
-  const stream = new TransformStream();
-  const writer = stream.writable.getWriter();
-
-  const sendProgress = async (progress: string, status: "processing" | "completed" | "failed", data?: any) => {
-    const message = JSON.stringify({ progress, status, ...data });
-    await writer.write(encoder.encode(`data: ${message}\n\n`));
-  };
-
-  // Start async processing (this runs while stream is open)
-  (async () => {
-    // Start heartbeat to keep connection alive (Cloudflare kills after ~100s of no data)
-    let heartbeatCount = 0;
-    const heartbeat = setInterval(async () => {
-      try {
-        heartbeatCount++;
-        await writer.write(encoder.encode(`data: ${JSON.stringify({ heartbeat: heartbeatCount, status: "processing" })}\n\n`));
-      } catch {
-        // Writer might be closed
-      }
-    }, 10000); // Every 10 seconds
 
     try {
-      await sendProgress("Starting job...", "processing");
+      const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = await import("@azure/storage-blob");
+      const bsc = BlobServiceClient.fromConnectionString(conn);
+      const cont = bsc.getContainerClient(container);
 
-      // Get APK bytes
-      await sendProgress("Downloading base APK...", "processing");
-      const apkResult = await getApkBytes(brandKey);
-      if (!apkResult) {
-        clearInterval(heartbeat);
-        await sendProgress(`No signed APK found for brand '${brandKey}'`, "failed", { error: "apk_not_found" });
-        await writer.close();
-        return;
-      }
+      // Create container if it doesn't exist
+      await cont.createIfNotExists({ access: "blob" });
 
-      await sendProgress("Modifying and signing APK...", "processing");
+      const blobName = `${brandKey}/${brandKey}-installer.zip`;
+      const blob = cont.getBlockBlobClient(blobName);
 
-      // Generate and upload package
-      const result = await generateAndUploadPackage(brandKey, apkResult.bytes, endpoint);
-
-      clearInterval(heartbeat);
-
-      if (!result.success) {
-        await sendProgress(result.error || "Package generation failed", "failed", { error: "package_failed" });
-        await writer.close();
-        return;
-      }
-
-      // Success!
-      await sendProgress("Complete!", "completed", {
-        brandKey,
-        downloadUrl: result.blobUrl,
-        sasUrl: result.sasUrl,
-        size: result.size,
-        endpoint: result.endpoint,
+      // Upload
+      await blob.uploadData(zipBuffer, {
+        blobHTTPHeaders: {
+          blobContentType: "application/zip",
+          blobContentDisposition: `attachment; filename="${brandKey}-installer.zip"`,
+        },
+        metadata: {
+          brandKey,
+          createdAt: new Date().toISOString(),
+          apkSize: String(finalApkBytes.byteLength),
+          zipSize: String(zipBuffer.byteLength),
+          ...(endpoint ? { endpoint } : {}),
+        },
       });
 
-      console.log(`[APK Package] Completed for ${brandKey}`);
+      // Generate SAS URL for download (valid for 24 hours)
+      let sasUrl: string | undefined;
+      try {
+        // More robust regex for parsing connection string
+        const accountMatch = conn.match(/AccountName\s*=\s*([^;]+)/i);
+        const keyMatch = conn.match(/AccountKey\s*=\s*([^;]+)/i);
+
+        if (accountMatch && keyMatch) {
+          console.log(`[APK] Generating SAS for ${blobName} using account ${accountMatch[1]}`);
+          const sharedKeyCredential = new StorageSharedKeyCredential(accountMatch[1], keyMatch[1]);
+          const sasToken = generateBlobSASQueryParameters({
+            containerName: container,
+            blobName,
+            permissions: BlobSASPermissions.parse("r"),
+            startsOn: new Date(),
+            expiresOn: new Date(Date.now() + 24 * 3600 * 1000),
+          }, sharedKeyCredential).toString();
+
+          sasUrl = `${blob.url}?${sasToken}`;
+          console.log(`[APK] SAS URL generated successfully`);
+        } else {
+          console.warn(`[APK] Could not parse AccountName/AccountKey from connection string. SAS generation skipped.`);
+          // Log obscured connection string for debugging
+          const obscured = conn.replace(/AccountKey=[^;]+/, "AccountKey=***");
+          console.log(`[APK] Connection string format: ${obscured}`);
+        }
+      } catch (e: any) {
+        console.error(`[APK] Failed to generate SAS: ${e?.message}`);
+      }
+
+      return {
+        success: true,
+        blobUrl: blob.url,
+        sasUrl,
+        size: zipBuffer.byteLength,
+        endpoint,
+      };
     } catch (e: any) {
-      clearInterval(heartbeat);
-      console.error(`[APK Package] Failed for ${brandKey}:`, e);
-      await sendProgress(e?.message || "Unknown error", "failed", { error: "exception" });
-    } finally {
-      clearInterval(heartbeat);
-      await writer.close();
+      return { success: false, error: e?.message || "Failed to upload package" };
     }
-  })();
-
-  // Return SSE stream immediately
-  return new NextResponse(stream.readable, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      "Connection": "keep-alive",
-    },
-  });
-}
-
-/**
- * GET /api/admin/devices/package?jobId=xxx  - Poll for job status
- * GET /api/admin/devices/package?brandKey=xoinpay  - Check if package exists
- * 
- * Poll for job status or check if a package exists for a brand.
- */
-export async function GET(req: NextRequest) {
-  // Auth: Admin or Superadmin only
-  try {
-    const caller = await requireThirdwebAuth(req);
-    const roles = Array.isArray(caller?.roles) ? caller.roles : [];
-    if (!roles.includes("admin") && !roles.includes("superadmin")) {
-      return json({ error: "forbidden" }, { status: 403 });
-    }
-  } catch {
-    return json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const url = new URL(req.url);
-
-  // Check if this is a job status poll
-  const jobId = url.searchParams.get("jobId");
-  if (jobId) {
-    const job = jobStore.get(jobId);
-    if (!job) {
-      return json({ error: "job_not_found", jobId }, { status: 404 });
+  /**
+   * POST /api/admin/devices/package
+   * 
+   * Generate an installer package (.zip) for a brand and upload to blob storage.
+   * Uses Server-Sent Events (SSE) to stream progress updates back to client.
+   * 
+   * Body:
+   * {
+   *   "brandKey": "xoinpay",  // required
+   *   "endpoint": "https://xoinpay.azurewebsites.net"  // optional - URL to load in the APK wrapper
+   * }
+   * 
+   * Response: SSE stream with progress updates, final message contains download URL
+   */
+  export async function POST(req: NextRequest) {
+    // Auth: Admin or Superadmin only
+    let caller: { wallet: string; roles: string[] };
+    try {
+      const c = await requireThirdwebAuth(req);
+      const roles = Array.isArray(c?.roles) ? c.roles : [];
+      if (!roles.includes("admin") && !roles.includes("superadmin")) {
+        return json({ error: "forbidden" }, { status: 403 });
+      }
+      caller = { wallet: c.wallet, roles };
+    } catch {
+      return json({ error: "unauthorized" }, { status: 401 });
     }
 
-    return json({
-      jobId,
-      status: job.status,
-      progress: job.progress,
-      brandKey: job.brandKey,
-      downloadUrl: job.downloadUrl,
-      sasUrl: job.sasUrl,
-      error: job.error,
-      createdAt: job.createdAt,
+    // Parse body
+    let body: { brandKey?: string; endpoint?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "invalid_body" }, { status: 400 });
+    }
+
+    const brandKey = String(body?.brandKey || "").toLowerCase().trim();
+    if (!brandKey) {
+      return json({ error: "brandKey_required" }, { status: 400 });
+    }
+
+    // Validate and normalize endpoint URL
+    let endpoint: string | undefined;
+    if (body?.endpoint) {
+      let rawEndpoint = String(body.endpoint).trim();
+      // Ensure it has a protocol
+      if (rawEndpoint && !rawEndpoint.startsWith("http://") && !rawEndpoint.startsWith("https://")) {
+        rawEndpoint = `https://${rawEndpoint}`;
+      }
+      // Validate it's a valid URL
+      try {
+        new URL(rawEndpoint);
+        endpoint = rawEndpoint;
+      } catch {
+        return json({ error: "invalid_endpoint", message: "Endpoint must be a valid URL" }, { status: 400 });
+      }
+    }
+
+    // Create SSE stream for progress updates
+    const encoder = new TextEncoder();
+    const stream = new TransformStream();
+    const writer = stream.writable.getWriter();
+
+    const sendProgress = async (progress: string, status: "processing" | "completed" | "failed", data?: any) => {
+      const message = JSON.stringify({ progress, status, ...data });
+      await writer.write(encoder.encode(`data: ${message}\n\n`));
+    };
+
+    // Start async processing (this runs while stream is open)
+    (async () => {
+      // Start heartbeat to keep connection alive (Cloudflare kills after ~100s of no data)
+      let heartbeatCount = 0;
+      const heartbeat = setInterval(async () => {
+        try {
+          heartbeatCount++;
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ heartbeat: heartbeatCount, status: "processing" })}\n\n`));
+        } catch {
+          // Writer might be closed
+        }
+      }, 10000); // Every 10 seconds
+
+      try {
+        await sendProgress("Starting job...", "processing");
+
+        // Get APK bytes
+        await sendProgress("Downloading base APK...", "processing");
+        const apkResult = await getApkBytes(brandKey);
+        if (!apkResult) {
+          clearInterval(heartbeat);
+          await sendProgress(`No signed APK found for brand '${brandKey}'`, "failed", { error: "apk_not_found" });
+          await writer.close();
+          return;
+        }
+
+        await sendProgress("Modifying and signing APK...", "processing");
+
+        // Generate and upload package
+        const result = await generateAndUploadPackage(brandKey, apkResult.bytes, endpoint);
+
+        clearInterval(heartbeat);
+
+        if (!result.success) {
+          await sendProgress(result.error || "Package generation failed", "failed", { error: "package_failed" });
+          await writer.close();
+          return;
+        }
+
+        // Success!
+        await sendProgress("Complete!", "completed", {
+          brandKey,
+          downloadUrl: result.blobUrl,
+          sasUrl: result.sasUrl,
+          size: result.size,
+          endpoint: result.endpoint,
+        });
+
+        console.log(`[APK Package] Completed for ${brandKey}`);
+      } catch (e: any) {
+        clearInterval(heartbeat);
+        console.error(`[APK Package] Failed for ${brandKey}:`, e);
+        await sendProgress(e?.message || "Unknown error", "failed", { error: "exception" });
+      } finally {
+        clearInterval(heartbeat);
+        await writer.close();
+      }
+    })();
+
+    // Return SSE stream immediately
+    return new NextResponse(stream.readable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+      },
     });
   }
 
-  // Otherwise check for brandKey package lookup
-  const brandKey = url.searchParams.get("brandKey")?.toLowerCase().trim();
+  /**
+   * GET /api/admin/devices/package?jobId=xxx  - Poll for job status
+   * GET /api/admin/devices/package?brandKey=xoinpay  - Check if package exists
+   * 
+   * Poll for job status or check if a package exists for a brand.
+   */
+  export async function GET(req: NextRequest) {
+    // Auth: Admin or Superadmin only
+    try {
+      const caller = await requireThirdwebAuth(req);
+      const roles = Array.isArray(caller?.roles) ? caller.roles : [];
+      if (!roles.includes("admin") && !roles.includes("superadmin")) {
+        return json({ error: "forbidden" }, { status: 403 });
+      }
+    } catch {
+      return json({ error: "unauthorized" }, { status: 401 });
+    }
 
-  if (!brandKey) {
-    return json({ error: "brandKey_or_jobId_required" }, { status: 400 });
-  }
+    const url = new URL(req.url);
 
-  const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
-  const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim();
+    // Check if this is a job status poll
+    const jobId = url.searchParams.get("jobId");
+    if (jobId) {
+      const job = jobStore.get(jobId);
+      if (!job) {
+        return json({ error: "job_not_found", jobId }, { status: 404 });
+      }
 
-  if (!conn) {
-    return json({
-      exists: false,
-      error: "storage_not_configured"
-    });
-  }
+      return json({
+        jobId,
+        status: job.status,
+        progress: job.progress,
+        brandKey: job.brandKey,
+        downloadUrl: job.downloadUrl,
+        sasUrl: job.sasUrl,
+        error: job.error,
+        createdAt: job.createdAt,
+      });
+    }
 
-  try {
-    const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = await import("@azure/storage-blob");
-    const bsc = BlobServiceClient.fromConnectionString(conn);
-    const cont = bsc.getContainerClient(container);
-    const blobName = `${brandKey}/${brandKey}-installer.zip`;
-    const blob = cont.getBlockBlobClient(blobName);
+    // Otherwise check for brandKey package lookup
+    const brandKey = url.searchParams.get("brandKey")?.toLowerCase().trim();
 
-    const exists = await blob.exists();
-    if (!exists) {
+    if (!brandKey) {
+      return json({ error: "brandKey_or_jobId_required" }, { status: 400 });
+    }
+
+    const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
+    const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim();
+
+    if (!conn) {
       return json({
         exists: false,
-        brandKey,
+        error: "storage_not_configured"
       });
     }
 
-    // Get properties
-    const props = await blob.getProperties();
-
-    // Generate SAS URL for download (valid for 24 hours)
-    let sasUrl: string | undefined;
     try {
-      // More robust regex for parsing connection string
-      const accountMatch = conn.match(/AccountName\s*=\s*([^;]+)/i);
-      const keyMatch = conn.match(/AccountKey\s*=\s*([^;]+)/i);
+      const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = await import("@azure/storage-blob");
+      const bsc = BlobServiceClient.fromConnectionString(conn);
+      const cont = bsc.getContainerClient(container);
+      const blobName = `${brandKey}/${brandKey}-installer.zip`;
+      const blob = cont.getBlockBlobClient(blobName);
 
-      if (accountMatch && keyMatch) {
-        console.log(`[APK] Generating SAS for ${blobName} using account ${accountMatch[1]}`);
-        const sharedKeyCredential = new StorageSharedKeyCredential(accountMatch[1], keyMatch[1]);
-        const sasToken = generateBlobSASQueryParameters({
-          containerName: container,
-          blobName,
-          permissions: BlobSASPermissions.parse("r"),
-          startsOn: new Date(),
-          expiresOn: new Date(Date.now() + 24 * 3600 * 1000),
-        }, sharedKeyCredential).toString();
-
-        sasUrl = `${blob.url}?${sasToken}`;
-        console.log(`[APK] SAS URL generated successfully`);
-      } else {
-        console.warn(`[APK] Could not parse AccountName/AccountKey from connection string. SAS generation skipped.`);
-        // Log obscured connection string for debugging
-        const obscured = conn.replace(/AccountKey=[^;]+/, "AccountKey=***");
-        console.log(`[APK] Connection string format: ${obscured}`);
+      const exists = await blob.exists();
+      if (!exists) {
+        return json({
+          exists: false,
+          brandKey,
+        });
       }
+
+      // Get properties
+      const props = await blob.getProperties();
+
+      // Generate SAS URL for download (valid for 24 hours)
+      let sasUrl: string | undefined;
+      try {
+        // More robust regex for parsing connection string
+        const accountMatch = conn.match(/AccountName\s*=\s*([^;]+)/i);
+        const keyMatch = conn.match(/AccountKey\s*=\s*([^;]+)/i);
+
+        if (accountMatch && keyMatch) {
+          console.log(`[APK] Generating SAS for ${blobName} using account ${accountMatch[1]}`);
+          const sharedKeyCredential = new StorageSharedKeyCredential(accountMatch[1], keyMatch[1]);
+          const sasToken = generateBlobSASQueryParameters({
+            containerName: container,
+            blobName,
+            permissions: BlobSASPermissions.parse("r"),
+            startsOn: new Date(),
+            expiresOn: new Date(Date.now() + 24 * 3600 * 1000),
+          }, sharedKeyCredential).toString();
+
+          sasUrl = `${blob.url}?${sasToken}`;
+          console.log(`[APK] SAS URL generated successfully`);
+        } else {
+          console.warn(`[APK] Could not parse AccountName/AccountKey from connection string. SAS generation skipped.`);
+          // Log obscured connection string for debugging
+          const obscured = conn.replace(/AccountKey=[^;]+/, "AccountKey=***");
+          console.log(`[APK] Connection string format: ${obscured}`);
+        }
+      } catch (e: any) {
+        console.error(`[APK] Failed to generate SAS: ${e?.message}`);
+        // Fallback: Check if the connection string itself is a SAS URL
+        if (conn.includes("SharedAccessSignature") || conn.includes("sig=")) {
+          // If conn is a SAS, blob.url might already have it? 
+          // Actually BlockBlobClient from SAS conn usually includes the SAS token in its .url or keeps it in pipeline.
+          // But let's just log this case.
+          console.log("[APK] Connection string appears to be SAS-based.");
+        }
+      }
+
+      return json({
+        exists: true,
+        brandKey,
+        packageUrl: blob.url,
+        sasUrl,
+        size: props.contentLength,
+        createdAt: props.metadata?.createdAt,
+        lastModified: props.lastModified?.toISOString(),
+        endpoint: props.metadata?.endpoint,
+      });
     } catch (e: any) {
-      console.error(`[APK] Failed to generate SAS: ${e?.message}`);
-      // Fallback: Check if the connection string itself is a SAS URL
-      if (conn.includes("SharedAccessSignature") || conn.includes("sig=")) {
-        // If conn is a SAS, blob.url might already have it? 
-        // Actually BlockBlobClient from SAS conn usually includes the SAS token in its .url or keeps it in pipeline.
-        // But let's just log this case.
-        console.log("[APK] Connection string appears to be SAS-based.");
+      return json({
+        exists: false,
+        error: e?.message || "Failed to check package"
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/admin/devices/package?brandKey=xoinpay
+   * 
+   * Delete a package from blob storage.
+   * This allows regenerating a fresh package.
+   */
+  export async function DELETE(req: NextRequest) {
+    // Auth: Admin or Superadmin only
+    try {
+      const c = await requireThirdwebAuth(req);
+      const roles = Array.isArray(c?.roles) ? c.roles : [];
+      if (!roles.includes("admin") && !roles.includes("superadmin")) {
+        return json({ error: "forbidden" }, { status: 403 });
       }
+    } catch {
+      return json({ error: "unauthorized" }, { status: 401 });
     }
 
-    return json({
-      exists: true,
-      brandKey,
-      packageUrl: blob.url,
-      sasUrl,
-      size: props.contentLength,
-      createdAt: props.metadata?.createdAt,
-      lastModified: props.lastModified?.toISOString(),
-      endpoint: props.metadata?.endpoint,
-    });
-  } catch (e: any) {
-    return json({
-      exists: false,
-      error: e?.message || "Failed to check package"
-    });
-  }
-}
+    const url = new URL(req.url);
+    const brandKey = url.searchParams.get("brandKey")?.toLowerCase().trim();
 
-/**
- * DELETE /api/admin/devices/package?brandKey=xoinpay
- * 
- * Delete a package from blob storage.
- * This allows regenerating a fresh package.
- */
-export async function DELETE(req: NextRequest) {
-  // Auth: Admin or Superadmin only
-  try {
-    const c = await requireThirdwebAuth(req);
-    const roles = Array.isArray(c?.roles) ? c.roles : [];
-    if (!roles.includes("admin") && !roles.includes("superadmin")) {
-      return json({ error: "forbidden" }, { status: 403 });
-    }
-  } catch {
-    return json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  const url = new URL(req.url);
-  const brandKey = url.searchParams.get("brandKey")?.toLowerCase().trim();
-
-  if (!brandKey) {
-    return json({ error: "brandKey_required" }, { status: 400 });
-  }
-
-  const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
-  const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim();
-
-  if (!conn) {
-    return json({ error: "storage_not_configured" }, { status: 500 });
-  }
-
-  try {
-    const { BlobServiceClient } = await import("@azure/storage-blob");
-    const bsc = BlobServiceClient.fromConnectionString(conn);
-    const cont = bsc.getContainerClient(container);
-    const blobName = `${brandKey}/${brandKey}-installer.zip`;
-    const blob = cont.getBlockBlobClient(blobName);
-
-    if (!(await blob.exists())) {
-      return json({ deleted: false, error: "Package not found", brandKey });
+    if (!brandKey) {
+      return json({ error: "brandKey_required" }, { status: 400 });
     }
 
-    await blob.delete();
-    console.log(`[APK] Deleted package: ${blobName}`);
+    const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
+    const container = String(process.env.PP_PACKAGES_CONTAINER || "device-packages").trim();
 
-    return json({ deleted: true, brandKey, blobName });
-  } catch (e: any) {
-    return json({ deleted: false, error: e?.message || "Failed to delete package" }, { status: 500 });
+    if (!conn) {
+      return json({ error: "storage_not_configured" }, { status: 500 });
+    }
+
+    try {
+      const { BlobServiceClient } = await import("@azure/storage-blob");
+      const bsc = BlobServiceClient.fromConnectionString(conn);
+      const cont = bsc.getContainerClient(container);
+      const blobName = `${brandKey}/${brandKey}-installer.zip`;
+      const blob = cont.getBlockBlobClient(blobName);
+
+      if (!(await blob.exists())) {
+        return json({ deleted: false, error: "Package not found", brandKey });
+      }
+
+      await blob.delete();
+      console.log(`[APK] Deleted package: ${blobName}`);
+
+      return json({ deleted: true, brandKey, blobName });
+    } catch (e: any) {
+      return json({ deleted: false, error: e?.message || "Failed to delete package" }, { status: 500 });
+    }
   }
-}
