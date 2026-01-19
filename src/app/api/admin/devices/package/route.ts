@@ -574,14 +574,16 @@ async function generateAndUploadPackage(
   if (endpoint) {
     try {
       finalApkBytes = await modifyApkEndpoint(apkBytes, endpoint);
+
+      // CRITICAL: Re-sign the APK after modification
+      // Modifying any file in the APK invalidates the original signature
+      console.log(`[APK] Re-signing modified APK...`);
+      finalApkBytes = await signApk(finalApkBytes, brandKey);
     } catch (e: any) {
-      console.error(`[APK] Failed to modify endpoint: ${e?.message}`);
+      console.error(`[APK] Failed to modify/sign APK: ${e?.message}`);
       // Continue with original APK if modification fails
     }
   }
-
-  // NOTE: We skip signApk - the original APK is already properly signed and 4-byte aligned
-  // Re-signing with JSZip would break alignment (causes Android R+ install failure)
 
   // Create ZIP
   const zip = new JSZip();
