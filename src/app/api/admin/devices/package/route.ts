@@ -569,23 +569,22 @@ async function generateAndUploadPackage(
   size?: number;
   endpoint?: string;
 }> {
-  // Modify APK if endpoint is specified
-  let finalApkBytes = apkBytes;
-  if (endpoint) {
-    try {
-      finalApkBytes = await modifyApkEndpoint(apkBytes, endpoint);
+  // IMPORTANT: Do NOT modify the APK - it would break 4-byte alignment required by Android R+
+  // The original APK is pre-signed and properly aligned. Modifying it with JSZip breaks alignment.
+  // Instead, the endpoint should be configured via:
+  // 1. URL parameter when launching the app (e.g., ?src=https://xoinpay.azurewebsites.net)
+  // 2. Server-side configuration that the app fetches on first launch
+  // 3. Pre-built APKs for each brand (recommended)
 
-      // CRITICAL: Re-sign the APK after modification
-      // Modifying any file in the APK invalidates the original signature
-      console.log(`[APK] Re-signing modified APK...`);
-      finalApkBytes = await signApk(finalApkBytes, brandKey);
-    } catch (e: any) {
-      console.error(`[APK] Failed to modify/sign APK: ${e?.message}`);
-      // Continue with original APK if modification fails
-    }
+  let finalApkBytes = apkBytes;
+
+  if (endpoint) {
+    console.log(`[APK] NOTE: Endpoint ${endpoint} requested but APK modification is disabled.`);
+    console.log(`[APK] The original APK must remain unmodified to preserve Android R+ alignment.`);
+    console.log(`[APK] Configure the endpoint via server-side branding or use a pre-built brand APK.`);
   }
 
-  // Create ZIP
+  // Create ZIP with the ORIGINAL, unmodified APK
   const zip = new JSZip();
   zip.file(`${brandKey}.apk`, finalApkBytes);
   zip.file(`install_${brandKey}.bat`, buildInstallerBat(brandKey));

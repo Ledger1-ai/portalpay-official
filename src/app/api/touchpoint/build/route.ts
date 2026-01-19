@@ -289,11 +289,15 @@ export async function POST(req: NextRequest) {
 
         console.log(`[Touchpoint APK] Building for brand: ${brandKey}, endpoint: ${endpoint}`);
 
-        // Modify APK with brand endpoint
-        const modifiedApk = await modifyTouchpointApk(baseApk, brandKey, endpoint);
+        // IMPORTANT: Do NOT modify the APK - it breaks 4-byte alignment required by Android R+
+        // JSZip cannot rebuild APKs with proper alignment, causing install failures.
+        // The base APK must be pre-built with the correct endpoint, or the endpoint must be
+        // configured via URL parameter (?src=...) or server-side configuration.
+        console.log(`[Touchpoint APK] Using base APK without modification (Android R+ alignment requirement)`);
+        console.log(`[Touchpoint APK] Requested endpoint: ${endpoint} - configure via server-side branding`);
 
-        // Upload to blob storage
-        const uploadResult = await uploadTouchpointApk(brandKey, modifiedApk);
+        // Upload the ORIGINAL, unmodified APK to blob storage
+        const uploadResult = await uploadTouchpointApk(brandKey, baseApk);
 
         if (!uploadResult.success) {
             return json({
