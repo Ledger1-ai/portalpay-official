@@ -163,77 +163,16 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
 
     console.log(`[Touchpoint APK] Generated unsigned APK (${modifiedApkUnsigned.byteLength} bytes). Starting signing process...`);
 
-    // --- SIGNING PROCESS ---
-    // 1. Write temp unsigned APK
-    const tempDir = path.join(process.cwd(), "tmp");
-    await fs.mkdir(tempDir, { recursive: true });
-    const tempId = Math.random().toString(36).substring(7);
-    const unsignedPath = path.join(tempDir, `${brandKey}-${tempId}-unsigned.apk`);
-    const signedPath = path.join(tempDir, `${brandKey}-${tempId}-unsigned-aligned-debugSigned.apk`); // Default uber-signer output pattern
+    // --- SIGNING PROCESS (Pure JavaScript) ---
+    // Use the JavaScript-based APK signer instead of Java uber-apk-signer
+    // This works on Azure App Service without requiring Java
+    const { signApk } = await import("@/lib/apk-signer");
 
-    await fs.writeFile(unsignedPath, modifiedApkUnsigned);
+    const signedApk = await signApk(new Uint8Array(modifiedApkUnsigned.buffer, modifiedApkUnsigned.byteOffset, modifiedApkUnsigned.byteLength));
 
-    // 2. Spawn Java Process to sign
-    // Requires java on PATH and tools/uber-apk-signer.jar
-    // Command: java -jar tools/uber-apk-signer.jar -a tmp/x.apk --allowResign
-    const signerPath = path.join(process.cwd(), "tools", "uber-apk-signer.jar");
+    console.log(`[Touchpoint APK] Signing complete. Signed APK size: ${signedApk.byteLength} bytes`);
 
-    // Check if signer exists
-    try {
-        await fs.access(signerPath);
-    } catch {
-        console.error("[Touchpoint APK] CRITICAL: uber-apk-signer.jar not found in tools/. Returning unsigned APK.");
-        await fs.unlink(unsignedPath).catch(() => { });
-        return new Uint8Array(modifiedApkUnsigned.buffer, modifiedApkUnsigned.byteOffset, modifiedApkUnsigned.byteLength);
-    }
-
-    // Determine Java Executable
-    let javaPath = "java"; // Default to global PATH
-    const localJrePath = path.join(process.cwd(), "tools", "jre-linux", "bin", "java");
-
-    // Check if local portable JRE exists (only on Linux/Production usually)
-    try {
-        await fs.access(localJrePath);
-        javaPath = localJrePath;
-        console.log(`[Touchpoint APK] Using portable JRE: ${javaPath}`);
-    } catch {
-        console.log("[Touchpoint APK] Portable JRE not found, using global 'java'");
-    }
-
-    console.log(`[Touchpoint APK] Executing signer: ${javaPath} -jar ${signerPath} -a ${unsignedPath} --allowResign`);
-
-    const { spawn } = await import("child_process");
-
-    await new Promise<void>((resolve, reject) => {
-        const child = spawn(javaPath, ["-jar", signerPath, "-a", unsignedPath, "--allowResign"], {
-            stdio: "inherit", // Pipe output to console for debugging
-        });
-
-        child.on("close", (code) => {
-            if (code === 0) resolve();
-            else reject(new Error(`Signer process exited with code ${code}`));
-        });
-
-        child.on("error", (err) => reject(err));
-    });
-
-    // 3. Read signed APK
-    console.log("[Touchpoint APK] Signing complete. Reading output...");
-    try {
-        const signedData = await fs.readFile(signedPath);
-        console.log(`[Touchpoint APK] Successfully read signed APK (${signedData.byteLength} bytes)`);
-
-        // Cleanup
-        await fs.unlink(unsignedPath).catch(() => { });
-        await fs.unlink(signedPath).catch(() => { });
-
-        return new Uint8Array(signedData.buffer, signedData.byteOffset, signedData.byteLength);
-    } catch (e) {
-        console.error("[Touchpoint APK] Failed to read signed APK:", e);
-        // Fallback to unsigned if read fails 
-        await fs.unlink(unsignedPath).catch(() => { });
-        return new Uint8Array(modifiedApkUnsigned.buffer, modifiedApkUnsigned.byteOffset, modifiedApkUnsigned.byteLength);
-    }
+    return signedApk;
 }
 
 /**
