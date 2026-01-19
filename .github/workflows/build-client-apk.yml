@@ -46,14 +46,19 @@ jobs:
                   ICON_SRC="public/brands/${BRAND_KEY}/icon.png"
                   ICON_DEST="android/app/src/main/res/drawable/ic_launcher_foreground.png"
 
+                  # Create the drawable directory if it doesn't exist
+                  # (The android/ directory is gitignored, so it may not have all subdirs)
+                  mkdir -p "$(dirname "$ICON_DEST")"
+
                   if [ -f "$ICON_SRC" ]; then
                     echo "Found icon at $ICON_SRC"
                     cp "$ICON_SRC" "$ICON_DEST"
-                    echo "Icon copied successfully"
+                    echo "Icon copied successfully to $ICON_DEST"
                   else
                     echo "Warning: No icon.png found at $ICON_SRC"
                     echo "Available files in public/brands/${BRAND_KEY}/:"
                     ls -la "public/brands/${BRAND_KEY}/" 2>/dev/null || echo "Brand folder not found"
+                    echo "Continuing without custom icon..."
                   fi
 
             - name: Build APK with Gradle
