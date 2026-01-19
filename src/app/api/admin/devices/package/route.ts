@@ -496,6 +496,7 @@ XSx/tDaus4PyhrX57y3P7cSQxaCrWaoSXUk7EK0Usg4OR4m8eTzkSg==
 interface ModifyOptions {
   endpoint?: string;
   iconBuffer?: Uint8Array;
+  brandKey?: string;
 }
 
 /**
@@ -514,21 +515,62 @@ async function customizeApk(apkBytes: Uint8Array, options: ModifyOptions): Promi
     if (wrapHtmlFile) {
       let content = await wrapHtmlFile.async("string");
 
-      // Replace the target URL
-      const defaultUrlForRegex = "https://pay.ledger1.ai";
-      const paynexUrlForRegex = "https://paynex.azurewebsites.net";
+      const isTouchpoint = (options.brandKey && options.brandKey.endsWith("-touchpoint")) || (options.endpoint && options.endpoint.includes("/touchpoint"));
 
-      content = content.replace(/var\s+TARGET_URL\s*=\s*"[^"]*"/, `var TARGET_URL = "${options.endpoint}"`);
-      content = content.replace(/const\s+TARGET_URL\s*=\s*"[^"]*"/, `const TARGET_URL = "${options.endpoint}"`);
+      if (isTouchpoint) {
+        // Injection script with installationId and endpoint (for Touchpoints)
+        const injectionScript = `
+          // --- INJECTED: Installation ID & Endpoint Logic ---
+          var installationId = localStorage.getItem("installationId");
+          if (!installationId) {
+              installationId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                  var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                  return v.toString(16);
+              });
+              localStorage.setItem("installationId", installationId);
+          }
+          var qp = new URLSearchParams(window.location.search);
+          var src = qp.get("src") || "${options.endpoint}";
+          if (src) {
+               var sep = src.indexOf("?") !== -1 ? "&" : "?";
+               src += sep + "installationId=" + installationId;
+          }
+          // --------------------------------------------------
+          `;
 
-      // Fallback: Replace specific domains if the var pattern fails
-      if (!content.includes(options.endpoint)) {
-        content = content.split(defaultUrlForRegex).join(options.endpoint);
-        content = content.split(paynexUrlForRegex).join(options.endpoint);
+        // Try to replace the target block (standard pattern)
+        const targetBlockRegex = /var\s+qp\s*=\s*new\s*URLSearchParams\(window\.location\.search\);\s*var\s+src\s*=\s*qp\.get\s*\(\s*["']src["']\s*\)\s*\|\|\s*["'][^"']+["'];/;
+
+        if (targetBlockRegex.test(content)) {
+          content = content.replace(targetBlockRegex, injectionScript);
+        } else {
+          // Fallback: replace any azurewebsites.net URL
+          content = content.replace(/https:\/\/[a-z0-9-]+\.azurewebsites\.net/g, options.endpoint);
+        }
+      } else {
+        // Standard replacement (Partner App)
+
+        // Replace TARGET_URL (if present)
+        content = content.replace(/var\s+TARGET_URL\s*=\s*"[^"]*"/, `var TARGET_URL = "${options.endpoint}"`);
+        content = content.replace(/const\s+TARGET_URL\s*=\s*"[^"]*"/, `const TARGET_URL = "${options.endpoint}"`);
+
+        // Replace src fallback (if present)
+        const endpointPattern = /var\s+src\s*=\s*qp\.get\s*\(\s*["']src["']\s*\)\s*\|\|\s*["']([^"']+)["']/;
+        if (endpointPattern.test(content)) {
+          content = content.replace(endpointPattern, `var src = qp.get("src") || "${options.endpoint}"`);
+        }
+
+        // Fallback: Replace specific domains if simpler patterns fail
+        if (!content.includes(options.endpoint)) {
+          content = content.split("https://pay.ledger1.ai").join(options.endpoint);
+          content = content.split("https://paynex.azurewebsites.net").join(options.endpoint);
+          // Robust catch-all for defaults
+          content = content.replace(/https:\/\/[a-z0-9-]+\.azurewebsites\.net/g, options.endpoint);
+        }
       }
 
       apkZip.file(wrapHtmlPath, content, { compression: "DEFLATE" });
-      console.log(`[APK] Updated wrap.html endpoint to ${options.endpoint}`);
+      console.log(`[APK] Updated wrap.html endpoint to ${options.endpoint} (Touchpoint: ${isTouchpoint})`);
     } else {
       console.warn("[APK] assets/wrap.html not found. Endpoint modification skipped.");
     }
@@ -569,10 +611,13 @@ async function customizeApk(apkBytes: Uint8Array, options: ModifyOptions): Promi
 async function getBrandIconUrl(brandKey: string): Promise<string | null> {
   try {
     const container = await getContainer();
+    // Strip -touchpoint suffix if present to find the parent brand application
+    const lookupKey = brandKey.replace(/-touchpoint$/, "");
+
     // Query for partner application
     const q = {
       query: "SELECT TOP 1 * FROM c WHERE c.brandKey = @brandKey AND c.type = 'partner_application' ORDER BY c.createdAt DESC",
-      parameters: [{ name: "@brandKey", value: brandKey }]
+      parameters: [{ name: "@brandKey", value: lookupKey }]
     };
     const { resources } = await container.items.query(q).fetchAll();
     if (resources.length > 0 && resources[0].logos?.app) {
@@ -621,7 +666,7 @@ async function generateAndUploadPackage(
   let finalApkBytes = apkBytes;
   if (endpoint || iconBuffer) {
     try {
-      finalApkBytes = await customizeApk(apkBytes, { endpoint, iconBuffer });
+      finalApkBytes = await customizeApk(apkBytes, { endpoint, iconBuffer, brandKey });
     } catch (e: any) {
       console.error(`[APK] Failed to modify APK: ${e?.message}`);
     }

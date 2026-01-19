@@ -3,6 +3,8 @@ import { requireThirdwebAuth } from "@/lib/auth";
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
+import { getContainer } from "@/lib/cosmos";
+import { zipalign } from "@/utils/zipalign";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,20 +85,250 @@ async function getBaseTouchpointApk(): Promise<Uint8Array | null> {
 }
 
 /**
- * Modify touchpoint APK to set brand-specific endpoint
- * Uses the aligned APK builder to preserve 4-byte alignment for Android R+
+ * Sign APK using node-forge (APK v1 / JAR signing)
+ * This makes the APK installable on devices that require signatures
+ * Uses node-forge for proper X.509 certificate and PKCS#7 signing
  */
-async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpoint: string): Promise<Uint8Array> {
-    const { modifyApkWithAlignment, signAlignedApk } = await import("@/lib/apk-builder");
+async function signApk(apkBytes: Uint8Array, brandKey: string): Promise<Uint8Array> {
+    const forge = await import("node-forge");
+    const crypto = await import("crypto");
 
-    // Load APK to read wrap.html
+    console.log(`[APK Sign] Starting node-forge signing for ${brandKey}`);
+
+    try {
+        // Load the APK
+        const apkZip = await JSZip.loadAsync(apkBytes);
+
+        // Pre-generated debug RSA private key (2048-bit) - avoids slow runtime generation
+        const DEBUG_PRIVATE_KEY_PEM = `-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAwm1+QevkNvPFJ+U6akEMuvzOQIDEaftQdmMGfjCJ53YJ9Gf9
+l8fmnx106MKKt0hwiYklwGWnqH29cvM7mHUKQFOHynv3Iy9jpkUOPY3fSh2JTTCM
+kgmrhvjcI8mjdA013YlrNbxIhj9zZqfi0CWtJ6iCEyw0wHOml1U98cJoo2jckiwH
+eaIrOu+s+GdS2XfmKAdS6/0efHh1Wit409/S+zlpozhHJzP5QoNTbls1oVeuwgGN
+bL4VycPFC8mIxKqs31NtnIRZ9/GtXbv3KQopAUYleiyHyjdw9vYLH5DWSQTr9YZT
+Qe2YZGUfn0XfAlqDkoDLHv9KEY1db8kTDl3zQwIDAQABAoIBAC9Q0DIgwxgweOF9
+opqrG/sBfPwrmiEknO9CqBjbnSPsEP4etJNUfaZpV8MxXOq/wUtnSf2pf4S8nPc1
+hGJU0VrYOSqownsYlEqpcY6/UQDLcVeMohkEK28cbw5yism6UUqJn8KjAI9TL7Vi
+1ArNsHb/RjB+SJQxUPBxOTL1mdtyQ2FCgCNEI+XQnkklkqtceHo1oI2EPnTGCaTz
+sKUQas7NWIpBik8FQob8Sv/FRHjCVp8WcMB0bAVIe7XEJv63ISotlVxPKHfazWdq
+H3nd3/ZBcRv57PbQMHdvOU0t7WOAIBt7kxOJgDkh0KlReAjAJCWwP26UAtPuba7e
+OXsgPTECgYEA9pxgg8nw+bBcq5CUNGygbDhXrMnHKbs8ZdK8qRuhYcNGw8r+hCFL
+AtI/sKP84xwNoqqFCuc07PTsMPtijkDllf63v5cUGKMnoUW5USjWMdBNLe/WH3yw
+jPL2GdZO+bMlNDDdVwClJquualTpt+gMUwp93QbEpevzIVTc1spjnvsCgYEAydSB
+vKO6xf/NvC5AXbMs96d0R47Q8lCUYi04TuGGyXLBwCB0XyCwteiu02iQfpCLTh6Q
+XiKkS1y5ISI8wHW1Ag3YJuNiukbJzWT7t1H2RIYRvnzi1wtD55nf3EjmhXwm1K7B
+X8lW5OT/jTmBEJRW8GjdqEZeehgAxpsb3qIrqlkCgYEApJBjo24dnTFAFcir7XPT
+dYP/lbEscz+bpUMEXECw54Ec9si+IMPqv1433BMCTTdKLhNmJol0+u7Rsjn+YXkS
++433ZiVV5r7xUiAp8uuyS5l59z6Ff4uAcP4slb86Aky2deZpvYYTrwN/pzs0n2F8
+3+kvZk/+583U95geqkJySgMCgYAIglAR7ukx7c3zsBOAn8w2iLXLSoceoC0RUoy8
+Lp/rIE5w1i1x0UQB91Rfj1oALAHjgkBd56H7l2YqsnHTP2MpOgIx6YZBCjj50tcV
+7HuweeKHoGZD4LK1MfSRKfWmDQzqDJAUhL2IGut3PcRmOYrMye8GaCkVhquJtAJh
+yX6DyQKBgQDC+Xya1cAi7X0AaXkE2v2e6OQCs8TTrhTiWf/FGdj2/jaxI4nydtv7
+NLmbV4uQeYNUbUznEXsfEDuXkYmbKEQ5TI0vDZguXmTH3ZI13rLlp/NWRnZr57c0
+XSx/tDaus4PyhrX57y3P7cSQxaCrWaoSXUk7EK0Usg4OR4m8eTzkSg==
+-----END RSA PRIVATE KEY-----`;
+
+        // Get or generate keys from hardcoded PEM (instant, no generation needed)
+        console.log(`[APK Sign] Using pre-generated debug keypair...`);
+        const privateKey = forge.pki.privateKeyFromPem(DEBUG_PRIVATE_KEY_PEM);
+        const publicKey = forge.pki.setRsaPublicKey(privateKey.n, privateKey.e);
+
+        // Create a self-signed certificate
+        console.log(`[APK Sign] Creating self-signed certificate...`);
+        const cert = forge.pki.createCertificate();
+        cert.publicKey = publicKey;
+        cert.serialNumber = "01";
+        cert.validity.notBefore = new Date();
+        cert.validity.notAfter = new Date();
+        cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
+
+        const attrs = [
+            { name: "commonName", value: "PortalPay Debug Key" },
+            { name: "organizationName", value: "PortalPay" },
+            { shortName: "OU", value: brandKey }
+        ];
+        cert.setSubject(attrs);
+        cert.setIssuer(attrs);
+
+        // Sign the certificate
+        cert.sign(privateKey, forge.md.sha256.create());
+
+        // Remove existing META-INF signature files
+        const existingMetaInf = Object.keys(apkZip.files).filter(p => p.startsWith("META-INF/"));
+        for (const p of existingMetaInf) {
+            apkZip.remove(p);
+        }
+        console.log(`[APK Sign] Removed ${existingMetaInf.length} existing META-INF files`);
+
+        // Step 1: Generate MANIFEST.MF with SHA-256 digests of all files
+        const manifestLines: string[] = [
+            "Manifest-Version: 1.0",
+            "Created-By: 1.0 (PortalPay APK Signer)",
+            ""
+        ];
+
+        // Collect all files (excluding META-INF)
+        const paths = Object.keys(apkZip.files).filter(p => !p.startsWith("META-INF/") && !apkZip.files[p].dir);
+        console.log(`[APK Sign] Processing ${paths.length} files for signing...`);
+
+        for (const filePath of paths) {
+            const file = apkZip.files[filePath];
+            const data = await file.async("nodebuffer");
+
+            // Calculate SHA-256 digest
+            const md = forge.md.sha256.create();
+            md.update(data.toString("binary"));
+            const sha256 = forge.util.encode64(md.digest().getBytes());
+
+            manifestLines.push(`Name: ${filePath}`);
+            manifestLines.push(`SHA-256-Digest: ${sha256}`);
+            manifestLines.push("");
+        }
+
+        const manifestContent = manifestLines.join("\r\n");
+
+        // Step 2: Generate CERT.SF (signature file)
+        const manifestMd = forge.md.sha256.create();
+        manifestMd.update(manifestContent, "utf8");
+        const manifestHash = forge.util.encode64(manifestMd.digest().getBytes());
+
+        const sfLines: string[] = [
+            "Signature-Version: 1.0",
+            `SHA-256-Digest-Manifest: ${manifestHash}`,
+            "Created-By: 1.0 (PortalPay APK Signer)",
+            ""
+        ];
+
+        // Add per-file digests (hash of each manifest entry block)
+        const manifestBlocks = manifestContent.split("\r\n\r\n");
+        for (const block of manifestBlocks) {
+            if (block.startsWith("Name: ")) {
+                const nameMatch = block.match(/Name: (.+)/);
+                if (nameMatch) {
+                    const blockMd = forge.md.sha256.create();
+                    blockMd.update(block + "\r\n\r\n", "utf8");
+                    const blockHash = forge.util.encode64(blockMd.digest().getBytes());
+                    sfLines.push(`Name: ${nameMatch[1]}`);
+                    sfLines.push(`SHA-256-Digest: ${blockHash}`);
+                    sfLines.push("");
+                }
+            }
+        }
+
+        const sfContent = sfLines.join("\r\n");
+
+        // Step 3: Generate CERT.RSA (PKCS#7 signature)
+        console.log(`[APK Sign] Creating PKCS#7 signature...`);
+
+        // Create a PKCS#7 signed data structure
+        const p7 = forge.pkcs7.createSignedData();
+        p7.content = forge.util.createBuffer(sfContent, "utf8");
+        p7.addCertificate(cert);
+
+        p7.addSigner({
+            key: privateKey,
+            certificate: cert,
+            digestAlgorithm: forge.pki.oids.sha256,
+            authenticatedAttributes: [
+                {
+                    type: forge.pki.oids.contentType,
+                    value: forge.pki.oids.data
+                },
+                {
+                    type: forge.pki.oids.messageDigest
+                    // value will be auto-generated
+                },
+                {
+                    type: forge.pki.oids.signingTime,
+                    value: new Date().toISOString()
+                }
+            ]
+        });
+
+        // Sign the data
+        p7.sign({ detached: true });
+
+        // Convert to DER format
+        const asn1 = p7.toAsn1();
+        const der = forge.asn1.toDer(asn1).getBytes();
+        const pkcs7Buffer = Buffer.from(der, "binary");
+
+        console.log(`[APK Sign] PKCS#7 signature created (${pkcs7Buffer.length} bytes)`);
+
+        // Add new signature files
+        apkZip.file("META-INF/MANIFEST.MF", manifestContent, { compression: "STORE" });
+        apkZip.file("META-INF/CERT.SF", sfContent, { compression: "STORE" });
+        apkZip.file("META-INF/CERT.RSA", pkcs7Buffer, { binary: true, compression: "STORE" });
+
+        console.log(`[APK Sign] Added META-INF signature files`);
+
+        // Helper to check if file must be uncompressed
+        const mustBeUncompressed = (filePath: string): boolean => {
+            const name = filePath.split("/").pop() || "";
+            // resources.arsc MUST be uncompressed and aligned for Android R+
+            if (name === "resources.arsc") return true;
+            // META-INF files should also be uncompressed
+            if (filePath.startsWith("META-INF/")) return true;
+            return false;
+        };
+
+        // Rebuild APK with proper per-file compression
+        const newApkZip = new JSZip();
+
+        // Get all files
+        const allFiles: { path: string; file: JSZip.JSZipObject }[] = [];
+        apkZip.forEach((relativePath, file) => {
+            if (!file.dir) {
+                allFiles.push({ path: relativePath, file });
+            }
+        });
+
+        // Rebuild with proper compression settings
+        let uncompressedCount = 0;
+        for (const { path: filePath, file } of allFiles) {
+            const content = await file.async("nodebuffer");
+            const compress = !mustBeUncompressed(filePath);
+
+            if (!compress) uncompressedCount++;
+
+            newApkZip.file(filePath, content, {
+                compression: compress ? "DEFLATE" : "STORE",
+                compressionOptions: compress ? { level: 6 } : undefined,
+            });
+        }
+
+        console.log(`[APK Sign] ${uncompressedCount} files stored uncompressed (resources.arsc, META-INF)`);
+
+        // Generate the final signed APK
+        const signedApk = await newApkZip.generateAsync({
+            type: "nodebuffer",
+            platform: "UNIX",
+        });
+
+        console.log(`[APK Sign] Signed APK generated (${signedApk.byteLength} bytes)`);
+
+        return new Uint8Array(signedApk.buffer, signedApk.byteOffset, signedApk.byteLength);
+
+    } catch (e: any) {
+        console.error(`[APK Sign] Signing failed: ${e?.message}`);
+        console.error(e?.stack);
+        // Return unsigned APK on failure
+        return apkBytes;
+    }
+}
+
+/**
+ * Customize the Touchpoint APK:
+ * 1. Inject installationId Script Logic (Always, since this is touchpoint)
+ * 2. Replace Icons (if iconBuffer provided) and remove adaptive icon XMLs
+ * 3. Broad URL replacement catch-all
+ */
+async function customizeTouchpointApk(apkBytes: Uint8Array, endpoint: string, iconBuffer?: Uint8Array): Promise<Uint8Array> {
     const apkZip = await JSZip.loadAsync(apkBytes);
 
-    // Find and modify wrap.html
+    // 1. Modify Endpoints (wrap.html)
     const wrapHtmlPath = "assets/wrap.html";
     const wrapHtmlFile = apkZip.file(wrapHtmlPath);
-
-    const modifications = new Map<string, Buffer>();
 
     if (wrapHtmlFile) {
         let content = await wrapHtmlFile.async("string");
@@ -121,36 +353,79 @@ async function modifyTouchpointApk(apkBytes: Uint8Array, brandKey: string, endpo
         // --------------------------------------------------
         `;
 
-        // Try to replace the target block
+        // Try to replace the target block (standard pattern)
         const targetBlockRegex = /var\s+qp\s*=\s*new\s*URLSearchParams\(window\.location\.search\);\s*var\s+src\s*=\s*qp\.get\s*\(\s*["']src["']\s*\)\s*\|\|\s*["'][^"']+["'];/;
 
         if (targetBlockRegex.test(content)) {
             content = content.replace(targetBlockRegex, injectionScript);
-            console.log(`[Touchpoint APK] Injected endpoint: ${endpoint}`);
+            console.log(`[Touchpoint APK] Injected script logic`);
         } else {
             // Fallback: replace any azurewebsites.net URL
-            content = content.replace(/https:\/\/[a-z0-9-]+\.azurewebsites\.net/g, endpoint);
-            console.log(`[Touchpoint APK] Replaced URL with: ${endpoint}`);
+            // Also try replacing TARGET_URL/src vars in case Base APK changed
+            content = content.replace(/var\s+TARGET_URL\s*=\s*"[^"]*"/, `var TARGET_URL = "${endpoint}"`);
+            content = content.replace(/const\s+TARGET_URL\s*=\s*"[^"]*"/, `const TARGET_URL = "${endpoint}"`);
+
+            // Robust catch-all
+            if (!content.includes(endpoint)) {
+                content = content.replace(/https:\/\/[a-z0-9-]+\.azurewebsites\.net/g, endpoint);
+            }
+            console.log(`[Touchpoint APK] Applied fallback replacement`);
         }
 
-        modifications.set(wrapHtmlPath, Buffer.from(content, "utf8"));
+        apkZip.file(wrapHtmlPath, content, { compression: "DEFLATE" });
     } else {
-        console.warn(`[Touchpoint APK] wrap.html not found at ${wrapHtmlPath}`);
+        console.warn(`[Touchpoint APK] wrap.html not found!`);
     }
 
-    console.log(`[Touchpoint APK] Building APK with 4-byte alignment...`);
+    // 2. Replace Icons
+    if (iconBuffer) {
+        const densities = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"];
+        const fileNames = ["ic_launcher.png", "ic_launcher_round.png"];
 
-    // Build modified APK with proper alignment
-    const modifiedApk = await modifyApkWithAlignment(apkBytes, modifications);
+        for (const density of densities) {
+            for (const fileName of fileNames) {
+                apkZip.file(`res/mipmap-${density}/${fileName}`, iconBuffer, { compression: "DEFLATE" });
+                apkZip.file(`res/mipmap-${density}-v4/${fileName}`, iconBuffer, { compression: "DEFLATE" });
+            }
+        }
 
-    console.log(`[Touchpoint APK] Signing APK...`);
+        // Remove adaptive icons
+        const adaptivePaths = [
+            "res/mipmap-anydpi-v26/ic_launcher.xml",
+            "res/mipmap-anydpi-v26/ic_launcher_round.xml"
+        ];
+        for (const p of adaptivePaths) {
+            if (apkZip.file(p)) {
+                apkZip.remove(p);
+                console.log(`[Touchpoint APK] Removed adaptive icon: ${p}`);
+            }
+        }
+        console.log(`[Touchpoint APK] Replaced icons`);
+    }
 
-    // Sign the APK
-    const signedApk = await signAlignedApk(modifiedApk);
+    // Return uncompressed ZIP bytes (will be re-compressed during signing/alignment)
+    return await apkZip.generateAsync({ type: "uint8array" });
+}
 
-    console.log(`[Touchpoint APK] Complete. Signed APK size: ${signedApk.length} bytes`);
+async function getBrandIconUrl(brandKey: string): Promise<string | null> {
+    try {
+        const container = await getContainer();
+        // Strip -touchpoint suffix if present
+        const lookupKey = brandKey.replace(/-touchpoint$/, "");
 
-    return new Uint8Array(signedApk.buffer, signedApk.byteOffset, signedApk.byteLength);
+        // Query for partner application
+        const q = {
+            query: "SELECT TOP 1 * FROM c WHERE c.brandKey = @brandKey AND c.type = 'partner_application' ORDER BY c.createdAt DESC",
+            parameters: [{ name: "@brandKey", value: lookupKey }]
+        };
+        const { resources } = await container.items.query(q).fetchAll();
+        if (resources.length > 0 && resources[0].logos?.app) {
+            return resources[0].logos.app;
+        }
+    } catch (e: any) {
+        console.error("[Touchpoint Build] Failed to fetch brand icon:", e?.message);
+    }
+    return null;
 }
 
 /**
@@ -265,13 +540,41 @@ export async function POST(req: NextRequest) {
             }, { status: 404 });
         }
 
-        console.log(`[Touchpoint APK] Building for brand: ${brandKey}, endpoint: ${endpoint}`);
+        console.log(`[Touchpoint Build] ${brandKey}, Endpoint: ${endpoint}`);
 
-        // Modify APK with brand endpoint using aligned builder (preserves Android R+ compatibility)
-        const modifiedApk = await modifyTouchpointApk(baseApk, brandKey, endpoint);
+        // Get Icon
+        let iconBuffer: Uint8Array | undefined;
+        try {
+            const iconUrl = await getBrandIconUrl(brandKey);
+            if (iconUrl) {
+                console.log(`[Touchpoint Build] Found Icon: ${iconUrl}`);
+                const res = await fetch(iconUrl);
+                if (res.ok) {
+                    const buf = await res.arrayBuffer();
+                    iconBuffer = new Uint8Array(buf);
+                }
+            }
+        } catch (e) {
+            console.warn(`[Touchpoint Build] Failed to fetch icon:`, e);
+        }
+
+        // 1. Customize
+        let currentApk = await customizeTouchpointApk(baseApk, endpoint, iconBuffer);
+
+        // 2. Sign
+        currentApk = await signApk(currentApk, brandKey);
+
+        // 3. Align
+        try {
+            console.log(`[Touchpoint Build] Aligning...`);
+            currentApk = await zipalign(currentApk);
+            console.log(`[Touchpoint Build] Aligned (${currentApk.length} bytes)`);
+        } catch (e) {
+            console.error(`[Touchpoint Build] Align failed:`, e);
+        }
 
         // Upload to blob storage
-        const uploadResult = await uploadTouchpointApk(brandKey, modifiedApk);
+        const uploadResult = await uploadTouchpointApk(brandKey, currentApk);
 
         if (!uploadResult.success) {
             return json({
