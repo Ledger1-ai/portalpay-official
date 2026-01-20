@@ -52,7 +52,7 @@ export default function TouchpointSetupPage() {
 
         if (cfg.mode === "terminal") {
             // Wallet must be a path parameter for terminal to work without login
-            router.replace(`/terminal/${cfg.merchantWallet}`);
+            router.replace(`/terminal/${cfg.merchantWallet}?scale=0.75`);
         } else {
             // Kiosk mode uses shop with wallet as path and kiosk flag
             router.replace(`/shop/${cfg.merchantWallet}?kiosk=1`);
