@@ -23,7 +23,7 @@ android {
         buildConfigField("String", "BASE_DOMAIN", "\"$baseDomain\"")
 
         // Dynamic App Name
-        val appName = project.findProperty("APP_NAME") as? String ?: "Xoinpay"
+        val appName = project.findProperty("APP_NAME") as? String ?: "BasaltSurge"
         resValue("string", "app_name", appName)
     }
 
