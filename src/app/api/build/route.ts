@@ -88,29 +88,24 @@ export async function POST(req: NextRequest) {
         const appName = capitalizeFirst(brandKey);
 
         // 4. Generate baseDomain from endpoint or default
-        // IMPORTANT: Must include /touchpoint/setup path and ?scale=0.75 for proper display on handhelds
+        // BASE_DOMAIN should be just the domain - MainActivity.kt appends /touchpoint/setup?scale=0.75
         let baseDomain = String(body?.endpoint || "").trim();
         if (!baseDomain) {
-            // Default domain pattern with touchpoint setup path and scale
+            // Default domain pattern (just the domain, no path)
             baseDomain = brandKey === "surge" || brandKey === "basaltsurge"
-                ? "https://surge.basalthq.com/touchpoint/setup?scale=0.75"
-                : `https://${brandKey}.azurewebsites.net/touchpoint/setup?scale=0.75`;
+                ? "https://surge.basalthq.com"
+                : `https://${brandKey}.azurewebsites.net`;
         } else if (!baseDomain.startsWith("http://") && !baseDomain.startsWith("https://")) {
             baseDomain = `https://${baseDomain}`;
         }
 
-        // Ensure the URL includes the touchpoint setup path and scale if not already specified
-        if (!baseDomain.includes("/touchpoint/setup")) {
+        // Strip any path from the URL - we just want the domain
+        // MainActivity.kt will append /touchpoint/setup?scale=0.75
+        try {
             const url = new URL(baseDomain);
-            url.pathname = "/touchpoint/setup";
-            if (!url.searchParams.has("scale")) {
-                url.searchParams.set("scale", "0.75");
-            }
-            baseDomain = url.toString();
-        } else if (!baseDomain.includes("scale=")) {
-            // Has touchpoint path but missing scale
-            const sep = baseDomain.includes("?") ? "&" : "?";
-            baseDomain = `${baseDomain}${sep}scale=0.75`;
+            baseDomain = `${url.protocol}//${url.host}`;
+        } catch {
+            // Keep as-is if URL parsing fails
         }
 
         // Validate URL
