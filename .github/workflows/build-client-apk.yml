@@ -1,103 +1,107 @@
 name: Build Client APK
 
 on:
-    workflow_dispatch:
-        inputs:
-            brandKey:
-                description: "Brand Folder Name (e.g., xoinpay, surge)"
-                required: true
-            appName:
-                description: "App Display Name (e.g., Xoinpay, Surge)"
-                required: true
-            baseDomain:
-                description: "Client Domain (e.g., https://xoinpay.azurewebsites.net)"
-                required: true
+  workflow_dispatch:
+    inputs:
+      brandKey:
+        description: "Brand Folder Name (e.g., xoinpay, surge)"
+        required: true
+      appName:
+        description: "App Display Name (e.g., Xoinpay, Surge)"
+        required: true
+      baseDomain:
+        description: "Client Domain (e.g., https://xoinpay.azurewebsites.net)"
+        required: true
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
-        defaults:
-            run:
-                working-directory: android
-        steps:
-            - name: Checkout Repository
-              uses: actions/checkout@v4
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-            - name: Set up JDK 17
-              uses: actions/setup-java@v4
-              with:
-                  java-version: "17"
-                  distribution: "temurin"
-                  # Caching disabled temporarily due to GitHub cache service outage
-                  # cache: gradle
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          # Caching disabled temporarily due to GitHub cache service outage
+          # cache: gradle
 
-            # Gradle caching disabled temporarily - can re-enable when GitHub services are stable
-            # - name: Setup Gradle
-            #   uses: gradle/actions/setup-gradle@v3
-            #   with:
-            #     build-root-directory: android
+      # Gradle caching disabled temporarily - can re-enable when GitHub services are stable
+      # - name: Setup Gradle
+      #   uses: gradle/actions/setup-gradle@v3
+      #   with:
+      #     build-root-directory: android
 
-            - name: Prepare Brand Icon
-              working-directory: .
-              run: |
-                  # Copy brand icon to Android resource directory
-                  # Icons should be named 'icon.png' in public/brands/{brandKey}/
-                  BRAND_KEY="${{ github.event.inputs.brandKey }}"
-                  ICON_SRC="public/brands/${BRAND_KEY}/icon.png"
-                  ICON_DEST="android/app/src/main/res/drawable/ic_launcher_foreground.png"
+      - name: Prepare Brand Icon
+        working-directory: .
+        run: |
+          # Copy brand icon to Android resource directory
+          # Icons should be named 'icon.png' in public/brands/{brandKey}/
+          BRAND_KEY="${{ github.event.inputs.brandKey }}"
+          ICON_SRC="public/brands/${BRAND_KEY}/icon.png"
+          ICON_DEST="android/app/src/main/res/drawable/ic_launcher_foreground.png"
 
-                  # Create the drawable directory if it doesn't exist
-                  # (The android/ directory is gitignored, so it may not have all subdirs)
-                  mkdir -p "$(dirname "$ICON_DEST")"
+          # Create the drawable directory if it doesn't exist
+          # (The android/ directory is gitignored, so it may not have all subdirs)
+          mkdir -p "$(dirname "$ICON_DEST")"
 
-                  if [ -f "$ICON_SRC" ]; then
-                    echo "Found icon at $ICON_SRC"
-                    cp "$ICON_SRC" "$ICON_DEST"
-                    echo "Icon copied successfully to $ICON_DEST"
-                  else
-                    echo "Warning: No icon.png found at $ICON_SRC"
-                    echo "Available files in public/brands/${BRAND_KEY}/:"
-                    ls -la "public/brands/${BRAND_KEY}/" 2>/dev/null || echo "Brand folder not found"
-                    echo "Continuing without custom icon..."
-                  fi
+          if [ -f "$ICON_SRC" ]; then
+            echo "Found icon at $ICON_SRC"
+            cp "$ICON_SRC" "$ICON_DEST"
+            echo "Icon copied successfully to $ICON_DEST"
+          else
+            echo "Warning: No icon.png found at $ICON_SRC"
+            echo "Available files in public/brands/${BRAND_KEY}/:"
+            ls -la "public/brands/${BRAND_KEY}/" 2>/dev/null || echo "Brand folder not found"
+            echo "Continuing without custom icon..."
+          fi
 
-            - name: Build APK with Gradle
-              run: |
-                  chmod +x gradlew
-                  ./gradlew assembleDebug \
-                    -PAPP_NAME="${{ github.event.inputs.appName }}" \
-                    -PBASE_DOMAIN="${{ github.event.inputs.baseDomain }}"
+      - name: Build APK with Gradle
+        env:
+          APP_NAME_INPUT: ${{ github.event.inputs.appName }}
+          BASE_DOMAIN_INPUT: ${{ github.event.inputs.baseDomain }}
+        run: |
+          chmod +x gradlew
+          # Use environment variables to properly handle special characters like ?& in URLs
+          ./gradlew assembleDebug \
+            -PAPP_NAME="$APP_NAME_INPUT" \
+            -PBASE_DOMAIN="$BASE_DOMAIN_INPUT"
 
-            - name: Upload to Azure Blob Storage
-              uses: azure/CLI@v1
-              with:
-                  inlineScript: |
-                      # Upload the built APK to Azure Blob Storage
-                      # Must match the location expected by the ZIP download route:
-                      # Container: portalpay (from PP_APK_CONTAINER)
-                      # Prefix: brands (from PP_APK_BLOB_PREFIX)
-                      # Blob name: brands/{brandKey}-touchpoint-signed.apk
+      - name: Upload to Azure Blob Storage
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            # Upload the built APK to Azure Blob Storage
+            # Must match the location expected by the ZIP download route:
+            # Container: portalpay (from PP_APK_CONTAINER)
+            # Prefix: brands (from PP_APK_BLOB_PREFIX)
+            # Blob name: brands/{brandKey}-touchpoint-signed.apk
 
-                      BRAND_KEY="${{ github.event.inputs.brandKey }}"
-                      APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
+            BRAND_KEY="${{ github.event.inputs.brandKey }}"
+            APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
 
-                      # Storage configuration (must match existing infrastructure)
-                      CONTAINER="portalpay"
-                      PREFIX="brands"
-                      BLOB_NAME="${PREFIX}/${BRAND_KEY}-touchpoint-signed.apk"
+            # Storage configuration (must match existing infrastructure)
+            CONTAINER="portalpay"
+            PREFIX="brands"
+            BLOB_NAME="${PREFIX}/${BRAND_KEY}-touchpoint-signed.apk"
 
-                      echo "Uploading APK to Azure Blob Storage..."
-                      echo "  Account: ${{ secrets.AZURE_STORAGE_ACCOUNT }}"
-                      echo "  Container: ${CONTAINER}"
-                      echo "  Blob Name: ${BLOB_NAME}"
+            echo "Uploading APK to Azure Blob Storage..."
+            echo "  Account: ${{ secrets.AZURE_STORAGE_ACCOUNT }}"
+            echo "  Container: ${CONTAINER}"
+            echo "  Blob Name: ${BLOB_NAME}"
 
-                      az storage blob upload \
-                        --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT }} \
-                        --container-name "${CONTAINER}" \
-                        --name "${BLOB_NAME}" \
-                        --file "${APK_FILE}" \
-                        --account-key ${{ secrets.AZURE_STORAGE_KEY }} \
-                        --overwrite
+            az storage blob upload \
+              --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT }} \
+              --container-name "${CONTAINER}" \
+              --name "${BLOB_NAME}" \
+              --file "${APK_FILE}" \
+              --account-key ${{ secrets.AZURE_STORAGE_KEY }} \
+              --overwrite
 
-                      echo "✅ APK uploaded successfully!"
-                      echo "Download URL: https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${CONTAINER}/${BLOB_NAME}"
+            echo "✅ APK uploaded successfully!"
+            echo "Download URL: https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${CONTAINER}/${BLOB_NAME}"

@@ -50,12 +50,18 @@ export default function TouchpointSetupPage() {
     function performRedirect(cfg: TouchpointConfig) {
         if (!cfg.configured || !cfg.mode || !cfg.merchantWallet) return;
 
+        // Preserve scale parameter from the APK's built-in URL
+        const params = new URLSearchParams(window.location.search);
+        const scale = params.get("scale");
+        const scaleQuery = scale ? `?scale=${scale}` : "";
+
         if (cfg.mode === "terminal") {
             // Wallet must be a path parameter for terminal to work without login
-            router.replace(`/terminal/${cfg.merchantWallet}`);
+            router.replace(`/terminal/${cfg.merchantWallet}${scaleQuery}`);
         } else {
             // Kiosk mode uses shop with wallet as path and kiosk flag
-            router.replace(`/shop/${cfg.merchantWallet}?kiosk=1`);
+            const kioskQuery = scale ? `?kiosk=1&scale=${scale}` : "?kiosk=1";
+            router.replace(`/shop/${cfg.merchantWallet}${kioskQuery}`);
         }
     }
 

@@ -88,14 +88,29 @@ export async function POST(req: NextRequest) {
         const appName = capitalizeFirst(brandKey);
 
         // 4. Generate baseDomain from endpoint or default
+        // IMPORTANT: Must include /touchpoint/setup path and ?scale=0.75 for proper display on handhelds
         let baseDomain = String(body?.endpoint || "").trim();
         if (!baseDomain) {
-            // Default domain pattern
+            // Default domain pattern with touchpoint setup path and scale
             baseDomain = brandKey === "surge" || brandKey === "basaltsurge"
-                ? "https://surge.basaltsurge.com"
-                : `https://${brandKey}.azurewebsites.net`;
+                ? "https://surge.basalthq.com/touchpoint/setup?scale=0.75"
+                : `https://${brandKey}.azurewebsites.net/touchpoint/setup?scale=0.75`;
         } else if (!baseDomain.startsWith("http://") && !baseDomain.startsWith("https://")) {
             baseDomain = `https://${baseDomain}`;
+        }
+
+        // Ensure the URL includes the touchpoint setup path and scale if not already specified
+        if (!baseDomain.includes("/touchpoint/setup")) {
+            const url = new URL(baseDomain);
+            url.pathname = "/touchpoint/setup";
+            if (!url.searchParams.has("scale")) {
+                url.searchParams.set("scale", "0.75");
+            }
+            baseDomain = url.toString();
+        } else if (!baseDomain.includes("scale=")) {
+            // Has touchpoint path but missing scale
+            const sep = baseDomain.includes("?") ? "&" : "?";
+            baseDomain = `${baseDomain}${sep}scale=0.75`;
         }
 
         // Validate URL

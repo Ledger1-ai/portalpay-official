@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         session.open(runtime!!)
         //session.loadUri("https://xoinpay.azurewebsites.net/touchpoint/setup")
         // Use BASE_DOMAIN from BuildConfig and append the setup path
-        val setupUrl = "${BuildConfig.BASE_DOMAIN}/touchpoint/setup"
+        val setupUrl = "${BuildConfig.BASE_DOMAIN}/touchpoint/setup?scale=0.75"
         session.loadUri(setupUrl)
 
         enableEdgeToEdge()
