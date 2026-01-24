@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="feae6dc7-bd32-40b8-a5ff-3e2e524bd45f" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../../public/PortalPay.png" beforeDir="false" afterPath="$PROJECT_DIR$/../../public/PortalPay.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../public/linkbg.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/app/(landing)/crypto-payments/[industry]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/app/(landing)/crypto-payments/[industry]/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/app/(landing)/locations/[slug]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/app/(landing)/locations/[slug]/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/app/(landing)/vs/[competitor]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/app/(landing)/vs/[competitor]/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/app/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/components/navbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/components/navbar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/middleware.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/middleware.ts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <projects_view>
+          <tree_state>
+            <expand />
+            <select />
+          </tree_state>
+        </projects_view>
+      </state>
+    </system>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="35iO89WOviUAd5OxcyIt60o5V2Y" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.I:/Osiris/varuni-demo/payportal/android/launcher.executor": "Run",
+    "Gradle.launcher.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "android.gradle.sync.needed": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
+    "kotlin-language-version-configured": "true",
+    "settings.editor.selected.configurable": "device.explorer"
+  }
+}]]></component>
+  <component name="RunAnythingCache">
+    <option name="myCommands">
+      <command value="gradle " />
+    </option>
+  </component>
+  <component name="RunManager" selected="Gradle.launcher">
+    <configuration name="I:/Osiris/varuni-demo/payportal/android/launcher" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list />
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="launcher" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list />
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Gradle.launcher" />
+        <item itemvalue="Gradle.I:/Osiris/varuni-demo/payportal/android/launcher" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="feae6dc7-bd32-40b8-a5ff-3e2e524bd45f" name="Changes" comment="" />
+      <created>1763589263748</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1763589263748</updated>
+    </task>
+    <servers />
+  </component>
+</project>

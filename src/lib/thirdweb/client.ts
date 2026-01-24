@@ -54,6 +54,6 @@ export async function getWallets() {
 }
 
 export function getRecipientAddress(): `0x${string}` {
-  const addr = process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || "";
+  const addr = process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || process.env.NEXT_PUBLIC_PLATFORM_WALLET || "";
   return addr as `0x${string}`;
 }

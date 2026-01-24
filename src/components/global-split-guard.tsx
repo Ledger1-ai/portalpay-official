@@ -122,10 +122,6 @@ export default function GlobalSplitGuard() {
 
   const brand = useBrand();
   let brandKey = String((brand as any)?.key || "portalpay").toLowerCase();
-  // Fix: Normalize basaltsurge -> portalpay for platform lookup to ensure we find the right platform wallet
-  if (brandKey === "basaltsurge") {
-    brandKey = "portalpay";
-  }
   const partnerContext = brandKey !== "portalpay" && brandKey !== "basaltsurge";
   const meAddr = String(account?.address || "").toLowerCase();
   const partnerAddr = String((brand as any)?.partnerWallet || "").toLowerCase();
