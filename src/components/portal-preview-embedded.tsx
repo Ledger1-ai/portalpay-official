@@ -861,7 +861,7 @@ export function PortalPreviewEmbedded({
           ) : (
             // Symbol + Text
             <>
-              <div className={`w-10 h-10 relative z-10 ${effectiveLogoShape === "round" || (effectiveLogoShape as any) === "circle" ? "rounded-full" : (effectiveLogoShape === "unmasked" ? "rounded-none" : "rounded-md")} bg-white/10 flex items-center justify-center overflow-visible`}>
+              <div className={`w-10 h-10 relative z-10 ${effectiveLogoShape === "round" || (effectiveLogoShape as any) === "circle" ? "rounded-full" : (effectiveLogoShape === "unmasked" ? "rounded-none" : "rounded-full")} bg-white/10 flex items-center justify-center overflow-visible`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   alt={effectiveBrandName || "Logo"}
