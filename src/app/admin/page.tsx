@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useActiveAccount } from "thirdweb/react";
+import { QRCodeCanvas } from "qrcode.react";
 import { QRCode } from "react-qrcode-logo";
 import { createPortal } from "react-dom";
 import { sendTransaction, prepareTransaction, getContract, prepareContractCall, readContract } from "thirdweb";
@@ -8905,6 +8906,7 @@ export default function AdminPage() {
   const canAdmins = canAccessPanel("admins", wallet);
   const [activeTab, setActiveTab] = useState<
     | "reserve"
+    | "reports"
     | "inventory"
     | "orders"
     | "purchases"

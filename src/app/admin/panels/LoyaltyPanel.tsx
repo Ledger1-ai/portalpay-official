@@ -750,7 +750,7 @@ export function LoyaltyConfigTab({ maxLevelOverride, isPlatformProgram = false }
 
     // Prepare Curve Data for Visualization
     const curveData = useMemo(() => {
-        const data = [];
+        const data: any[] = [];
         const config = { xpPerDollar, baseXP, multiplier, maxLevel, maxPrestige };
         // Show full curve up to 50 (max level per prestige)
         const limit = 50;

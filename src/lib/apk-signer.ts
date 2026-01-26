@@ -182,13 +182,13 @@ function createSignatureBlock(signatureFileContent: string, privateKey: forge.pk
     p7.addCertificate(certificate);
 
     p7.addSigner({
-        key: privateKey,
+        key: privateKey as any,
         certificate: certificate,
         digestAlgorithm: forge.pki.oids.sha256,
         authenticatedAttributes: [
             { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
             { type: forge.pki.oids.messageDigest },
-            { type: forge.pki.oids.signingTime, value: new Date() },
+            { type: forge.pki.oids.signingTime, value: new Date().toISOString() },
         ],
     });
 

@@ -91,7 +91,7 @@ export async function PATCH(req: NextRequest) {
         const { resource: existing } = await container.item(body.id, merchantWallet).read();
         if (!existing) return NextResponse.json({ error: "Member not found" }, { status: 404 });
 
-        const ops = [];
+        const ops: { op: string; path: string; value: any }[] = [];
         if (body.name) ops.push({ op: "set", path: "/name", value: body.name });
         if (body.role) ops.push({ op: "set", path: "/role", value: body.role });
         if (body.linkedWallet !== undefined) {

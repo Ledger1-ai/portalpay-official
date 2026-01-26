@@ -48,9 +48,10 @@ async function readMerchantSettings(wallet: string): Promise<MerchantSettingsDoc
   }
 }
 
-export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const correlationId = crypto.randomUUID();
-  const idRaw = String(ctx?.params?.id || "");
+  const idRaw = String(params?.id || "");
   const wallet = idRaw.toLowerCase();
   if (!isHexAddress(wallet)) {
     return NextResponse.json(
@@ -114,9 +115,10 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   }
 }
 
-export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const correlationId = crypto.randomUUID();
-  const idRaw = String(ctx?.params?.id || "");
+  const idRaw = String(params?.id || "");
   const wallet = idRaw.toLowerCase();
   if (!isHexAddress(wallet)) {
     return NextResponse.json(
@@ -215,7 +217,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
         ok: true,
         metadata: { merchantFeeBps },
       });
-    } catch {}
+    } catch { }
 
     const brand = getBrandConfig();
     const effectiveProcessingFeeBps = getEffectiveProcessingFeeBps(brand, merchantFeeBps);
@@ -236,7 +238,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
         ok: true,
         metadata: { degraded: true, reason: e?.message || "cosmos_unavailable", merchantFeeBps },
       });
-    } catch {}
+    } catch { }
     const brand = getBrandConfig();
     const effectiveProcessingFeeBps = getEffectiveProcessingFeeBps(brand, merchantFeeBps);
     return NextResponse.json(

@@ -47,7 +47,7 @@ export function VoiceChat() {
     console.log(message);
     setLogs((prev) => [...prev, message]);
   }, []);
-  
+
   useEffect(() => { debugRef.current = showDebug; }, [showDebug]);
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function VoiceChat() {
         // Ensure permissions are granted so labels are available
         const prePerm = await navigator.mediaDevices.getUserMedia({ audio: true });
         prePerm.getTracks().forEach(t => t.stop());
-      } catch {}
+      } catch { }
       try {
         const list = await navigator.mediaDevices.enumerateDevices();
         const inputs = list.filter(d => d.kind === 'audioinput');
@@ -70,7 +70,7 @@ export function VoiceChat() {
       }
     }
     bootstrapDevices();
-    
+
     async function fetchTools() {
       try {
         const auth = typeof window !== 'undefined' ? `Bearer ${sessionStorage.getItem('accessToken') || ''}` : '';
@@ -100,7 +100,7 @@ export function VoiceChat() {
       }
     });
     ro.observe(el);
-    return () => { try { ro.disconnect(); } catch {} };
+    return () => { try { ro.disconnect(); } catch { } };
   }, []);
 
   const cleanupAnalyser = useCallback(() => {
@@ -108,9 +108,9 @@ export function VoiceChat() {
     if (rafAgentRef.current) cancelAnimationFrame(rafAgentRef.current);
     rafMicRef.current = null;
     rafAgentRef.current = null;
-    try { analyserMicRef.current?.disconnect(); } catch {}
-    try { analyserAgentRef.current?.disconnect(); } catch {}
-    try { audioCtxRef.current?.close(); } catch {}
+    try { analyserMicRef.current?.disconnect(); } catch { }
+    try { analyserAgentRef.current?.disconnect(); } catch { }
+    try { audioCtxRef.current?.close(); } catch { }
     analyserMicRef.current = null;
     analyserAgentRef.current = null;
     audioCtxRef.current = null;
@@ -174,14 +174,14 @@ export function VoiceChat() {
             });
             const json = await res.json().catch(() => ({} as any));
             if (json?.success && typeof json.sessionId === 'string') setVoiceSessionId(json.sessionId);
-          } catch {}
+          } catch { }
         }
       };
-      rec.onerror = () => {};
-      rec.onend = () => {};
+      rec.onerror = () => { };
+      rec.onend = () => { };
       rec.start();
       recognitionRef.current = rec;
-    } catch {}
+    } catch { }
   }, [voiceSessionId]);
 
   const handleToolCall = useCallback(async (functionCall: any) => {
@@ -249,7 +249,7 @@ export function VoiceChat() {
             }
           }
         }
-      } catch {}
+      } catch { }
       setToolStatus(`${name} ✓`);
       setTimeout(() => setToolStatus(''), 1500);
     } catch (error) {
@@ -277,7 +277,7 @@ export function VoiceChat() {
         audioRef.current.srcObject = event.streams[0];
         // Try binding sink/output device
         if (typeof (audioRef.current as any).setSinkId === 'function' && selectedOutputId) {
-          try { (audioRef.current as any).setSinkId(selectedOutputId); } catch {}
+          try { (audioRef.current as any).setSinkId(selectedOutputId); } catch { }
         }
         // Start speaking meter on remote stream
         // Replace existing agent analyser if present
@@ -286,7 +286,7 @@ export function VoiceChat() {
     };
 
     // Acquire mic using selected device
-    if (inputStreamRef.current) { try { inputStreamRef.current.getTracks().forEach(t => t.stop()); } catch {} }
+    if (inputStreamRef.current) { try { inputStreamRef.current.getTracks().forEach(t => t.stop()); } catch { } }
     const constraints: MediaStreamConstraints = { audio: selectedInputId ? { deviceId: { exact: selectedInputId } } as any : true };
     const clientMedia = await navigator.mediaDevices.getUserMedia(constraints);
     inputStreamRef.current = clientMedia;
@@ -302,17 +302,17 @@ export function VoiceChat() {
       if (debugRef.current) logMessage('Data channel is open');
       const flattenedTools = Array.isArray(tools)
         ? tools.map((t: any) => {
-            if (t && typeof t === 'object' && t.function && typeof t.function === 'object') {
-              const fn = t.function || {};
-              return {
-                type: 'function',
-                name: fn.name,
-                description: fn.description,
-                parameters: fn.parameters || { type: 'object', properties: {}, additionalProperties: true },
-              };
-            }
-            return t;
-          })
+          if (t && typeof t === 'object' && t.function && typeof t.function === 'object') {
+            const fn = t.function || {};
+            return {
+              type: 'function',
+              name: fn.name,
+              description: fn.description,
+              parameters: fn.parameters || { type: 'object', properties: {}, additionalProperties: true },
+            };
+          }
+          return t;
+        })
         : [];
       const event = {
         type: 'session.update',
@@ -353,14 +353,14 @@ export function VoiceChat() {
                   });
                   const json = await res.json().catch(() => ({} as any));
                   if (json?.success && typeof json.sessionId === 'string') setVoiceSessionId(json.sessionId);
-                } catch {}
+                } catch { }
               })();
             }
             setTimeout(() => setSpeakingText(''), 500);
             fullAssistantTextRef.current = '';
             const functionCalls = outputs.filter((it: any) => it && it.type === 'function_call');
             if (functionCalls.length) {
-              (async () => { for (const fc of functionCalls) { try { await handleToolCall(fc); } catch {} } })();
+              (async () => { for (const fc of functionCalls) { try { await handleToolCall(fc); } catch { } } })();
             }
           }
           if (realtimeEvent.type === 'session.error' && debugRef.current) logMessage(`Error: ${realtimeEvent.error?.message || 'Unknown error'}`);
@@ -421,17 +421,17 @@ export function VoiceChat() {
       if (!dc || dc.readyState !== 'open') return;
       const flattenedTools = Array.isArray(tools)
         ? tools.map((t: any) => {
-            if (t && typeof t === 'object' && t.function && typeof t.function === 'object') {
-              const fn = t.function || {};
-              return {
-                type: 'function',
-                name: fn.name,
-                description: fn.description,
-                parameters: fn.parameters || { type: 'object', properties: {}, additionalProperties: true },
-              };
-            }
-            return t;
-          })
+          if (t && typeof t === 'object' && t.function && typeof t.function === 'object') {
+            const fn = t.function || {};
+            return {
+              type: 'function',
+              name: fn.name,
+              description: fn.description,
+              parameters: fn.parameters || { type: 'object', properties: {}, additionalProperties: true },
+            };
+          }
+          return t;
+        })
         : [];
       const event = {
         type: 'session.update',
@@ -447,7 +447,7 @@ export function VoiceChat() {
       if (debugRef.current) logMessage('Updated session with tools');
       setToolStatus('Tools loaded ✓');
       setTimeout(() => setToolStatus(''), 1200);
-    } catch {}
+    } catch { }
   }, [tools, computedInstructions, logMessage]);
 
   const buildInstructions = useCallback(async (): Promise<string> => {
@@ -590,10 +590,10 @@ Operating rules: Ask concise clarifying questions before tool calls when ambigui
       audioRef.current.srcObject = null;
     }
     if (inputStreamRef.current) {
-      try { inputStreamRef.current.getTracks().forEach(t => t.stop()); } catch {}
+      try { inputStreamRef.current.getTracks().forEach(t => t.stop()); } catch { }
       inputStreamRef.current = null;
     }
-    try { if (recognitionRef.current) { recognitionRef.current.stop?.(); recognitionRef.current = null; } } catch {}
+    try { if (recognitionRef.current) { recognitionRef.current.stop?.(); recognitionRef.current = null; } } catch { }
     cleanupAnalyser();
     setIsSessionActive(false);
     setSpeakingText('');
@@ -610,11 +610,11 @@ Operating rules: Ask concise clarifying questions before tool calls when ambigui
   }, []);
 
   useEffect(() => {
-    const onBeforeUnload = () => { try { stopSession(); } catch {} };
+    const onBeforeUnload = () => { try { stopSession(); } catch { } };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload);
-      try { stopSession(); } catch {}
+      try { stopSession(); } catch { }
     };
   }, [stopSession]);
 
@@ -672,7 +672,7 @@ Operating rules: Ask concise clarifying questions before tool calls when ambigui
                   </select>
                 </div>
                 <div className="pt-1">
-                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowDebug(v => !v); }}>
+                  <DropdownMenuItem onSelect={(e: any) => { e.preventDefault(); setShowDebug(v => !v); }}>
                     <span className="text-xs">{showDebug ? 'Hide' : 'Show'} debug logs</span>
                   </DropdownMenuItem>
                 </div>
@@ -760,7 +760,7 @@ Operating rules: Ask concise clarifying questions before tool calls when ambigui
               </div>
             );
           })()}
-          </div>
+        </div>
         {toolStatus && (
           <div className="mt-1 text-xs text-muted-foreground">{toolStatus}</div>
         )}

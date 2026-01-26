@@ -24,28 +24,28 @@ import {
 } from "recharts";
 import {
   useInventoryMovement,
-  useInventoryAnalyticsSummary,
+  useInventorySummary as useInventoryAnalyticsSummary,
   useABCAnalysis,
   useWasteReport,
   useTurnoverSeries,
 } from "@/lib/hooks/use-graphql";
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="p-2 text-sm border rounded-md shadow-lg bg-background/80 dark:bg-black/70 border-border backdrop-blur-sm">
-          <p className="font-bold label">{label}</p>
-          {payload.map((pld: any, index: number) => (
-            <div key={index} style={{ color: pld.color || pld.fill }}>
-              {`${pld.name}: ${pld.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            </div>
-          ))}
-        </div>
-      );
-    }
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="p-2 text-sm border rounded-md shadow-lg bg-background/80 dark:bg-black/70 border-border backdrop-blur-sm">
+        <p className="font-bold label">{label}</p>
+        {payload.map((pld: any, index: number) => (
+          <div key={index} style={{ color: pld.color || pld.fill }}>
+            {`${pld.name}: ${pld.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
-    return null;
-  };
+  return null;
+};
 
 export default function InventoryAnalyticsPanel() {
   const [period, setPeriod] = React.useState<"daily" | "weekly" | "monthly">("daily");
@@ -55,10 +55,10 @@ export default function InventoryAnalyticsPanel() {
     const diff = (dow + 6) % 7; // Monday start
     const start = new Date(today);
     start.setDate(start.getDate() - diff);
-    start.setHours(0,0,0,0);
+    start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
-    end.setHours(23,59,59,999);
+    end.setHours(23, 59, 59, 999);
     return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
   });
 
@@ -70,13 +70,13 @@ export default function InventoryAnalyticsPanel() {
     const dowStart = alignStart.getDay();
     const diffStart = (dowStart + 6) % 7; // to Monday
     alignStart.setDate(alignStart.getDate() - diffStart);
-    alignStart.setHours(0,0,0,0);
+    alignStart.setHours(0, 0, 0, 0);
     const alignEnd = new Date(end);
     const alignEndMonday = new Date(alignEnd);
     const dowEnd = alignEndMonday.getDay();
     const diffEnd = (dowEnd + 6) % 7;
     alignEndMonday.setDate(alignEndMonday.getDate() - diffEnd);
-    alignEndMonday.setHours(0,0,0,0);
+    alignEndMonday.setHours(0, 0, 0, 0);
     alignEndMonday.setDate(alignEndMonday.getDate() + 7);
     alignEnd.setTime(alignEndMonday.getTime() - 1);
     return { start: alignStart.toISOString().split('T')[0], end: alignEnd.toISOString().split('T')[0] };
@@ -88,14 +88,14 @@ export default function InventoryAnalyticsPanel() {
       : { start: range.start, end: range.end }
   ), [period, range.start, range.end, alignToMondayRange]);
 
-  const { data: summaryData, refetch: refetchSummary } = useInventoryAnalyticsSummary(alignedRange.start, alignedRange.end);
+  const { data: summaryData, refetch: refetchSummary } = useInventoryAnalyticsSummary();
   const { data: movement, refetch: refetchMovement } = useInventoryMovement(period, alignedRange.start, alignedRange.end);
   const { data: abc, refetch: refetchABC } = useABCAnalysis(alignedRange.start, alignedRange.end, "consumptionValue");
-  const { data: waste, refetch: refetchWaste } = useWasteReport(alignedRange.start, alignedRange.end);
+  const { data: waste, refetch: refetchWaste } = useWasteReport({ startDate: alignedRange.start, endDate: alignedRange.end });
   const { data: turnover, refetch: refetchTurnover } = useTurnoverSeries(period, alignedRange.start, alignedRange.end);
 
   const movementData = movement?.inventoryMovement || [];
-  const summary = summaryData?.inventoryAnalyticsSummary;
+  const summary = summaryData?.inventorySummary;
   const abcRows = abc?.abcAnalysis || [];
   const wasteByReason = waste?.wasteReport?.byReason || [];
   const turnoverSeries = turnover?.inventoryTurnoverSeries || [];
@@ -234,10 +234,10 @@ export default function InventoryAnalyticsPanel() {
                   const diff = (dow + 6) % 7; // Monday start
                   const start = new Date(today);
                   start.setDate(start.getDate() - diff);
-                  start.setHours(0,0,0,0);
+                  start.setHours(0, 0, 0, 0);
                   const end = new Date(start);
                   end.setDate(end.getDate() + 6);
-                  end.setHours(23,59,59,999);
+                  end.setHours(23, 59, 59, 999);
                   setRange({ start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] });
                 } else if (v === 'monthly') {
                   const start = new Date(new Date().getFullYear(), 0, 1);
@@ -265,8 +265,8 @@ export default function InventoryAnalyticsPanel() {
               <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">Waste Percentage</div>
                 <div className="text-2xl font-semibold">
-                  {summary?.totalInventoryValue && summary.totalInventoryValue > 0 
-                    ? `${((summary.wasteCostInPeriod || 0) / summary.totalInventoryValue * 100).toFixed(2)}%` 
+                  {summary?.totalInventoryValue && summary.totalInventoryValue > 0
+                    ? `${((summary.wasteCostInPeriod || 0) / summary.totalInventoryValue * 100).toFixed(2)}%`
                     : '0.00%'}
                 </div>
               </CardContent>
@@ -347,7 +347,7 @@ export default function InventoryAnalyticsPanel() {
                   <XAxis dataKey="name" hide={true} />
                   <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={{ stroke: "hsl(var(--border))" }} className="dark:[&_.recharts-text]:fill-slate-400 dark:[&_.recharts-cartesian-axis-line]:stroke-slate-700" />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="value" name="Consumption Value" radius={[8,8,0,0]} className="backdrop-blur-sm" style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.08))' }}>
+                  <Bar dataKey="value" name="Consumption Value" radius={[8, 8, 0, 0]} className="backdrop-blur-sm" style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.08))' }}>
                     {abcRows.map((_: any, idx: number) => (
                       <Cell key={`abc-cell-${idx}`} fill={abcBarColors[idx] || '#14b8a6'} />
                     ))}
@@ -372,16 +372,16 @@ export default function InventoryAnalyticsPanel() {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie data={wasteByReasonDisplay} dataKey="cost" nameKey="reason" cx="50%" cy="50%" outerRadius={100} stroke="var(--border)" strokeWidth={1} labelLine={false} label={({ cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, percent = 0 }) => {
-                      const RADIAN = Math.PI / 180;
-                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                      return (
-                        <text x={x} y={y} fill="#fff" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-bold" style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.4)', strokeWidth: '2px', strokeLinejoin: 'round', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}>
-                          {`${(percent * 100).toFixed(0)}%`}
-                        </text>
-                      );
-                    }}>
+                    const RADIAN = Math.PI / 180;
+                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    return (
+                      <text x={x} y={y} fill="#fff" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-bold" style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.4)', strokeWidth: '2px', strokeLinejoin: 'round', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}>
+                        {`${(percent * 100).toFixed(0)}%`}
+                      </text>
+                    );
+                  }}>
                     {wasteByReasonDisplay.map((_: any, idx: number) => (
                       <Cell key={idx} fill={wasteTealColors[idx] || '#14b8a6'} stroke="rgba(255,255,255,0.5)" strokeWidth={1} />
                     ))}

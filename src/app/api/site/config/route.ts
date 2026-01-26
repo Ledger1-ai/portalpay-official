@@ -95,11 +95,11 @@ async function applyPartnerOverrides(req: NextRequest, cfg: any): Promise<any> {
 
       // If merchant in partner container hasn't customized their theme, apply partner defaults
       if (isPartnerMerchant && !hasCustomSymbol) {
-        console.log("[site/config] Per-merchant in partner container without custom theme - will apply partner defaults", {
-          wallet: cfgWallet,
-          containerBrandKey,
-          hasCustomSymbol
-        });
+        // console.log("[site/config] Per-merchant in partner container without custom theme - will apply partner defaults", {
+        //   wallet: cfgWallet,
+        //   containerBrandKey,
+        //   hasCustomSymbol
+        // });
 
         // Actually apply partner brand defaults - fetch partner brand config
         try {
@@ -903,17 +903,17 @@ export async function GET(req: NextRequest) {
     const isTerminalRef = refPath.startsWith("/terminal");
     const isTerminalTagged = (xThemeCaller || "").toLowerCase() === "terminal";
     try {
-      console.log("[site/config][GET] request", {
-        correlationId,
-        url: url.toString(),
-        referer,
-        refPath,
-        userAgent,
-        xThemeCaller,
-        headerWallet: headerWalletIn,
-        xRecipientHeader,
-        refRecipient
-      });
+      // console.log("[site/config][GET] request", {
+      //   correlationId,
+      //   url: url.toString(),
+      //   referer,
+      //   refPath,
+      //   userAgent,
+      //   xThemeCaller,
+      //   headerWallet: headerWalletIn,
+      //   xRecipientHeader,
+      //   refRecipient
+      // });
     } catch { }
     // Prioritize query wallet parameter for public viewing (e.g., portal theming)
     const queryWallet = String(url.searchParams.get("wallet") || "").toLowerCase();
@@ -947,14 +947,14 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      console.log("[site/config][GET] wallet_selected", {
-        correlationId,
-        queryWallet,
-        headerWallet: headerWalletIn,
-        selectedWallet: wallet,
-        portalRef,
-        xThemeCaller
-      });
+      // console.log("[site/config][GET] wallet_selected", {
+      //   correlationId,
+      //   queryWallet,
+      //   headerWallet: headerWalletIn,
+      //   selectedWallet: wallet,
+      //   portalRef,
+      //   xThemeCaller
+      // });
       if (portalRef && headerWalletIn && (!queryWallet || headerWalletIn !== queryWallet)) {
         console.warn("[site/config][GET] potential cross-user fetch on portal route", {
           correlationId,

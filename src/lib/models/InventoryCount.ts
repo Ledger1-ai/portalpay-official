@@ -145,8 +145,18 @@ inventoryCountSchema.index({ scheduledDate: 1 });
 inventoryCountSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to calculate summary
-inventoryCountSchema.pre('save', function(next) {
+inventoryCountSchema.pre('save', function (next: any) {
   if (this.items && this.items.length > 0) {
+    if (!this.summary) {
+      this.summary = {
+        totalItems: 0,
+        itemsWithVariance: 0,
+        totalVarianceValue: 0,
+        positiveVarianceValue: 0,
+        negativeVarianceValue: 0,
+        accuracyPercentage: 0
+      };
+    }
     this.summary.totalItems = this.items.length;
     this.summary.itemsWithVariance = this.items.filter(item => Math.abs(item.variance) > 0).length;
     this.summary.totalVarianceValue = this.items.reduce((sum, item) => sum + item.varianceValue, 0);
@@ -156,7 +166,7 @@ inventoryCountSchema.pre('save', function(next) {
     this.summary.negativeVarianceValue = this.items
       .filter(item => item.varianceValue < 0)
       .reduce((sum, item) => sum + Math.abs(item.varianceValue), 0);
-    
+
     const accurateItems = this.items.filter(item => Math.abs(item.variancePercentage) <= 2).length;
     this.summary.accuracyPercentage = (accurateItems / this.summary.totalItems) * 100;
   }

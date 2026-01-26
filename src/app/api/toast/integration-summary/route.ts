@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
     }
 
     const apiClient = new ToastAPIClient();
-    
+
     // Test core working functionality only
-    const summary = {
+    const summary: any = {
       core: { status: 'unknown', data: null, error: null },
       employees: { status: 'unknown', data: null, error: null },
       restaurant: { status: 'unknown', data: null, error: null },
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       integrationStatus: coreWorking ? 'FULLY_OPERATIONAL' : 'PARTIAL_ISSUES',
-      message: coreWorking 
+      message: coreWorking
         ? '🎉 Toast POS integration is working perfectly for employee management!'
         : '⚠️ Core Toast integration has issues',
       restaurantGuid,
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Integration summary error:', error);
-    
+
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Integration check failed',

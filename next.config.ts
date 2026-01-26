@@ -19,7 +19,7 @@ const nextConfig = {
 
   // Ignore TypeScript errors during production builds (e.g., in Docker)
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   // Emit a minimal standalone server for Docker runtime stage
   output: "standalone",

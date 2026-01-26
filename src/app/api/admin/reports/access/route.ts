@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
         // We also need to fetch the Shop Config for each profile to display the Merchant Name
         // We can do this efficiently by querying the configs for the found merchantWallets
-        let enrichedProfiles = [];
+        let enrichedProfiles: any[] = [];
 
         if (profiles.length > 0) {
             const uniqueMerchants = Array.from(new Set(profiles.map((p: any) => p.merchantWallet)));

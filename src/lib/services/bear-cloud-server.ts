@@ -67,18 +67,18 @@ class ServerBearCloudAPIService {
       console.log('🔑 API Key:', this.config.apiKey ? `${this.config.apiKey.substring(0, 8)}...` : 'NOT SET');
       console.log('🔐 Secret:', this.config.secret ? `${this.config.secret.substring(0, 8)}...` : 'NOT SET');
       console.log('📋 Scope:', this.config.scope);
-      
+
       const authPayload = {
         api_key: this.config.apiKey,
         secret: this.config.secret,
         scope: this.config.scope,
       };
-      console.log('📤 Sending auth payload:', { 
+      console.log('📤 Sending auth payload:', {
         api_key: authPayload.api_key ? `${authPayload.api_key.substring(0, 8)}...` : 'NOT SET',
         secret: authPayload.secret ? `${authPayload.secret.substring(0, 8)}...` : 'NOT SET',
-        scope: authPayload.scope 
+        scope: authPayload.scope
       });
-      
+
       const response = await fetch(this.config.authUrl, {
         method: 'POST',
         headers: {
@@ -87,10 +87,10 @@ class ServerBearCloudAPIService {
         body: JSON.stringify(authPayload),
         signal: AbortSignal.timeout(this.config.timeout),
       });
-      
+
       console.log('📥 Auth response status:', response.status);
       console.log('📥 Auth response headers:', Object.fromEntries(response.headers.entries()));
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Bear Cloud API authentication failed:');
@@ -105,12 +105,12 @@ class ServerBearCloudAPIService {
       const jwtToken = await response.text();
       console.log('📄 Raw response body type:', typeof jwtToken);
       console.log('📄 Raw response body preview:', jwtToken.substring(0, 50) + '...');
-      
+
       if (!jwtToken || jwtToken.trim().length === 0) {
         console.error('❌ Empty token response');
         return false;
       }
-      
+
       // Check if response looks like HTML (error page) instead of JWT token
       if (jwtToken.trim().startsWith('<')) {
         console.error('❌ Received HTML response instead of JWT token');
@@ -118,14 +118,14 @@ class ServerBearCloudAPIService {
         console.error('   Response preview:', jwtToken.substring(0, 200));
         return false;
       }
-      
+
       // Store the JWT token directly
       this.authToken = {
         access_token: jwtToken.trim(),
         token_type: 'Bearer',
         expires_at: Date.now() + (3600 * 1000) // Default 1 hour expiry
       };
-      
+
       console.log('✅ Server-side Bear Cloud API authentication successful - JWT token received');
       console.log('🎫 Token preview:', jwtToken.substring(0, 20) + '...');
       return true;
@@ -147,7 +147,7 @@ class ServerBearCloudAPIService {
   // Helper method to make authenticated requests
   private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
     const authenticated = await this.ensureAuthenticated();
-    
+
     if (!authenticated || !this.authToken) {
       console.log('🔄 Authentication not available, using mock data fallback');
       throw new Error('Authentication failed - will use mock data');
@@ -156,30 +156,30 @@ class ServerBearCloudAPIService {
     const url = `https://${this.config.apiUrl}${endpoint}`;
     console.log(`🌐 Server making request to: ${url}`);
     console.log(`🔧 Method: ${options.method || 'GET'}`);
-    
+
     // Build headers - only add Content-Type for POST/PUT requests
     const headers: Record<string, string> = {
       'Authorization': `${this.authToken.token_type} ${this.authToken.access_token}`,
       'Accept': 'application/json',
       ...(options.headers as Record<string, string> || {}),
     };
-    
+
     // Only add Content-Type for requests with body
     if (options.method && ['POST', 'PUT', 'PATCH'].includes(options.method.toUpperCase())) {
       headers['Content-Type'] = 'application/json';
     }
-    
+
     console.log(`📋 Request headers:`, headers);
-    
+
     const response = await fetch(url, {
       ...options,
       headers,
       signal: AbortSignal.timeout(this.config.timeout),
     });
-    
+
     console.log(`📥 Response status: ${response.status} ${response.statusText}`);
     console.log(`📥 Response headers:`, Object.fromEntries(response.headers.entries()));
-    
+
     return response;
   }
 
@@ -187,26 +187,26 @@ class ServerBearCloudAPIService {
   async getAllRobots(): Promise<RobotStatus[]> {
     try {
       console.log('🤖 Server fetching all robots from Bear Cloud API...');
-      
+
       const response = await this.makeRequest('/robots');
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ API Error ${response.status}: ${response.statusText}`);
         console.error(`❌ Error response body:`, errorText);
-        
+
         // Try different common endpoints if robots endpoint fails
         if (response.status === 404) {
           console.log('🔄 /robots not found, trying alternative endpoints...');
           // Could try /api/robots, /v1/robots, etc.
         }
-        
+
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
       console.log('✅ Successfully fetched robots from server:', data);
-      
+
       // Transform Bear API response to our interface
       const robots = this.transformRobotsData(data);
       return robots;
@@ -223,11 +223,11 @@ class ServerBearCloudAPIService {
     try {
       // Handle different possible response structures
       const robots = (apiData as { robots?: unknown[] })?.robots || (apiData as { data?: unknown[] })?.data || apiData || [];
-      
+
       return (robots as { id?: string; robot_id?: string; name?: string; robot_name?: string; status?: string; state?: string; battery_level?: number; battery?: number; position?: { x: number; y: number; z?: number; }; location?: { x: number; y: number; z?: number; }; signal_strength?: number; wifi_strength?: number; current_task?: string; task?: string; mission?: string; uptime?: string | number; online_time?: string | number; last_updated?: string; timestamp?: string; heading?: number; orientation?: number; speed?: number; velocity?: number; sensors?: { temperature?: number; humidity?: number; proximity?: number[]; }; temperature?: number; humidity?: number; proximity_sensors?: number[]; }[]).map((robot) => ({
         id: robot.id || robot.robot_id || `robot-${Math.random().toString(36).substr(2, 9)}`,
         name: robot.name || robot.robot_name || `Robot ${robot.id}`,
-        status: this.mapBearStatus(robot.status || robot.state),
+        status: this.mapBearStatus(robot.status || robot.state || 'UNKNOWN'),
         battery: robot.battery_level || robot.battery || Math.floor(Math.random() * 100),
         position: {
           x: robot.position?.x || robot.location?.x || Math.floor(Math.random() * 500),
@@ -274,14 +274,14 @@ class ServerBearCloudAPIService {
       'standby': 'idle',
       'paused': 'idle',
     };
-    
+
     return statusMap[bearStatus?.toLowerCase()] || 'idle';
   }
 
   async getRobotById(robotId: string): Promise<RobotStatus | null> {
     try {
       console.log(`🤖 Server fetching robot ${robotId} from Bear Cloud API...`);
-      
+
       const response = await this.makeRequest(`/robots/${robotId}`);
 
       if (!response.ok) {
@@ -290,7 +290,7 @@ class ServerBearCloudAPIService {
 
       const data = await response.json();
       console.log(`✅ Successfully fetched robot ${robotId}:`, data);
-      
+
       // Transform single robot data
       const robots = this.transformRobotsData({ robots: [data.robot || data] });
       return robots[0] || null;
@@ -305,7 +305,7 @@ class ServerBearCloudAPIService {
   async sendRobotCommand(robotId: string, command: string, params?: unknown): Promise<boolean> {
     try {
       console.log(`🎮 Server sending command '${command}' to robot ${robotId}...`);
-      
+
       const payload = {
         command: this.mapCommandToBearAPI(command),
         parameters: params || {},
@@ -339,14 +339,14 @@ class ServerBearCloudAPIService {
   private mapCommandToBearAPI(command: string): string {
     const commandMap: Record<string, string> = {
       'start': 'start_mission',
-      'pause': 'pause_mission', 
+      'pause': 'pause_mission',
       'stop': 'stop_mission',
       'resume': 'resume_mission',
       'return_home': 'return_to_dock',
       'charge': 'dock_for_charging',
       'emergency_stop': 'emergency_stop',
     };
-    
+
     return commandMap[command] || command;
   }
 
@@ -354,7 +354,7 @@ class ServerBearCloudAPIService {
   async getWorkflows(): Promise<WorkflowData[]> {
     try {
       console.log('📋 Server fetching workflows from Bear Cloud API...');
-      
+
       const response = await this.makeRequest('/workflows');
 
       if (!response.ok) {
@@ -363,8 +363,8 @@ class ServerBearCloudAPIService {
 
       const data = await response.json();
       console.log('✅ Successfully fetched workflows:', data);
-      
-      return (data as { workflows?: unknown[]; data?: unknown[]; }).workflows || (data as { workflows?: unknown[]; data?: unknown[]; }).data || [];
+
+      return (data as { workflows?: any[]; data?: any[]; }).workflows || (data as { workflows?: any[]; data?: any[]; }).data || [];
     } catch (error) {
       console.error('❌ Failed to fetch workflows:', error);
       console.log('🔄 Returning mock workflows...');
@@ -375,7 +375,7 @@ class ServerBearCloudAPIService {
   async createWorkflow(workflow: Omit<WorkflowData, 'id' | 'created' | 'updated'>): Promise<WorkflowData | null> {
     try {
       console.log('📋 Server creating workflow:', workflow.name);
-      
+
       const response = await this.makeRequest('/workflows', {
         method: 'POST',
         body: JSON.stringify(workflow),
@@ -387,8 +387,8 @@ class ServerBearCloudAPIService {
 
       const data = await response.json();
       console.log('✅ Successfully created workflow:', data);
-      
-      return (data as { workflow?: unknown; }).workflow || (data as { workflow?: unknown; });
+
+      return (data as { workflow?: any; }).workflow || (data as { workflow?: any; });
     } catch (error) {
       console.error('❌ Failed to create workflow:', error);
       // Return mock workflow as fallback
@@ -404,7 +404,7 @@ class ServerBearCloudAPIService {
   async getFacilityMap(): Promise<unknown> {
     try {
       console.log('🗺️ Server fetching facility map from Bear Cloud API...');
-      
+
       const response = await this.makeRequest('/facility/map');
 
       if (!response.ok) {
@@ -413,7 +413,7 @@ class ServerBearCloudAPIService {
 
       const data = await response.json();
       console.log('✅ Successfully fetched facility map:', data);
-      
+
       return data;
     } catch (error) {
       console.error('❌ Failed to fetch facility map:', error);
@@ -504,7 +504,7 @@ class ServerBearCloudAPIService {
         updated: new Date().toISOString(),
       },
       {
-        id: "workflow-002", 
+        id: "workflow-002",
         name: "Lunch Rush",
         keyframes: [],
         status: "draft",

@@ -43,7 +43,7 @@ export async function GET(
         const checkoutUrl = `${baseUrl}/api/orders`;
 
         // 3. Generate Markdown
-        const lines = [];
+        const lines: string[] = [];
         lines.push(`# ${shopName}`);
         if (shopDesc) lines.push(`\n${shopDesc}`);
         lines.push(`\nThis shop supports **Agentic Payments** via x402.`);

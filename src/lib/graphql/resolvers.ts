@@ -1,5 +1,14 @@
 import { User } from '../models/User';
 import { TeamMember, ITeamMember } from '../models/TeamMember';
+import mongoose from 'mongoose';
+
+const ensureObjectId = (id: any) => {
+  if (id && id._id) return id._id;
+  if (id && typeof id === 'string') return new mongoose.Types.ObjectId(id);
+  return id;
+};
+
+
 import { Shift } from '../models/Shift';
 import { InventoryItem } from '../models/InventoryItem';
 import { Invoice } from '../models/Invoice';
@@ -9,14 +18,14 @@ import { Analytics } from '../models/Analytics';
 import { InventoryTransaction } from '../models/InventoryTransaction';
 import { Recipe } from '../models/Recipe';
 import ToastEmployee from '../models/ToastEmployee';
-import { 
-  withAuth, 
+import {
+  withAuth,
   withPermission,
   withRole,
   filterByPermissions,
-  AuthContext 
+  AuthContext
 } from './auth-guards';
-import mongoose from 'mongoose';
+
 import { MenuIndex } from '../models/MenuIndex';
 import { MenuVisibility } from '../models/MenuVisibility';
 import { MenuMapping } from '../models/MenuMapping';
@@ -158,7 +167,7 @@ async function reverseReceivingForOrder(orderId: string, createdByHint?: string)
     let createdBy = createdByHint;
     if (!createdBy) {
       let sys: any = await User.findOne({ email: 'system@varuni.local' }).lean();
-      if (!sys) sys = await User.create({ name: 'System', email: 'system@varuni.local', password: 'ChangeMe123!@#', role: 'Super Admin', permissions: ['admin','inventory'] });
+      if (!sys) sys = await User.create({ name: 'System', email: 'system@varuni.local', password: 'ChangeMe123!@#', role: 'Super Admin', permissions: ['admin', 'inventory'] });
       createdBy = String(sys._id);
     }
     for (const t of rx) {
@@ -263,7 +272,7 @@ export const resolvers = {
     me: withAuth(async (_: unknown, __: unknown, context: AuthContext) => {
       return await User.findById(context.user!.userId);
     }),
-    
+
     users: withPermission('team', async () => {
       return await User.find({ isActive: true }).select('-password');
     }),
@@ -272,7 +281,7 @@ export const resolvers = {
     teamMembers: async (_: unknown, { timeWindow }: { timeWindow: string }, context: AuthContext) => {
       try {
         const members = await TeamMember.find({}).populate('performance');
-        
+
         // In a real app, you would filter performance data based on the timeWindow
         // For now, we'll just return all data and let the frontend handle it
 
@@ -293,7 +302,7 @@ export const resolvers = {
             };
           });
         }
-        
+
         return [];
       } catch (error) {
         console.error('Error fetching team members:', error);
@@ -305,15 +314,15 @@ export const resolvers = {
       try {
         const member = await TeamMember.findById(id).populate('performance');
         if (!member) return null;
-        
+
         // Check permissions
         if (context.isAuthenticated && (
-          context.hasPermission('team') || 
+          context.hasPermission('team') ||
           member.userId === context.user?.userId
         )) {
           return member;
         }
-        
+
         return null;
       } catch (error) {
         console.error('Error fetching team member:', error);
@@ -331,14 +340,14 @@ export const resolvers = {
             $lte: new Date(endDate as string)
           };
         }
-        
+
         const shifts = await Shift.find(filter).populate('teamMember');
-        
+
         // If authenticated and has permission, return all data
         if (context.isAuthenticated && context.hasPermission('scheduling')) {
           return shifts;
         }
-        
+
         // If not authenticated, return empty array
         return [];
       } catch (error) {
@@ -351,15 +360,15 @@ export const resolvers = {
       try {
         const shift = await Shift.findById(id).populate('teamMember');
         if (!shift) return null;
-        
+
         // Check permissions
         if (context.isAuthenticated && (
-          context.hasPermission('scheduling') || 
+          context.hasPermission('scheduling') ||
           shift.assignedTo === context.user?.userId
         )) {
           return shift;
         }
-        
+
         return null;
       } catch (error) {
         console.error('Error fetching shift:', error);
@@ -370,7 +379,7 @@ export const resolvers = {
     // Inventory queries - Allow read access but filter data
     inventoryItems: async () => {
       console.log('*** GraphQL inventoryItems resolver called ***');
-      
+
       try {
         const items = await InventoryItem.find({}).sort({ createdAt: -1 });
         console.log(`*** GraphQL returning ${items.length} items ***`);
@@ -385,12 +394,12 @@ export const resolvers = {
       try {
         const item = await InventoryItem.findById(id);
         if (!item) return null;
-        
+
         // If authenticated and has permission, return data
         if (context.isAuthenticated && context.hasPermission('inventory')) {
           return item;
         }
-        
+
         return null;
       } catch (error) {
         console.error('Error fetching inventory item:', error);
@@ -406,7 +415,7 @@ export const resolvers = {
             $expr: { $lte: ['$currentStock', '$minThreshold'] }
           });
         }
-        
+
         return [];
       } catch (error) {
         console.error('Error fetching low stock items:', error);
@@ -498,15 +507,15 @@ export const resolvers = {
       try {
         const invoice = await Invoice.findById(id);
         if (!invoice) return null;
-        
+
         // Check permissions
         if (context.isAuthenticated && (
-          context.hasPermission('invoicing') || 
+          context.hasPermission('invoicing') ||
           invoice.userId === context.user?.userId
         )) {
           return invoice;
         }
-        
+
         return null;
       } catch (error) {
         console.error('Error fetching invoice:', error);
@@ -592,8 +601,8 @@ export const resolvers = {
                 ws.setDate(ws.getDate() - diff);
                 return ws.toISOString().split('T')[0];
               }
-              case 'monthly': return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}`;
-              case 'quarterly': { const q = Math.floor(date.getMonth()/3)+1; return `${date.getFullYear()}-Q${q}`; }
+              case 'monthly': return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+              case 'quarterly': { const q = Math.floor(date.getMonth() / 3) + 1; return `${date.getFullYear()}-Q${q}`; }
               case 'yearly': return String(date.getFullYear());
               default: return date.toISOString().split('T')[0];
             }
@@ -650,14 +659,14 @@ export const resolvers = {
           switch (String(period)) {
             case 'daily':
               // Local date key to avoid UTC boundary shifts
-              key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+              key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
               break;
             case 'weekly': {
               const ws = new Date(d);
               const dow = ws.getDay();
               const diff = (dow + 6) % 7; // Monday start
               ws.setDate(ws.getDate() - diff);
-              key = `${ws.getFullYear()}-${String(ws.getMonth() + 1).padStart(2,'0')}-${String(ws.getDate()).padStart(2,'0')}`;
+              key = `${ws.getFullYear()}-${String(ws.getMonth() + 1).padStart(2, '0')}-${String(ws.getDate()).padStart(2, '0')}`;
               break;
             }
             case 'monthly':
@@ -1147,7 +1156,7 @@ export const resolvers = {
                 }
               } catch {
                 const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-                items = await InventoryItem.find({ $or: [ { name: prefix }, { category: prefix } ] }, { name: 1, category: 1 })
+                items = await InventoryItem.find({ $or: [{ name: prefix }, { category: prefix }] }, { name: 1, category: 1 })
                   .limit(limit)
                   .lean();
               }
@@ -1163,7 +1172,7 @@ export const resolvers = {
               try {
                 if (isShort) {
                   const prefix = new RegExp('^' + escape(q), 'i');
-                  usersFound = await User.find({ $or: [ { name: prefix }, { email: prefix }, { role: prefix } ] }, { name: 1, email: 1, role: 1 })
+                  usersFound = await User.find({ $or: [{ name: prefix }, { email: prefix }, { role: prefix }] }, { name: 1, email: 1, role: 1 })
                     .limit(limit)
                     .lean();
                 } else {
@@ -1174,7 +1183,7 @@ export const resolvers = {
                 }
               } catch {
                 const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-                usersFound = await User.find({ $or: [ { name: prefix }, { email: prefix }, { role: prefix } ] }, { name: 1, email: 1, role: 1 })
+                usersFound = await User.find({ $or: [{ name: prefix }, { email: prefix }, { role: prefix }] }, { name: 1, email: 1, role: 1 })
                   .limit(limit)
                   .lean();
               }
@@ -1189,7 +1198,7 @@ export const resolvers = {
               try {
                 if (isShort) {
                   const prefix = new RegExp('^' + escape(q), 'i');
-                  vendors = await Supplier.find({ $or: [ { name: prefix }, { companyName: prefix } ] }, { name: 1, companyName: 1, supplierCode: 1 })
+                  vendors = await Supplier.find({ $or: [{ name: prefix }, { companyName: prefix }] }, { name: 1, companyName: 1, supplierCode: 1 })
                     .limit(limit)
                     .lean();
                 } else {
@@ -1200,7 +1209,7 @@ export const resolvers = {
                 }
               } catch {
                 const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-                vendors = await Supplier.find({ $or: [ { name: prefix }, { companyName: prefix }, { supplierCode: prefix } ] }, { name: 1, companyName: 1, supplierCode: 1 })
+                vendors = await Supplier.find({ $or: [{ name: prefix }, { companyName: prefix }, { supplierCode: prefix }] }, { name: 1, companyName: 1, supplierCode: 1 })
                   .limit(limit)
                   .lean();
               }
@@ -1215,7 +1224,7 @@ export const resolvers = {
               try {
                 if (isShort) {
                   const prefix = new RegExp('^' + escape(q), 'i');
-                  people = await TeamMember.find({ $or: [ { name: prefix }, { email: prefix } ] }, { name: 1, email: 1, role: 1, department: 1 })
+                  people = await TeamMember.find({ $or: [{ name: prefix }, { email: prefix }] }, { name: 1, email: 1, role: 1, department: 1 })
                     .limit(limit)
                     .lean();
                 } else {
@@ -1226,7 +1235,7 @@ export const resolvers = {
                 }
               } catch {
                 const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-                people = await TeamMember.find({ $or: [ { name: prefix }, { email: prefix }, { department: prefix }, { role: prefix } ] }, { name: 1, email: 1, role: 1, department: 1 })
+                people = await TeamMember.find({ $or: [{ name: prefix }, { email: prefix }, { department: prefix }, { role: prefix }] }, { name: 1, email: 1, role: 1, department: 1 })
                   .limit(limit)
                   .lean();
               }
@@ -1238,7 +1247,7 @@ export const resolvers = {
           (async () => {
             if (context.isAuthenticated && context.hasPermission('inventory')) {
               const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-              const pos = await PurchaseOrder.find({ $or: [ { poNumber: prefix }, { supplierName: prefix } ] }, { poNumber: 1, supplierName: 1 })
+              const pos = await PurchaseOrder.find({ $or: [{ poNumber: prefix }, { supplierName: prefix }] }, { poNumber: 1, supplierName: 1 })
                 .limit(limit)
                 .lean();
               for (const o of pos) {
@@ -1249,7 +1258,7 @@ export const resolvers = {
           (async () => {
             if (context.isAuthenticated && context.hasPermission('invoicing')) {
               const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-              const inv = await Invoice.find({ $or: [ { invoiceNumber: prefix }, { clientName: prefix }, { description: regex } ] }, { invoiceNumber: 1, clientName: 1 })
+              const inv = await Invoice.find({ $or: [{ invoiceNumber: prefix }, { clientName: prefix }, { description: regex }] }, { invoiceNumber: 1, clientName: 1 })
                 .limit(limit)
                 .lean();
               for (const i of inv) {
@@ -1264,7 +1273,7 @@ export const resolvers = {
               try {
                 if (isShort) {
                   const prefix = new RegExp('^' + escape(q), 'i');
-                  recipesFound = await Recipe.find({ $or: [ { name: prefix }, { category: prefix }, { tags: prefix } ] }, { name: 1, category: 1, isPopular: 1 })
+                  recipesFound = await Recipe.find({ $or: [{ name: prefix }, { category: prefix }, { tags: prefix }] }, { name: 1, category: 1, isPopular: 1 })
                     .limit(limit)
                     .lean();
                 } else {
@@ -1275,7 +1284,7 @@ export const resolvers = {
                 }
               } catch {
                 const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-                recipesFound = await Recipe.find({ $or: [ { name: prefix }, { category: prefix }, { tags: prefix } ] }, { name: 1, category: 1, isPopular: 1 })
+                recipesFound = await Recipe.find({ $or: [{ name: prefix }, { category: prefix }, { tags: prefix }] }, { name: 1, category: 1, isPopular: 1 })
                   .limit(limit)
                   .lean();
               }
@@ -1288,7 +1297,7 @@ export const resolvers = {
             // Shifts (scheduling)
             if (context.isAuthenticated && context.hasPermission('scheduling')) {
               const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-              const shiftsFound = await Shift.find({ $or: [ { role: prefix }, { status: prefix } ] }, { role: 1, date: 1, status: 1 })
+              const shiftsFound = await Shift.find({ $or: [{ role: prefix }, { status: prefix }] }, { role: 1, date: 1, status: 1 })
                 .limit(limit)
                 .lean();
               for (const s of shiftsFound) {
@@ -1330,7 +1339,7 @@ export const resolvers = {
         // Rosters (by name/description)
         if (context.isAuthenticated && context.hasPermission('roster')) {
           const prefix = new RegExp((isShort ? '^' : '') + escape(q), 'i');
-          const rosters = await RosterConfiguration.find({ $or: [ { name: prefix }, { description: prefix } ] }, { name: 1, isActive: 1 })
+          const rosters = await RosterConfiguration.find({ $or: [{ name: prefix }, { description: prefix }] }, { name: 1, isActive: 1 })
             .limit(limit)
             .lean();
           for (const r of rosters) {
@@ -1484,9 +1493,9 @@ export const resolvers = {
 
           const fallbackById = supplierIds.length
             ? new Map(
-                (await Supplier.find({ _id: { $in: supplierIds } }))
-                  .map((doc) => [String(doc._id), doc] as const),
-              )
+              (await Supplier.find({ _id: { $in: supplierIds } }))
+                .map((doc) => [String(doc._id), doc] as const),
+            )
             : new Map<string, any>();
 
           const nameCandidates = Array.from(
@@ -1499,9 +1508,9 @@ export const resolvers = {
 
           const fallbackByName = nameCandidates.length
             ? new Map(
-                (await Supplier.find({ name: { $in: nameCandidates } }))
-                  .map((doc) => [doc.name, doc] as const),
-              )
+              (await Supplier.find({ name: { $in: nameCandidates } }))
+                .map((doc) => [doc.name, doc] as const),
+            )
             : new Map<string, any>();
 
           for (const order of missingOrders) {
@@ -1558,10 +1567,10 @@ export const resolvers = {
     rosterCandidates: async (_: unknown, { includeToastOnly = false, onlySevenShiftsActive = true }: { includeToastOnly?: boolean; onlySevenShiftsActive?: boolean }) => {
       try {
         console.log('Fetching roster candidates...');
-        
+
         // 1. Fetch all active Toast employees efficiently
-        const toastEmployees = await ToastEmployee.find({ 
-          isLocallyDeleted: { $ne: true } 
+        const toastEmployees = await ToastEmployee.find({
+          isLocallyDeleted: { $ne: true }
         }).lean();
         console.log(`Found ${toastEmployees.length} active Toast employees.`);
 
@@ -1569,11 +1578,11 @@ export const resolvers = {
         const emails = toastEmployees
           .map(emp => emp.email)
           .filter((email): email is string => !!email);
-          
-        const linkedTeamMembers = await TeamMember.find({ 
-          email: { $in: emails } 
+
+        const linkedTeamMembers = await TeamMember.find({
+          email: { $in: emails }
         }).populate('performance').lean();
-        
+
         // 3. Create a lookup map for efficient access
         const teamMemberMap = new Map(
           linkedTeamMembers.map(tm => [tm.email, tm])
@@ -1585,7 +1594,7 @@ export const resolvers = {
           const name = `${emp.firstName} ${emp.lastName}`.trim();
           const sevenShiftsEnrolled = typeof emp.sevenShiftsId === 'number' && !Number.isNaN(emp.sevenShiftsId);
           const toastEnrolled = emp.isActive === true;
-          
+
           let rating = 0;
           const linkedTeamMember = emp.email ? teamMemberMap.get(emp.email) : undefined;
           if (linkedTeamMember && linkedTeamMember.performance) {
@@ -1597,21 +1606,21 @@ export const resolvers = {
             name,
             email: emp.email || '',
             role: Array.isArray(emp.jobTitles) && emp.jobTitles.length ? emp.jobTitles[0].title : 'N/A',
-            roles: Array.isArray(emp.jobTitles) ? emp.jobTitles.map(j => j.title) : [],
+            roles: Array.isArray(emp.jobTitles) ? emp.jobTitles.map((j: any) => j.title) : [],
             department: linkedTeamMember?.department || '',
             toastEnrolled,
             sevenShiftsEnrolled,
             rating,
           };
         });
-        
+
         let filtered = candidates;
         if (onlySevenShiftsActive) {
           filtered = filtered.filter(c => c.sevenShiftsEnrolled);
         } else if (!includeToastOnly) {
           filtered = filtered.filter(c => c.sevenShiftsEnrolled || c.toastEnrolled);
         }
-        
+
         console.log(`Returning ${filtered.length} roster candidates.`);
         return filtered;
       } catch (e) {
@@ -1628,19 +1637,19 @@ export const resolvers = {
       return await AIInsight.find(filter).sort({ createdAt: -1 });
     }
   },
-  
+
   Mutation: {
     // User mutations
     createUser: withRole(['Super Admin'], async (_: unknown, { input }: ResolverArgs) => {
       // Don't allow password in input - it should be set separately
       const { password, ...userData } = input as { password?: string; email: string };
-      
+
       // Check if user already exists
       const existingUser = await User.findOne({ email: userData.email });
       if (existingUser) {
         throw new Error('User with this email already exists');
       }
-      
+
       const user = new User(userData);
       return await user.save();
     }),
@@ -1650,7 +1659,7 @@ export const resolvers = {
       if (id !== context.user!.userId && !context.hasRole(['Super Admin', 'Manager'])) {
         throw new Error('Access denied');
       }
-      
+
       const updateInput = input as { role?: string; permissions?: string[]; isActive?: boolean };
       // Don't allow updating sensitive fields unless admin
       if (!context.hasRole(['Super Admin'])) {
@@ -1658,7 +1667,7 @@ export const resolvers = {
         delete updateInput.permissions;
         delete updateInput.isActive;
       }
-      
+
       return await User.findByIdAndUpdate(id, updateInput, { new: true }).select('-password');
     }),
 
@@ -1667,7 +1676,7 @@ export const resolvers = {
       if (id === context.user!.userId) {
         throw new Error('Cannot delete your own account');
       }
-      
+
       await User.findByIdAndUpdate(id, { isActive: false });
       return true;
     }),
@@ -1686,12 +1695,12 @@ export const resolvers = {
     updateTeamMember: withPermission('team', async (_: unknown, { id, input }: ResolverArgs, context: AuthContext) => {
       const member = await TeamMember.findById(id);
       if (!member) throw new Error('Team member not found');
-      
+
       // Check permissions
       if (!context.hasRole(['Super Admin', 'Manager']) && member.userId !== context.user!.userId) {
         throw new Error('Access denied');
       }
-      
+
       return await TeamMember.findByIdAndUpdate(id, input as any, { new: true });
     }),
 
@@ -1718,14 +1727,14 @@ export const resolvers = {
     updateShift: withPermission('scheduling', async (_: unknown, { id, input }: ResolverArgs, context: AuthContext) => {
       const shift = await Shift.findById(id);
       if (!shift) throw new Error('Shift not found');
-      
+
       // Check permissions
-      if (!context.hasRole(['Super Admin', 'Manager']) && 
-          shift.assignedTo !== context.user!.userId && 
-          shift.createdBy !== context.user!.userId) {
+      if (!context.hasRole(['Super Admin', 'Manager']) &&
+        shift.assignedTo !== context.user!.userId &&
+        shift.createdBy !== context.user!.userId) {
         throw new Error('Access denied');
       }
-      
+
       return await Shift.findByIdAndUpdate(id, input as any, { new: true });
     }),
 
@@ -1806,16 +1815,16 @@ export const resolvers = {
     updateStock: withPermission('inventory', async (_: unknown, { id, quantity }: ResolverArgs, context: AuthContext) => {
       const item = await InventoryItem.findById(id);
       if (!item) throw new Error('Inventory item not found');
-      
+
       if (quantity === undefined) throw new Error('Quantity is required');
-      
+
       const before = Number(item.currentStock || 0);
       const after = Number(quantity);
       const delta = after - before;
       item.currentStock = after;
       item.lastUpdated = new Date();
       item.updatedBy = context.user!.userId;
-      
+
       // Update status based on stock levels
       if (quantity <= 0) {
         item.status = 'out_of_stock';
@@ -1826,7 +1835,7 @@ export const resolvers = {
       } else {
         item.status = 'normal';
       }
-      
+
       const saved = await item.save();
       // Record a count adjustment transaction for audit trail
       try {
@@ -1852,7 +1861,7 @@ export const resolvers = {
       return saved;
     }),
 
-    recordWaste: withPermission('inventory', async (_: unknown, { itemId, quantity, reason, notes }: { itemId: string; quantity: number; reason: string; notes?: string }, context: AuthContext) => {
+    recordInventoryWaste: withPermission('inventory', async (_: unknown, { itemId, quantity, reason, notes }: { itemId: string; quantity: number; reason: string; notes?: string }, context: AuthContext) => {
       const item = await InventoryItem.findById(itemId);
       if (!item) throw new Error('Inventory item not found');
 
@@ -1883,7 +1892,7 @@ export const resolvers = {
       } else {
         item.status = 'normal';
       }
-      
+
       item.markModified('wasteLogs');
       const saved = await item.save();
       // Create waste transaction for analytics
@@ -1968,12 +1977,12 @@ export const resolvers = {
     updateInvoice: withPermission('invoicing', async (_: unknown, { id, input }: ResolverArgs, context: AuthContext) => {
       const invoice = await Invoice.findById(id);
       if (!invoice) throw new Error('Invoice not found');
-      
+
       // Check permissions
       if (!context.hasRole(['Super Admin', 'Manager']) && invoice.userId !== context.user!.userId) {
         throw new Error('Access denied');
       }
-      
+
       return await Invoice.findByIdAndUpdate(id, input as any, { new: true });
     }),
 
@@ -1985,19 +1994,19 @@ export const resolvers = {
     markInvoicePaid: withPermission('invoicing', async (_: unknown, { id }: ResolverArgs, context: AuthContext) => {
       const invoice = await Invoice.findById(id);
       if (!invoice) throw new Error('Invoice not found');
-      
+
       // Check permissions
       if (!context.hasRole(['Super Admin', 'Manager']) && invoice.userId !== context.user!.userId) {
         throw new Error('Access denied');
       }
-      
+
       return await Invoice.findByIdAndUpdate(
-        id, 
-        { 
+        id,
+        {
           status: 'paid',
           paidDate: new Date(),
           updatedBy: context.user!.userId
-        }, 
+        },
         { new: true }
       );
     }),
@@ -2005,8 +2014,8 @@ export const resolvers = {
     // Orders
     createPurchaseOrder: withPermission('inventory', async (_: unknown, { input }: any, context: AuthContext) => {
       const now = new Date();
-      const ymd = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-      const hm = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+      const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      const hm = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
       const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
       const poNumber = `PO-${ymd}-${hm}-${rand}`;
       const payload: any = {
@@ -2072,8 +2081,8 @@ export const resolvers = {
       const updated = await PurchaseOrder.findByIdAndUpdate(id, update, { new: true });
       // If status changed off partially_received/received, reverse previous receiving
       try {
-        const wasReceived = prev && ['partially_received','received'].includes(String((prev as any).status));
-        const nowReceived = updated && ['partially_received','received'].includes(String((updated as any).status));
+        const wasReceived = prev && ['partially_received', 'received'].includes(String((prev as any).status));
+        const nowReceived = updated && ['partially_received', 'received'].includes(String((updated as any).status));
         if (wasReceived && !nowReceived) {
           await reverseReceivingForOrder(String((updated as any)._id), context.user?.userId);
         }
@@ -2091,7 +2100,7 @@ export const resolvers = {
 
       let allReceived = true;
       let anyReceived = false;
-      const missing: Array<{ name: string; missingQuantity: number; unitCost: number; totalCredit: number; } > = [];
+      const missing: Array<{ name: string; missingQuantity: number; unitCost: number; totalCredit: number; }> = [];
       let accumulatedCredit = 0;
 
       order.items = order.items.map((it: any) => {
@@ -2192,15 +2201,15 @@ export const resolvers = {
         .filter(Boolean);
 
       if (Array.isArray(missingForReplacement) && (missingForReplacement as any[]).length > 0) {
-        const ymd = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-        const hm = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+        const hm = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
         const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
         replacementOrder = await PurchaseOrder.create({
           poNumber: `PO-${ymd}-${hm}-${rand}`,
           supplier: order.supplier, supplierName: order.supplierName, expectedDeliveryDate: undefined,
           items: missingForReplacement as any,
-          subtotal: (missingForReplacement as any[]).reduce((s, i:any) => s + Number(i.totalCost || 0), 0),
-          total: (missingForReplacement as any[]).reduce((s, i:any) => s + Number(i.totalCost || 0), 0),
+          subtotal: (missingForReplacement as any[]).reduce((s, i: any) => s + Number(i.totalCost || 0), 0),
+          total: (missingForReplacement as any[]).reduce((s, i: any) => s + Number(i.totalCost || 0), 0),
           status: 'draft', notes: `Replacement order for missing items from ${order.poNumber}`,
           parentOrder: order._id, isPartial: true,
         });
@@ -2211,7 +2220,7 @@ export const resolvers = {
 
     resetPurchaseOrder: withRole(['Super Admin'], async (_: unknown, { id }: any, context: AuthContext) => {
       // Reverse receiving counts before reset
-      try { await reverseReceivingForOrder(String(id), context.user?.userId); } catch {}
+      try { await reverseReceivingForOrder(String(id), context.user?.userId); } catch { }
       const order: any = await PurchaseOrder.findById(id);
       if (!order) throw new Error('Order not found');
       // Reset fields: quantities received/credited, status back to draft, dates cleared, credits cleared
@@ -2236,7 +2245,7 @@ export const resolvers = {
     deletePurchaseOrder: withRole(['Super Admin'], async (_: unknown, { id }: any, context: AuthContext) => {
       const existing = await PurchaseOrder.findById(id);
       if (!existing) return false;
-      try { await reverseReceivingForOrder(String(id), context.user?.userId); } catch {}
+      try { await reverseReceivingForOrder(String(id), context.user?.userId); } catch { }
       await PurchaseOrder.findByIdAndDelete(id);
       return true;
     }),
@@ -2282,7 +2291,7 @@ export const resolvers = {
       const RoleMapping = (await import('@/lib/models/RoleMapping')).default;
       return RoleMapping.findByIdAndUpdate(id, input, { new: true });
     }),
-    
+
     // Saved Roster Mutations
     saveRoster: withPermission('roster', async (_: unknown, { input }: any) => {
       const SavedRoster = (await import('@/lib/models/SavedRoster')).default;
@@ -2380,7 +2389,7 @@ Scaling: maintain ratios and salt at ~1.0–1.5% of total weight as guideline.
         callGraphQL: async () => ({} as any),
       } as any);
       let parsed: any = {};
-      try { parsed = JSON.parse(result.text || '{}'); } catch {}
+      try { parsed = JSON.parse(result.text || '{}'); } catch { }
 
       // Local helpers to sanitize AI output to strict GraphQL schema types
       function coerceString(value: any): string {
@@ -2549,7 +2558,7 @@ Scaling: maintain ratios and salt at ~1.0–1.5% of total weight as guideline.
       let creator: any = context.user?.userId;
       if (!creator) {
         let sys: any = await User.findOne({ email: 'system@varuni.local' }).lean();
-        if (!sys) sys = await User.create({ name: 'System', email: 'system@varuni.local', password: 'ChangeMe123!@#', role: 'Super Admin', permissions: ['admin','inventory'] });
+        if (!sys) sys = await User.create({ name: 'System', email: 'system@varuni.local', password: 'ChangeMe123!@#', role: 'Super Admin', permissions: ['admin', 'inventory'] });
         creator = String(sys._id);
       }
       const now = new Date();
@@ -2564,11 +2573,11 @@ Scaling: maintain ratios and salt at ~1.0–1.5% of total weight as guideline.
         const before = Number(item.currentStock || 0);
         const after = Math.max(0, before - totalUsage);
         item.currentStock = after;
-          if (after <= 0) item.status = 'out_of_stock';
-          else if (after <= item.minThreshold) item.status = 'critical';
-          else if (after <= item.minThreshold * 1.5) item.status = 'low';
-          else item.status = 'normal';
-          await item.save();
+        if (after <= 0) item.status = 'out_of_stock';
+        else if (after <= item.minThreshold) item.status = 'critical';
+        else if (after <= item.minThreshold * 1.5) item.status = 'low';
+        else item.status = 'normal';
+        await item.save();
         await InventoryTransaction.create({
           inventoryItem: item._id,
           itemName: item.name,
@@ -2631,7 +2640,7 @@ Scaling: maintain ratios and salt at ~1.0–1.5% of total weight as guideline.
       const nextDay = args.forDate ? new Date(args.forDate) : new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
       const result = await agent.chat(
-        `Generate 3-5 actionable ${args.module} insights for ${nextDay.toISOString().slice(0,10)} with fields: title, description, action, urgency (low|medium|critical), impact. Respond with JSON array only, no prose.`,
+        `Generate 3-5 actionable ${args.module} insights for ${nextDay.toISOString().slice(0, 10)} with fields: title, description, action, urgency (low|medium|critical), impact. Respond with JSON array only, no prose.`,
         {
           graphqlEndpoint: process.env.NEXT_PUBLIC_GRAPHQL_URL || '/api/graphql',
           callGraphQL,
@@ -2641,7 +2650,7 @@ Scaling: maintain ratios and salt at ~1.0–1.5% of total weight as guideline.
       );
 
       let parsed: any[] = [];
-      try { parsed = JSON.parse(result.text || '[]'); } catch {}
+      try { parsed = JSON.parse(result.text || '[]'); } catch { }
       if (!Array.isArray(parsed)) parsed = [];
 
       const docs = parsed.slice(0, 6).map((p) => ({
@@ -2702,19 +2711,4 @@ Scaling: maintain ratios and salt at ~1.0–1.5% of total weight as guideline.
       })
     }
   },
-  IndexedMenus: {
-    modifierGroupReferences: (parent: any) => {
-      const mg = parent?.modifierGroupReferences;
-      if (!mg) return [];
-      // Support Map or plain object
-      if (typeof mg.values === 'function') return Array.from(mg.values());
-      return Object.values(mg);
-    },
-    modifierOptionReferences: (parent: any) => {
-      const mo = parent?.modifierOptionReferences;
-      if (!mo) return [];
-      if (typeof mo.values === 'function') return Array.from(mo.values());
-      return Object.values(mo);
-    },
-  }
 };

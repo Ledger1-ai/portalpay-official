@@ -253,7 +253,7 @@ function GlobalDefaultsTab() {
 
     // Prepare Curve Data for Visualization
     const curveData = useMemo(() => {
-        const data = [];
+        const data: any[] = [];
         const loyaltyConfig = {
             xpPerDollar: config.defaultXpPerDollar,
             baseXP: config.defaultBaseXP,

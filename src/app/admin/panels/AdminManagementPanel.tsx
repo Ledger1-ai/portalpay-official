@@ -182,7 +182,7 @@ export default function AdminManagementPanel() {
                     </button>
                     <button
                         onClick={() => setActiveTab("activity")}
-                        className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${activeTab === "activity" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${(activeTab as string) === "activity" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                     >
                         Activity
                     </button>

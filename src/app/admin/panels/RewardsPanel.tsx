@@ -348,7 +348,7 @@ export default function RewardsPanel() {
             }
         }
 
-        const data = [];
+        const data: any[] = [];
         for (let i = 1; i <= 50; i++) {
             const xpForLevel = calculateTotalXPForLevel(i, configToUse);
             data.push({
@@ -757,7 +757,7 @@ export default function RewardsPanel() {
                                                 // Calculate current level for this merchant specifically using CORRECT math
                                                 const mProgress = calculateLevelProgress(selectedShop.totalPoints, mConfig);
 
-                                                const data = [];
+                                                const data: any[] = [];
                                                 for (let i = 1; i <= 50; i++) {
                                                     const xp = calculateTotalXPForLevel(i, mConfig);
                                                     data.push({

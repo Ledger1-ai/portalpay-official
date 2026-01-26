@@ -1418,19 +1418,19 @@ const shopAnalyticsSeries: DemoShopAnalytics[] = (() => {
     const alerts: DemoAnalyticsAlert[] =
       i === 0
         ? [
-            {
-              severity: "warning",
-              title: "Fleet throughput slipping",
-              message: "Fleet work is trending 6% below goal for the last three days.",
-              suggestedAction: "Review bay allocation and confirm fleet appointments.",
-            },
-            {
-              severity: "critical",
-              title: "Parts turnover slowing",
-              message: "Average parts turnover increased to 32 days. Investigate braking SKUs.",
-              suggestedAction: "Audit braking inventory and coordinate with suppliers.",
-            },
-          ]
+          {
+            severity: "warning",
+            title: "Fleet throughput slipping",
+            message: "Fleet work is trending 6% below goal for the last three days.",
+            suggestedAction: "Review bay allocation and confirm fleet appointments.",
+          },
+          {
+            severity: "critical",
+            title: "Parts turnover slowing",
+            message: "Average parts turnover increased to 32 days. Investigate braking SKUs.",
+            suggestedAction: "Audit braking inventory and coordinate with suppliers.",
+          },
+        ]
         : [];
 
     series.push({
@@ -1508,7 +1508,7 @@ function mapRecommendedPartsInput(
         unit: entry.unit ?? item.unit ?? "each",
         note: entry.note,
         part: item,
-      };
+      } as any;
     })
     .filter((entry): entry is DemoRecommendedPart => Boolean(entry));
 }
@@ -1538,7 +1538,7 @@ function mapTicketServicesInput(
         estimatedPrice: typeof entry.estimatedPrice === "number" ? entry.estimatedPrice : undefined,
         approved: entry.approved ?? true,
         technicianNotes: entry.technicianNotes,
-      };
+      } as any;
     })
     .filter((entry): entry is DemoTicketService => Boolean(entry));
 }

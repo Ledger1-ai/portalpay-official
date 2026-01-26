@@ -150,6 +150,7 @@ export const typeDefs = gql`
     notes: String
     recordedById: ID
     recordedByName: String
+    recordedBy: User
   }
 
   type WasteReportEntry {
@@ -1042,6 +1043,8 @@ export const typeDefs = gql`
     updateInvoice(id: ID!, input: InvoiceInput!): Invoice!
     addInvoicePayment(input: InvoicePaymentInput!): Invoice!
     updateInvoiceStatus(id: ID!, status: String!): Invoice!
+    deleteInvoice(id: ID!): Boolean!
+    markInvoicePaid(id: ID!): Invoice!
   
     createVendor(input: CreateVendorInput!): Supplier!
     updateVendor(id: ID!, input: UpdateVendorInput!): Supplier!
@@ -1303,6 +1306,11 @@ export const typeDefs = gql`
     status: String
     quantity: Float
     versionId: String
+  }
+
+  type IndexedMenus {
+    modifierGroupReferences: [JSON]
+    modifierOptionReferences: [JSON]
   }
 
   # Roster and Scheduling

@@ -1,4 +1,5 @@
 import { CosmosClient, Database, Container } from "@azure/cosmos";
+import https from "https";
 
 const defaultDbId =
   process.env.COSMOS_PAYPORTAL_DB_ID ||
@@ -37,7 +38,11 @@ export async function getContainer(dbId = defaultDbId, containerId = defaultCont
     throw new Error("COSMOS_CONNECTION_STRING is for MongoDB API. Use a Cosmos DB for NoSQL (Core) connection string.");
   }
 
-  const client = cache.client || new CosmosClient(conn);
+  const client = cache.client || new CosmosClient({
+    endpoint: conn.match(/AccountEndpoint=([^;]+)/)?.[1] || "",
+    key: conn.match(/AccountKey=([^;]+)/)?.[1] || "",
+    agent: new https.Agent({ rejectUnauthorized: false })
+  });
   cache.client = client;
 
   const { database } = await client.databases.createIfNotExists({ id: dbId });

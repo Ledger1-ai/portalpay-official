@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
 
     const toastAPI = new ToastCompleteAPI();
     const apiClient = new ToastAPIClient();
-    
+
     // Test Standard API integrations only
-    const integrationStatus = {
+    const integrationStatus: any = {
       restaurant: { status: 'unknown', data: null, error: null },
       employees: { status: 'unknown', data: null, error: null },
       // Note: Analytics, Orders, and Menus require Premium Toast API access
@@ -60,10 +60,10 @@ export async function GET(request: NextRequest) {
     // Your Standard Toast API includes: Restaurants, Employees, Labor, Configuration
 
     // Calculate overall status for Standard API
-    const successCount = Object.values(integrationStatus).filter(s => s.status === 'success').length;
+    const successCount = Object.values(integrationStatus).filter((s: any) => s.status === 'success').length;
     const totalCount = Object.keys(integrationStatus).length;
-    const overallStatus = successCount === totalCount ? 'standard_api_fully_integrated' : 
-                         successCount > 0 ? 'standard_api_partially_integrated' : 'not_integrated';
+    const overallStatus = successCount === totalCount ? 'standard_api_fully_integrated' :
+      successCount > 0 ? 'standard_api_partially_integrated' : 'not_integrated';
 
     return NextResponse.json({
       success: true,
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Integration status error:', error);
-    
+
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Integration status check failed',

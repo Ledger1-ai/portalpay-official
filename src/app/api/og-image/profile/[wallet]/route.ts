@@ -456,7 +456,7 @@ export async function GET(
     // Create role badges for top right
     let roleBadgesSvg = '';
     if (isMerchant || isBuyer) {
-      const badges = [];
+      const badges: string[] = [];
       if (isMerchant) badges.push('<rect x="0" y="0" width="100" height="36" rx="18" fill="#10b981"/><text x="50" y="24" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="white" text-anchor="middle">Merchant</text>');
       if (isBuyer) {
         const xOffset = isMerchant ? 110 : 0;

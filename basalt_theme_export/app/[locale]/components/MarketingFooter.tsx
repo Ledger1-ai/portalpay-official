@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { prismadb } from "@/lib/prisma";
+import { getBrandConfigFromCosmos, getContainerIdentity } from "@/lib/brand-config";
+import { headers } from "next/headers";
 
 // Social icon components
 const XIcon = () => (
@@ -86,26 +87,30 @@ interface SocialLink {
     hoverColor: string;
 }
 
+
 /**
  * Public marketing footer used across marketing pages.
  * Dynamically displays social icons from SocialSettings.
  */
 export default async function MarketingFooter() {
-    const footerSettings = await prismadb.footerSetting.findFirst();
-    const socialSettings = await prismadb.socialSettings.findFirst();
-    const dbSections = await prismadb.footerSection.findMany({
-        include: {
-            links: {
-                orderBy: { order: "asc" },
-            },
-        },
-        orderBy: { order: "asc" },
-    });
+    const headersList = await headers();
+    const host = headersList.get("host") || "";
+    const { brandKey } = getContainerIdentity(host);
+
+    // Fetch brand config directly (cached)
+    const { brand, overrides } = await getBrandConfigFromCosmos(brandKey);
+
+    // Extract settings from the brand config doc (overrides)
+    const footerSettings = (overrides as any)?.footerSettings || {};
+    const socialSettings = (overrides as any)?.socialSettings || {};
+
+    // Build sections from brand config or defaults
+    const dbSections: any[] = (overrides as any)?.footerSections || [];
 
     // Ensure Documentation link exists in Support section
-    const sections = dbSections.map((section) => {
+    const sections = dbSections.map((section: any) => {
         if (section.title === "Support") {
-            const hasDocs = section.links.some((link) => link.url === "/docs");
+            const hasDocs = section.links.some((link: any) => link.url === "/docs");
             if (!hasDocs) {
                 return {
                     ...section,
@@ -137,7 +142,7 @@ export default async function MarketingFooter() {
 
     // Build social links array from SocialSettings with brand colors
     const socialLinks: SocialLink[] = [
-        { url: socialSettings?.xTwitterUrl, label: "X (Twitter)", icon: <XIcon />, hoverColor: "hover:text-white" },
+        { url: socialSettings?.xTwitterUrl || brand.logos?.twitter, label: "X (Twitter)", icon: <XIcon />, hoverColor: "hover:text-white" },
         { url: socialSettings?.discordUrl, label: "Discord", icon: <DiscordIcon />, hoverColor: "hover:text-[#5865F2]" },
         { url: socialSettings?.linkedinUrl, label: "LinkedIn", icon: <LinkedInIcon />, hoverColor: "hover:text-[#0A66C2]" },
         { url: socialSettings?.instagramUrl, label: "Instagram", icon: <InstagramIcon />, hoverColor: "hover:text-[#E4405F]" },
@@ -185,11 +190,11 @@ export default async function MarketingFooter() {
 
                     {/* Navigation Sections - Right side, evenly spaced */}
                     <div className="flex flex-wrap sm:flex-nowrap justify-center lg:justify-between lg:flex-1 gap-8 sm:gap-12 lg:gap-8">
-                        {sections.map((section) => (
+                        {sections.map((section: any) => (
                             <div key={section.id} className="flex flex-col items-center lg:items-start space-y-3 min-w-[100px]">
                                 <h3 className="text-white font-semibold text-sm">{section.title}</h3>
                                 <ul className="flex flex-col items-center lg:items-start space-y-2 text-sm">
-                                    {section.links.map((link) => (
+                                    {section.links.map((link: any) => (
                                         <li key={link.id}>
                                             <Link href={link.url} className="hover:text-white transition-colors">
                                                 {link.text}

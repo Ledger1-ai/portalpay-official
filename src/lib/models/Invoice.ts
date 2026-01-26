@@ -233,7 +233,7 @@ invoiceSchema.index({ clientName: 1 });
 invoiceSchema.index({ status: 1 });
 invoiceSchema.index({ dueDate: 1 });
 
-invoiceSchema.pre("save", function (next) {
+invoiceSchema.pre("save", function (next: any) {
   const labor = Array.isArray(this.laborLines)
     ? this.laborLines.reduce((sum, line) => sum + Number(line.total || 0), 0)
     : 0;

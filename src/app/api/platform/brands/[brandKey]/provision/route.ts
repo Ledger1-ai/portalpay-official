@@ -505,7 +505,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ brandKey: 
 
       // List all App Service Plans in the specified resource group to find one to use
       const plans = await client.appServicePlans.listByResourceGroup(appServicePlanRg);
-      const plansList = [];
+      const plansList: any[] = [];
       for await (const plan of plans) {
         // Check for Linux plans - kind can be "linux", "app,linux", etc.
         const isLinux = plan.kind?.toLowerCase().includes("linux") || plan.reserved === true;
@@ -517,7 +517,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ brandKey: 
       if (plansList.length === 0) {
         // Get all plans for debugging
         const allPlans = await client.appServicePlans.listByResourceGroup(appServicePlanRg);
-        const allPlansList = [];
+        const allPlansList: any[] = [];
         for await (const p of allPlans) {
           allPlansList.push({ name: p.name, kind: p.kind, reserved: p.reserved });
         }

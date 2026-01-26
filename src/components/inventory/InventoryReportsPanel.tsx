@@ -13,8 +13,8 @@ export default function InventoryReportsPanel() {
     end: new Date().toISOString().split("T")[0],
   }));
 
-  const { data: waste } = useWasteReport(range.start, range.end);
-  const { data: supplier } = useSupplierPerformance(range.start, range.end);
+  const { data: waste } = useWasteReport({ startDate: range.start, endDate: range.end });
+  const { data: supplier } = useSupplierPerformance({ startDate: range.start, endDate: range.end });
   const { data: recipe } = useRecipeProfitability();
 
   const wasteRows = waste?.wasteReport?.byItem || [];
@@ -38,26 +38,32 @@ export default function InventoryReportsPanel() {
     } else {
       const { exportPDFReport } = await import("@/lib/reporting/exports");
       await exportPDFReport(`${filename}.pdf`, [
-        { title: "Waste by Item", columns: [
-          { header: "Item", dataKey: "name" },
-          { header: "Qty", dataKey: "quantity" },
-          { header: "Cost", dataKey: "cost" },
-        ], rows: wasteRows },
-        { title: "Supplier Performance", columns: [
-          { header: "Supplier", dataKey: "supplierName" },
-          { header: "Orders", dataKey: "totalOrders" },
-          { header: "Spent", dataKey: "totalSpent" },
-          { header: "AOV", dataKey: "averageOrderValue" },
-          { header: "On-Time %", dataKey: "onTimeDeliveryRate" },
-          { header: "Quality", dataKey: "qualityRating" },
-        ], rows: supplierRows },
-        { title: "Recipe Profitability", columns: [
-          { header: "Recipe", dataKey: "name" },
-          { header: "Food Cost", dataKey: "foodCost" },
-          { header: "Price", dataKey: "menuPrice" },
-          { header: "FoodCost%", dataKey: "foodCostPct" },
-          { header: "Margin", dataKey: "grossMargin" },
-        ], rows: recipeRows },
+        {
+          title: "Waste by Item", columns: [
+            { header: "Item", dataKey: "name" },
+            { header: "Qty", dataKey: "quantity" },
+            { header: "Cost", dataKey: "cost" },
+          ], rows: wasteRows
+        },
+        {
+          title: "Supplier Performance", columns: [
+            { header: "Supplier", dataKey: "supplierName" },
+            { header: "Orders", dataKey: "totalOrders" },
+            { header: "Spent", dataKey: "totalSpent" },
+            { header: "AOV", dataKey: "averageOrderValue" },
+            { header: "On-Time %", dataKey: "onTimeDeliveryRate" },
+            { header: "Quality", dataKey: "qualityRating" },
+          ], rows: supplierRows
+        },
+        {
+          title: "Recipe Profitability", columns: [
+            { header: "Recipe", dataKey: "name" },
+            { header: "Food Cost", dataKey: "foodCost" },
+            { header: "Price", dataKey: "menuPrice" },
+            { header: "FoodCost%", dataKey: "foodCostPct" },
+            { header: "Margin", dataKey: "grossMargin" },
+          ], rows: recipeRows
+        },
       ]);
     }
   };

@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
       for (const receipt of paidReceipts) {
         const lineItems = Array.isArray(receipt.lineItems) ? receipt.lineItems : [];
-        const restaurantItems = [];
+        const restaurantItems: any[] = [];
 
         for (const item of lineItems) {
           const label = String(item.label || "").toLowerCase();
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
           const itemId = String((item as any).itemId || "").toLowerCase();
           const sku = String((item as any).sku || "").toLowerCase();
 
-          let inventoryItem = null;
+          let inventoryItem: any = null;
           if (itemId) {
             inventoryItem = inventoryMap.get(itemId);
           }

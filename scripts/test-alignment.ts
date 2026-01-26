@@ -1,5 +1,5 @@
 
-const JSZip = require("jszip");
+
 const fs = require("fs");
 // Mocking the zipalign function import since it's TS
 // We'll read the TS file and eval it or just copy logic? 
@@ -41,6 +41,7 @@ async function test() {
     try {
         const aligned = await zipalign(unaligned);
         console.log("Aligned ZIP size:", aligned.length);
+        // @ts-ignore
         checkAlignment(aligned, "Aligned");
 
         // Check if valid by reopening

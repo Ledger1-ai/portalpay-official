@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
             const owner = String(env.NEXT_PUBLIC_OWNER_WALLET || "").toLowerCase();
             const envAdmins = (env.ADMIN_WALLETS || []).map(a => String(a || "").toLowerCase());
 
-            const bootstrapList = [];
+            const bootstrapList: { wallet: string; role: string; name: string }[] = [];
             if (owner) bootstrapList.push({ wallet: owner, role: "platform_super_admin", name: "Owner" });
             envAdmins.forEach(a => {
                 if (a && a !== owner) bootstrapList.push({ wallet: a, role: "platform_super_admin", name: "Admin (Env)" });

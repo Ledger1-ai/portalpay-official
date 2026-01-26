@@ -58,7 +58,7 @@ export function PublishingDetails({ attributes, primaryColor }: PublishingDetail
                         {format}
                     </span>
                 )}
-                {pageCount > 0 && (
+                {(pageCount || 0) > 0 && (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium bg-background">
                         <Ruler className="w-3.5 h-3.5 opacity-70" />
                         {pageCount} pages

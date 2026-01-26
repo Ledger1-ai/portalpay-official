@@ -11,7 +11,7 @@ const httpLink = createHttpLink({
 const authLink = setContext((_, { headers }) => {
   // Get the authentication token from session storage if it exists
   const token = typeof window !== 'undefined' ? sessionStorage.getItem('accessToken') : null;
-  
+
   return {
     headers: {
       ...headers,
@@ -21,9 +21,15 @@ const authLink = setContext((_, { headers }) => {
 });
 
 // Error Link
-const errorLink = onError(({ graphQLErrors, networkError }) => {
+interface ErrorResponse {
+  graphQLErrors?: ReadonlyArray<{ message: string; locations?: ReadonlyArray<any>; path?: ReadonlyArray<any> }>;
+  networkError?: any;
+}
+
+const errorLink = onError((error: any) => {
+  const { graphQLErrors, networkError } = error;
   if (graphQLErrors) {
-    graphQLErrors.forEach(({ message, locations, path }) => {
+    graphQLErrors.forEach(({ message, locations, path }: any) => {
       console.error(
         `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
       );
@@ -32,7 +38,7 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
   if (networkError) {
     console.error(`[Network error]: ${networkError}`);
-    
+
     // Handle authentication errors
     if ('statusCode' in networkError && networkError.statusCode === 401) {
       // Clear token and redirect to login

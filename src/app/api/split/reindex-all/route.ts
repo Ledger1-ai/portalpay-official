@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     console.log(`[BATCH REINDEX] Found ${configs.length} merchants with split addresses in site_config`);
 
     // Trigger indexing for each merchant
-    const results = [];
+    const results: any[] = [];
     let successCount = 0;
     let errorCount = 0;
 
@@ -230,7 +230,7 @@ async function indexSplitTransactionsDirect(
                   method: "function releasable(address token, address account) view returns (uint256)",
                   params: [tAddr as `0x${string}`, platformAddr as `0x${string}`],
                 });
-                if (raw > 0n) {
+                if (raw > BigInt(0)) {
                   releasableUnits = Number(raw) / Math.pow(10, decimal);
                 }
               }
