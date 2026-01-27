@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useActiveAccount } from "thirdweb/react";
 import { Lock, FileText, Download, Calendar, User, Building2, ChevronRight, X, Loader2, Printer } from "lucide-react";
 import { formatCurrency } from "@/lib/fx";
+import { isValorAvailable, printValorReport } from "@/lib/valor-printer";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -209,8 +210,19 @@ export default function ReportsPanel({ merchantWallet, theme }: { merchantWallet
 
 
     // 6. Print Receipt Handler
-    function printReceiptAction() {
+    async function printReceiptAction() {
         if (!dashboardStats) return;
+
+        // Try Native Valor Print first
+        if (isValorAvailable()) {
+            try {
+                await printValorReport(dashboardStats, reportType, range, theme?.brandName || "Merchant Terminal");
+                return;
+            } catch (e) {
+                console.error("Native print failed, falling back to web print", e);
+                // Fallthrough to web print
+            }
+        }
 
         const w = window.open("", "_blank", "width=400,height=600");
         if (!w) return;

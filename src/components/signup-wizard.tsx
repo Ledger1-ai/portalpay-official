@@ -260,22 +260,12 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                 const me = await res.json().catch(() => ({}));
 
                 // If already approved, allow login
-                if (me?.authed || me?.approved) { // Assuming auth/me returns approved status or we check separately
-                    // For now, simpler check: if we can fetch me and it says approved, good.
-                    // But we are not logged in yet. 
-                    // Let's assume if they can login, onComplete is called.
-                    // Logic: If 'request' mode, we intercept.
-
-                    // We need to check if an application exists or if they are approved
-                    // Calling client-requests?status=pending restricted to admin.
-                    // We'll rely on the user to submit if they aren't approved.
-
-                    // Ideally we check approval status here. 
-                    // For MVP: Show Application Form. If they are already approved, they should just use "Log In" button on nav, not "Sign Up".
-                    // "Sign Up" implies new user.
-
-                    setApplicationStatus("pending"); // Move to application form view
+                if (me?.authed || me?.approved) {
+                    // Already approved? Then they should technically use Login, not Signup.
+                    // But if they are here, we can just close the wizard and let Navbar handle auth.
+                    onComplete();
                 } else {
+                    // Not approved -> Show Application Form
                     setApplicationStatus("pending");
                 }
             } catch {

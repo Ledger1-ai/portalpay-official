@@ -311,14 +311,26 @@ export function Navbar() {
                 const walletId = activeWallet?.id;
                 const isEmbeddedWallet = walletId === "inApp" || walletId === "embedded";
 
+                // CRITICAL: Check Access Mode
+                const accessMode = (brand as any)?.accessMode || "open";
+                const isPrivate = accessMode === "request";
+
                 // Show authentication modal for both social and external wallets (or pending modal if blocked)
                 setAuthed(false);
                 setTimeout(() => {
-                    if (blocked && me?.authed) {
-                        // User has valid JWT but is not approved for this private container
+                    const isApproved = me?.authed || me?.approved; // Check if user is approved
+
+                    if (blocked && isApproved) {
+                        // User has valid JWT but is explicitly blocked via admin/RBAC? (Edge case)
+                        // Actually, 'blocked' variable usually comes from 403 Forbidden on auth check
+                        // For now, if private and NOT approved, we treat as pending.
                         setShowAccessPending(true);
+                    } else if (isPrivate && !isApproved) {
+                        // Private mode + Not Approved -> SHOW PENDING, DO NOT SHOW AUTH (SIGNING)
+                        setShowAccessPending(true);
+                        // Do NOT show AuthModal - that asks for signature/login which we don't want yet
                     } else if (!me?.authed) {
-                        // Not authenticated at all
+                        // Public mode or Approved Private User -> PROCEED TO LOGIN
                         setIsSocialLogin(isEmbeddedWallet);
                         setShowAuthModal(true);
                     }
@@ -361,11 +373,11 @@ export function Navbar() {
         const base: NavItem[] = [
             { href: "/terminal", label: "Terminal" },
         ];
-        if (account?.address) base.push({ href: "/profile", label: tNavbar("profile"), authOnly: true });
-        if (account?.address) base.push({ href: "/shop", label: tNavbar("shop"), authOnly: true });
-        if (account?.address) base.push({ href: "/admin", label: tNavbar("admin"), authOnly: true });
+        if (authed && account?.address) base.push({ href: "/profile", label: tNavbar("profile"), authOnly: true });
+        if (authed && account?.address) base.push({ href: "/shop", label: tNavbar("shop"), authOnly: true });
+        if (authed && account?.address) base.push({ href: "/admin", label: tNavbar("admin"), authOnly: true });
         return base;
-    }, [account?.address, tNavbar]);
+    }, [authed, account?.address, tNavbar]);
 
     // Animated active underline pointer
     const navRef = useRef<HTMLDivElement | null>(null);
