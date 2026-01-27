@@ -6,8 +6,9 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 const ConnectButton = dynamic(() => import("thirdweb/react").then((m) => m.ConnectButton), { ssr: false });
+import { useActiveAccount } from "thirdweb/react";
 import { client, chain, getWallets } from "@/lib/thirdweb/client";
-import { usePortalThirdwebTheme, getConnectButtonStyle, connectButtonClass } from "@/lib/thirdweb/theme";
+import { usePortalThirdwebTheme } from "@/lib/thirdweb/theme";
 import { useBrand } from "@/contexts/BrandContext";
 import ImageUploadField from "./forms/ImageUploadField";
 
@@ -181,6 +182,7 @@ function getWizardSteps(brandName: string) {
 }
 
 export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps) {
+    const account = useActiveAccount();
     const [currentStep, setCurrentStep] = useState(0);
     const [wallets, setWallets] = useState<any[]>([]);
     const twTheme = usePortalThirdwebTheme();
@@ -234,11 +236,13 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
         return () => { mounted = false; };
     }, []);
 
+
     useEffect(() => {
         if (isOpen) {
             setCurrentStep(0);
             setConnectedWallet("");
             setApplicationStatus("none");
+
             // Lock body scroll logic...
             const scrollY = window.scrollY;
             document.body.style.position = 'fixed';
@@ -257,6 +261,8 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
             };
         }
     }, [isOpen]);
+
+
 
     // Handle Wallet Connection in Private Mode
     async function handleWalletConnected(wallet: string) {
@@ -614,11 +620,17 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                                         step.content
                                     ) : (
                                         <div className="space-y-4">
-                                            {/* ... Connect Step Logic ... Reused from before but modified handler ... */}
                                             <p className="text-sm text-gray-300 leading-relaxed">
-                                                Connect your wallet to {isPrivate ? "apply for access" : "get started"}.
+                                                {account?.address ? (
+                                                    <>
+                                                        You are connected as <span className="font-mono text-emerald-400">{account.address.slice(0, 6)}...{account.address.slice(-4)}</span>.
+                                                        <br />Proceed to the application to join {brandName}.
+                                                    </>
+                                                ) : (
+                                                    <>Connect your wallet to {isPrivate ? "apply for access" : "get started"}.</>
+                                                )}
                                             </p>
-                                            {/* ... Feature List ... */}
+
                                             <div className="p-4 rounded-xl bg-white/5 border border-white/10">
                                                 <ul className="space-y-2 text-xs text-gray-400">
                                                     <li className="flex items-start gap-2">
@@ -631,34 +643,43 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                                                     </li>
                                                 </ul>
                                             </div>
+
                                             <div className="pt-2">
-                                                <ConnectButton
-                                                    client={client}
-                                                    chain={chain}
-                                                    wallets={wallets}
-                                                    connectButton={{
-                                                        label: <span className="text-xs font-mono font-bold uppercase tracking-wider">{isPrivate ? "Connect to Apply" : "Create Account"}</span>,
-                                                        className: "!w-full !h-12 !rounded-xl !font-mono !text-xs !tracking-wider !font-bold !border-none transition-all hover:opacity-90",
-                                                        style: {
-                                                            background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
-                                                            color: '#ffffff',
-                                                            borderRadius: '12px',
-                                                            width: '100%'
-                                                        },
-                                                    }}
-                                                    // ... details props ...
-                                                    connectModal={{
-                                                        title: isPrivate ? "Connect to Apply" : "Create Your Account",
-                                                        titleIcon: brandLogo,
-                                                        size: "compact",
-                                                        showThirdwebBranding: false
-                                                    }}
-                                                    theme={twTheme}
-                                                    onConnect={async (activeWallet) => {
-                                                        const w = activeWallet?.getAccount()?.address;
-                                                        if (w) await handleWalletConnected(w);
-                                                    }}
-                                                />
+                                                {account?.address ? (
+                                                    <button
+                                                        onClick={() => handleWalletConnected(account.address)}
+                                                        className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold shadow-lg shadow-emerald-500/20 transition-all active:scale-95 text-xs font-mono uppercase tracking-wider"
+                                                    >
+                                                        Continue to Application
+                                                    </button>
+                                                ) : (
+                                                    <ConnectButton
+                                                        client={client}
+                                                        chain={chain}
+                                                        wallets={wallets}
+                                                        connectButton={{
+                                                            label: <span className="text-xs font-mono font-bold uppercase tracking-wider">{isPrivate ? "Connect to Apply" : "Create Account"}</span>,
+                                                            className: "!w-full !h-12 !rounded-xl !font-mono !text-xs !tracking-wider !font-bold !border-none transition-all hover:opacity-90",
+                                                            style: {
+                                                                background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
+                                                                color: '#ffffff',
+                                                                borderRadius: '12px',
+                                                                width: '100%'
+                                                            },
+                                                        }}
+                                                        connectModal={{
+                                                            title: isPrivate ? "Connect to Apply" : "Create Your Account",
+                                                            titleIcon: brandLogo,
+                                                            size: "compact",
+                                                            showThirdwebBranding: false
+                                                        }}
+                                                        theme={twTheme}
+                                                        onConnect={async (activeWallet) => {
+                                                            const w = activeWallet?.getAccount()?.address;
+                                                            if (w) await handleWalletConnected(w);
+                                                        }}
+                                                    />
+                                                )}
                                             </div>
                                         </div>
                                     )}

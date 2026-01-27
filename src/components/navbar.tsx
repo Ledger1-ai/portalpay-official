@@ -1199,13 +1199,21 @@ export function Navbar() {
                     // The user connected via the wizard, they'll go through normal auth flow
                 }}
             />
-            <AccessPendingModal isOpen={showAccessPending} onClose={() => {
-                setShowAccessPending(false);
-                if (activeWallet) {
-                    disconnect(activeWallet);
-                }
-                setAuthed(false);
-            }} />
+            <AccessPendingModal
+                isOpen={showAccessPending}
+                onClose={() => {
+                    setShowAccessPending(false);
+                    if (activeWallet) {
+                        disconnect(activeWallet);
+                    }
+                    setAuthed(false);
+                }}
+                onOpenApplication={() => {
+                    setShowAccessPending(false);
+                    setShowSignupWizard(true);
+                }}
+            />
+
         </>
     );
 }

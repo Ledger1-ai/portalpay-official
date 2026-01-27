@@ -7,9 +7,11 @@ import Image from "next/image";
 interface AccessPendingModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onOpenApplication: () => void;
 }
 
-export function AccessPendingModal({ isOpen, onClose }: AccessPendingModalProps) {
+export function AccessPendingModal({ isOpen, onClose, onOpenApplication }: AccessPendingModalProps) {
+
     const brand = useBrand();
     // Normalization logic similar to Wizard/Navbar
     const rawName = (brand as any)?.name || "BasaltSurge";
@@ -40,22 +42,31 @@ export function AccessPendingModal({ isOpen, onClose }: AccessPendingModalProps)
                             </div>
                         </div>
 
-                        <h2 className="text-xl font-bold text-white mb-2">Access Pending</h2>
+                        <h2 className="text-xl font-bold text-white mb-2">Access Restricted</h2>
                         <p className="text-sm text-gray-400 mb-6">
-                            Your application to join <span className="text-white font-medium">{brandName}</span> is currently under review.
+                            This is a private partner environment. You need approval to access <span className="text-white font-medium">{brandName}</span>.
                             <br /><br />
-                            We will notify you once your access has been approved.
+                            If you have already applied, your request is under review.
                         </p>
 
-                        <button
-                            onClick={onClose}
-                            className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold transition-colors border border-white/5"
-                        >
-                            Close
-                        </button>
+                        <div className="flex flex-col gap-3 w-full">
+                            <button
+                                onClick={onOpenApplication}
+                                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                            >
+                                Apply for Access
+                            </button>
+                            <button
+                                onClick={onClose}
+                                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold transition-colors border border-white/5"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             </motion.div>
         </AnimatePresence>
     );
 }
+
