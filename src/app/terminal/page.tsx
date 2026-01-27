@@ -1438,12 +1438,14 @@ function TerminalPage() {
 
   // Terminal View
   return (
-    <TerminalPageInner
-      session={session}
-      theme={theme}
-      onLogout={handleLogout}
-      merchantWallet={config?.config?.address || ""}
-    />
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-l-transparent border-white/20 rounded-full animate-spin" /></div>}>
+      <TerminalPageInner
+        session={session}
+        theme={theme}
+        onLogout={handleLogout}
+        merchantWallet={config?.config?.address || ""}
+      />
+    </Suspense>
   );
 }
 

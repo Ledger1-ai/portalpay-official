@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useActiveAccount, useActiveWallet, darkTheme } from "thirdweb/react";
+import { useActiveAccount, useActiveWallet, useDisconnect, darkTheme } from "thirdweb/react";
 import { signLoginPayload } from "thirdweb/auth";
 import { client, chain, getWallets } from "@/lib/thirdweb/client";
 import { usePortalThirdwebTheme, getConnectButtonStyle, connectButtonClass } from "@/lib/thirdweb/theme";
@@ -34,6 +34,7 @@ export function Navbar() {
     const twTheme = usePortalThirdwebTheme();
     const account = useActiveAccount();
     const activeWallet = useActiveWallet();
+    const { disconnect } = useDisconnect();
     const [owner, setOwner] = useState("");
     useEffect(() => {
         try {
@@ -1192,6 +1193,10 @@ export function Navbar() {
             />
             <AccessPendingModal isOpen={showAccessPending} onClose={() => {
                 setShowAccessPending(false);
+                if (activeWallet) {
+                    disconnect(activeWallet);
+                }
+                setAuthed(false);
             }} />
         </>
     );
