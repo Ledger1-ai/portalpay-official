@@ -114,12 +114,12 @@ const WIZARD_STEPS = [
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                     <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
-                        <div className="text-2xl font-bold text-emerald-400 mb-1">0.5%</div>
+                        <div className="text-2xl font-bold text-emerald-400 mb-1">✓</div>
                         <div className="text-xs font-semibold text-white mb-0.5">Crypto Payments</div>
                         <div className="text-[10px] text-gray-400">USDC, ETH, and more</div>
                     </div>
                     <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 border border-cyan-500/20">
-                        <div className="text-2xl font-bold text-cyan-400 mb-1">≤2.9%</div>
+                        <div className="text-2xl font-bold text-cyan-400 mb-1">✓</div>
                         <div className="text-xs font-semibold text-white mb-0.5">Card Payments</div>
                         <div className="text-[10px] text-gray-400">Credit & Debit cards</div>
                     </div>
@@ -185,9 +185,13 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
     const twTheme = usePortalThirdwebTheme();
     const brand = useBrand();
 
-    // Get brand-specific values
-    const brandName = (brand as any)?.name || "BasaltSurge";
-    const brandLogo = (brand as any)?.logos?.symbol || (brand as any)?.logos?.app || "/Surge.png";
+    // Get brand-specific values with Platform normalization
+    const rawName = (brand as any)?.name || "BasaltSurge";
+    const key = String((brand as any)?.key || "").toLowerCase();
+    const isPlatform = !key || key === "basaltsurge" || key === "portalpay";
+
+    const brandName = isPlatform ? "BasaltSurge" : rawName;
+    const brandLogo = isPlatform ? "/Surge.png" : ((brand as any)?.logos?.symbol || (brand as any)?.logos?.app || "/Surge.png");
 
     // Generate wizard steps with dynamic brand name
     const wizardSteps = useMemo(() => getWizardSteps(brandName), [brandName]);
@@ -270,11 +274,11 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
                                 <div className="relative w-10 h-10">
-                                    <Image src="/Surge.png" alt="BasaltSurge" fill className="object-contain" />
+                                    <Image src={brandLogo} alt={brandName} fill className="object-contain" />
                                 </div>
                                 <div>
                                     <div className="text-[10px] font-mono text-emerald-400 tracking-widest">SIGNUP_WIZARD</div>
-                                    <div className="text-white font-semibold text-sm">BasaltSurge</div>
+                                    <div className="text-white font-semibold text-sm">{brandName}</div>
                                 </div>
                             </div>
                             <button
@@ -371,7 +375,7 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                                                 }}
                                                 connectModal={{
                                                     title: "Create Your Account",
-                                                    titleIcon: "/Surge.png",
+                                                    titleIcon: brandLogo,
                                                     size: "compact",
                                                     showThirdwebBranding: false
                                                 }}

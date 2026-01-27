@@ -461,7 +461,7 @@ function TerminalPanel() {
               <span className="text-sm font-medium">{formatCurrency(taxConverted, terminalCurrency)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="microtext text-muted-foreground">Processing Fee ({(siteMeta.basePlatformFeePct + Number(siteMeta.processingFeePct || 0)).toFixed(2)}%)</span>
+              <span className="microtext text-muted-foreground">Processing Fee</span>
               <span className="text-sm font-medium">{formatCurrency(processingFeeConverted, terminalCurrency)}</span>
             </div>
             <div className="h-px bg-border my-1" />
@@ -983,7 +983,7 @@ function PreviewContent({ forcedMode }: { forcedMode: PreviewMode }) {
         <div className="border-t border-dashed my-2" />
         <div className="flex items-center justify-between text-sm"><span>Subtotal</span><span>{(() => { if (currency === "USD") { return formatCurrency(baseWithoutTipUsd, "USD"); } const converted = convertFromUsd(baseWithoutTipUsd, currency, rates); const rounded = converted > 0 ? roundForCurrency(converted, currency) : 0; return rounded > 0 ? formatCurrency(rounded, currency) : formatCurrency(baseWithoutTipUsd, "USD"); })()}</span></div>
         {tipUsd > 0 && (<div className="flex items-center justify-between text-sm"><span>Tip <span className="opacity-60">({effectiveTipPercent}%)</span></span><span>{(() => { if (currency === "USD") { return formatCurrency(tipUsd, "USD"); } const converted = convertFromUsd(tipUsd, currency, rates); const rounded = converted > 0 ? roundForCurrency(converted, currency) : 0; return rounded > 0 ? formatCurrency(rounded, currency) : formatCurrency(tipUsd, "USD"); })()}</span></div>)}
-        {processingFeeUsd > 0 && (<div className="flex items-center justify-between text-sm"><span className="opacity-80">Processing Fee ({(basePlatformFeePct + Number(processingFeePct || 0)).toFixed(2)}%)</span><span>{(() => { if (currency === "USD") { return formatCurrency(processingFeeUsd, "USD"); } const converted = convertFromUsd(processingFeeUsd, currency, rates); const rounded = converted > 0 ? roundForCurrency(converted, currency) : 0; return rounded > 0 ? formatCurrency(rounded, currency) : formatCurrency(processingFeeUsd, "USD"); })()}</span></div>)}
+        {processingFeeUsd > 0 && (<div className="flex items-center justify-between text-sm"><span className="opacity-80">Processing Fee</span><span>{(() => { if (currency === "USD") { return formatCurrency(processingFeeUsd, "USD"); } const converted = convertFromUsd(processingFeeUsd, currency, rates); const rounded = converted > 0 ? roundForCurrency(converted, currency) : 0; return rounded > 0 ? formatCurrency(rounded, currency) : formatCurrency(processingFeeUsd, "USD"); })()}</span></div>)}
         <div className="border-t border-dashed my-2" />
         <div className="flex items-center justify-between font-semibold"><span>Total ({currency})</span><span>{currency === "USD" ? formatCurrency(totalUsd, "USD") : formatCurrency(displayTotalRounded, currency)}</span></div>
         {currency !== "USD" && (<div className="mt-1 microtext text-muted-foreground">Equivalent: {formatCurrency(totalUsd, "USD")} (USD)</div>)}

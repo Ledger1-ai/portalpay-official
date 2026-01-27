@@ -186,7 +186,7 @@ export default function PinEntryScreen({
                                 }}
                                 connectModal={{
                                     title: "Merchant Login",
-                                    titleIcon: "/Surge.png",
+                                    titleIcon: logoUrl || "/Surge.png",
                                     size: "compact",
                                     showThirdwebBranding: false
                                 }}

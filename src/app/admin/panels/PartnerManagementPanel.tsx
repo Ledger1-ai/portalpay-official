@@ -795,6 +795,7 @@ export default function PartnerManagementPanel() {
       if (typeof config?.name === "string") body.name = config.name;
       if (config?.colors) body.colors = config.colors;
       if (config?.logos) body.logos = config.logos;
+      if (config?.accessMode) body.accessMode = config.accessMode;
 
       const r = await fetch(`/api/platform/brands/${encodeURIComponent(key)}/config`, {
         method: "PATCH",
