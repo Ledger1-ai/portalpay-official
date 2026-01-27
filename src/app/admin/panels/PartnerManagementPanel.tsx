@@ -1838,6 +1838,26 @@ export default function PartnerManagementPanel() {
               </div>
             </div>
             <div>
+              <label className="microtext text-muted-foreground">Access Mode</label>
+              <select
+                className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
+                value={String(config?.accessMode || "open")}
+                onChange={(e) =>
+                  setConfig((prev: any) => ({
+                    ...prev,
+                    accessMode: e.target.value === "request" ? "request" : "open",
+                  }))
+                }
+                title="Choose access mode: Open (anyone can join) or Request (requires approval)"
+              >
+                <option value="open">Open (Public)</option>
+                <option value="request">Request Only (Approval Required)</option>
+              </select>
+              <div className="microtext text-muted-foreground mt-1">
+                "Request" mode requires new merchants to submit an access request waiting for admin approval. "Open" allows instant access.
+              </div>
+            </div>
+            <div>
               <label className="microtext text-muted-foreground">Symbol Logo URL</label>
               <input
                 className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
@@ -2508,6 +2528,7 @@ export default function PartnerManagementPanel() {
                                       Total Reserve Value (USD): ${Number(b.totalUsd || 0).toFixed(2)}
                                     </div>
 
+
                                     {b && b.splitAddressUsed && (
                                       <div className="mt-3 rounded-md border p-3">
                                         <div className="flex items-center justify-between mb-2">
@@ -2585,18 +2606,23 @@ export default function PartnerManagementPanel() {
                                                   return `${releases.length} tx • ${Array.from(tokens).join(', ')}`;
                                                 })()}
                                               </div>
-                                              <div className="microtext text-muted-foreground">
-                                                View on{" "}
-                                                <a
-                                                  href={`https://base.blockscout.com/address/${b.splitAddressUsed}`}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className="underline"
-                                                >
-                                                  Blockscout
-                                                </a>
-                                              </div>
+                                              <p className="text-xs text-muted-foreground mt-1">
+                                                Controls branding, fees, and DNS.
+                                              </p>
                                             </div>
+
+                                            <div className="microtext text-muted-foreground">
+                                              View on{" "}
+                                              <a
+                                                href={`https://base.blockscout.com/address/${b.splitAddressUsed}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline"
+                                              >
+                                                Blockscout
+                                              </a>
+                                            </div>
+
                                           </>
                                         ) : (
                                           <div className="microtext text-muted-foreground">No transactions found</div>
@@ -2610,7 +2636,8 @@ export default function PartnerManagementPanel() {
                               </div>
                             </td>
                           </tr>
-                        )}
+                        )
+                        }
                       </React.Fragment>
                     );
                   })}

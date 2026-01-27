@@ -350,20 +350,6 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-    // Use authenticated wallet or x-wallet header as the merchant deploying the split
-    const walletHeader = String(req.headers.get("x-wallet") || "").toLowerCase();
-    const wallet = (isHexAddress(walletHeader) ? walletHeader : String(caller.wallet || "")).toLowerCase() as `0x${string}`;
-    // CSRF for UI writes (allow x-wallet + provided splitAddress to bind without CSRF for partner deploy flow)
-    try {
-      const provided = String((body as any)?.splitAddress || "").toLowerCase();
-      const xw = String(req.headers.get("x-wallet") || "").toLowerCase();
-      const hasProvided = /^0x[a-f0-9]{40}$/i.test(provided);
-      const hasHeaderWallet = /^0x[a-f0-9]{40}$/i.test(xw);
-      const skipCsrf = hasProvided && hasHeaderWallet;
-      if (!skipCsrf) requireCsrf(req);
-    } catch (e: any) {
-      return NextResponse.json({ error: e?.message || "bad_origin" }, { status: e?.status || 403 });
-    }
 
     // Resolve brand-aware split recipients (prefer override from body or query)
     let brandKey: string;
@@ -412,20 +398,43 @@ export async function POST(req: NextRequest) {
         return applyBrandDefaults(stub as any);
       })();
     } catch {
-      const stub = {
-        key: brandKey,
-        name: "",
-        colors: { primary: "#0a0a0a", accent: "#6b7280" },
-        logos: { app: "", favicon: "/favicon-32x32.png" },
-        meta: {},
-        appUrl: undefined,
-        platformFeeBps: 50,
-        partnerFeeBps: 50,
-        defaultMerchantFeeBps: 0,
-        partnerWallet: "",
-        apimCatalog: [],
-      };
-      brand = applyBrandDefaults(stub as any);
+      // Fallback stub
+      brand = { partnerWallet: "" };
+    }
+
+    // Use authenticated wallet or x-wallet header as the merchant deploying the split
+    const walletHeader = String(req.headers.get("x-wallet") || "").toLowerCase();
+
+    // Authorization Check:
+    // 1. If caller matches x-wallet, allow (Self-Deploy)
+    // 2. If caller matches brand.partnerWallet, allow (Partner-Deploy)
+    // 3. If caller has JWT claim, allow (Admin)
+    const callerWallet = String(caller.wallet || "").toLowerCase();
+    const isOwner = callerWallet === walletHeader;
+    const isPartnerAdmin = isHexAddress(brand?.partnerWallet) && callerWallet === String(brand.partnerWallet).toLowerCase();
+    const isAdmin = caller.role === "admin" || (caller.permissions && caller.permissions.includes("split:write"));
+
+    if (!isOwner && !isPartnerAdmin && !isAdmin) {
+      // Special case: Deployment Pipeline (no signer, just valid x-wallet + idempotency check could go here if needed)
+      // But for standard flow, we require auth.
+      // If we fell back to x-wallet in 'caller' block above (no auth), then isOwner is true by definition.
+      // So this block hits if we DID have auth (e.g. signer) but it didn't match target and wasn't partner.
+      return NextResponse.json({ error: "forbidden_partner_only" }, { status: 403 });
+    }
+
+    const wallet = (isHexAddress(walletHeader) ? walletHeader : callerWallet).toLowerCase() as `0x${string}`;
+
+    // CSRF for UI writes (allow x-wallet + provided splitAddress to bind without CSRF for partner deploy flow)
+    try {
+      const provided = String((body as any)?.splitAddress || "").toLowerCase();
+      const xw = String(req.headers.get("x-wallet") || "").toLowerCase();
+      const hasProvided = /^0x[a-f0-9]{40}$/i.test(provided);
+      const hasHeaderWallet = /^0x[a-f0-9]{40}$/i.test(xw);
+      // Skip CSRF if Partner Admin or if providing address (pipeline)
+      const skipCsrf = (hasProvided && hasHeaderWallet) || isPartnerAdmin;
+      if (!skipCsrf) requireCsrf(req);
+    } catch (e: any) {
+      return NextResponse.json({ error: e?.message || "bad_origin" }, { status: e?.status || 403 });
     }
 
     const platformRecipient = String(process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.PLATFORM_WALLET || "").toLowerCase();

@@ -26,7 +26,16 @@ function getContainerType(): "platform" | "partner" {
 }
 
 function getBrandKey(): string {
-    return String(process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "platform").toLowerCase();
+    // Strict partner isolation: in partner container, MUST use env var
+    const ct = String(process.env.NEXT_PUBLIC_CONTAINER_TYPE || process.env.CONTAINER_TYPE || "platform").toLowerCase();
+    const envKey = String(process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase();
+
+    if (ct === "partner") {
+        return envKey;
+    }
+
+    // Platform default
+    return envKey || "basaltsurge";
 }
 
 /**

@@ -22,7 +22,16 @@ function json(obj: any, init?: { status?: number; headers?: Record<string, strin
 }
 
 function getBrandKey(): string {
-    return String(process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "platform").toLowerCase();
+    // Strict partner isolation: in partner container, MUST use env var
+    const ct = String(process.env.NEXT_PUBLIC_CONTAINER_TYPE || process.env.CONTAINER_TYPE || "platform").toLowerCase();
+    const envKey = String(process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase();
+
+    if (ct === "partner") {
+        return envKey; // If empty, let it fail validation or return empty string
+    }
+
+    // Platform default
+    return envKey || "basaltsurge";
 }
 
 /**
@@ -68,7 +77,19 @@ export async function POST(req: NextRequest) {
             return json({ error: "invalid_wallet", message: "merchantWallet must be a valid 0x address" }, { status: 400 });
         }
 
-        const brandKey = String(body?.brandKey || getBrandKey()).toLowerCase();
+        const envBrandKey = getBrandKey();
+
+        // Strict check: if partner container but no brand key resolved, fail
+        const ct = String(process.env.NEXT_PUBLIC_CONTAINER_TYPE || process.env.CONTAINER_TYPE || "platform").toLowerCase();
+        if (ct === "partner" && !envBrandKey) {
+            return json({ error: "configuration_error", message: "Partner container missing BRAND_KEY" }, { status: 500 });
+        }
+
+        // Platform admins can override brandKey; Partner admins cannot
+        let brandKey = envBrandKey;
+        if (ct === "platform" && body?.brandKey) {
+            brandKey = String(body.brandKey).toLowerCase();
+        }
 
         // Create deterministic ID and partition key
         const hash = crypto.createHash("sha256").update(installationId).digest("hex").slice(0, 48);

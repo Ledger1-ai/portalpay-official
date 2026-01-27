@@ -12,6 +12,28 @@ export async function GET(req: NextRequest) {
         const container = await getContainer();
         const w = String(merchantWallet).toLowerCase();
 
+        // Enforce Partner Isolation
+        const ct = String(process.env.NEXT_PUBLIC_CONTAINER_TYPE || process.env.CONTAINER_TYPE || "platform").toLowerCase();
+        const branding = {
+            key: String(process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase()
+        };
+
+        if (ct === "partner") {
+            if (!branding.key) return NextResponse.json({ error: "Configuration error" }, { status: 500 });
+
+            // Verify merchant matches brand
+            const querySpec = {
+                query: "SELECT c.brandKey FROM c WHERE c.type = 'shop_config' AND c.wallet = @w",
+                parameters: [{ name: "@w", value: w }]
+            };
+            const { resources: shops } = await container.items.query(querySpec).fetchAll();
+            const shopBrand = String(shops?.[0]?.brandKey || "portalpay").toLowerCase();
+
+            if (shopBrand !== branding.key) {
+                return NextResponse.json({ error: "Unauthorized for this brand" }, { status: 403 });
+            }
+        }
+
         const querySpec = {
             query: "SELECT c.id, c.name, c.role FROM c WHERE c.type = 'merchant_team_member' AND c.merchantWallet = @w",
             parameters: [{ name: "@w", value: w }]

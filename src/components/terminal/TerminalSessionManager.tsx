@@ -185,7 +185,7 @@ export default function TerminalSessionManager({ config, merchantWallet }: { con
         if (merchantWallet) return `/api/users/pfp?wallet=${merchantWallet}`;
 
         // Absolute fallback
-        return "/bssymbol.png";
+        return "/favicon.ico";
     })();
 
     const primaryColor = config.theme?.primaryColor || "#0ea5e9";
@@ -350,7 +350,7 @@ export default function TerminalSessionManager({ config, merchantWallet }: { con
                                     }}
                                     connectModal={{
                                         title: "Merchant Login",
-                                        titleIcon: "/Surge.png",
+                                        titleIcon: resolvedLogoUrl || "/favicon.ico",
                                         size: "compact",
                                         showThirdwebBranding: false
                                     }}

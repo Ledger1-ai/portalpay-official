@@ -64,7 +64,8 @@ type AdminTabKey =
   | 'support'
   | 'supportAdmin'
   | 'writersWorkshop'
-  | 'publications';
+  | 'publications'
+  | 'clientRequests';
 
 interface AdminSidebarProps {
   activeTab: AdminTabKey;
@@ -350,6 +351,7 @@ export function AdminSidebar({ activeTab, onChangeTab, industryPack, canBranding
             { title: 'Merchants', key: 'users' as AdminTabKey },
             { title: 'SEO Pages', key: 'seoPages' as AdminTabKey },
             { title: 'Plugins', key: 'shopifyPartner' as AdminTabKey },
+            { title: 'Client Requests', key: 'clientRequests' as AdminTabKey },
             ...(canAdmins ? [
               { title: 'Admin Users', key: 'admins' as AdminTabKey },
             ] : []),

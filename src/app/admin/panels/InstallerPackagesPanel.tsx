@@ -350,8 +350,8 @@ function GeneratePackageForm({
     const key = brandKey.trim().toLowerCase();
     if (key && !endpoint) {
       // Suggest endpoint based on brand key
-      if (key === "portalpay") {
-        setEndpoint("https://pay.ledger1.ai");
+      if (key === "basaltsurge") {
+        setEndpoint("https://surge.basalthq.com");
       } else if (key === "paynex") {
         setEndpoint("https://paynex.azurewebsites.net");
       } else {
@@ -405,7 +405,7 @@ function GeneratePackageForm({
             disabled={!!generating}
           />
           <div className="microtext text-muted-foreground">
-            Default: For portalpay → pay.ledger1.ai, others → {"{brand}"}.azurewebsites.net
+            Default: For basaltsurge → surge.basalthq.com, others → {"{brand}"}.azurewebsites.net
           </div>
         </div>
       )}

@@ -53,6 +53,33 @@ export async function GET(req: NextRequest) {
         const container = await getContainer();
         const w = String(targetMerchantWallet).toLowerCase();
 
+        // Enforce Partner Isolation
+        const ct = String(process.env.NEXT_PUBLIC_CONTAINER_TYPE || process.env.CONTAINER_TYPE || "platform").toLowerCase();
+        const branding = {
+            key: String(process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase()
+        };
+
+        if (ct === "partner") {
+            if (!branding.key) {
+                console.error("[Reports] Partner container missing BRAND_KEY");
+                return NextResponse.json({ error: "Configuration error" }, { status: 500 });
+            }
+
+            // Verify merchant belongs to this brand
+            // Similar to Auth check - query shop_config
+            const querySpec = {
+                query: "SELECT c.brandKey FROM c WHERE c.type = 'shop_config' AND c.wallet = @w",
+                parameters: [{ name: "@w", value: w }]
+            };
+            const { resources: shops } = await container.items.query(querySpec).fetchAll();
+            const shopBrand = String(shops?.[0]?.brandKey || "portalpay").toLowerCase();
+
+            if (shopBrand !== branding.key) {
+                console.warn(`[Reports] Blocked cross-brand access: Merchant ${shopBrand} trying to access report on ${branding.key}`);
+                return NextResponse.json({ error: "Unauthorized for this brand" }, { status: 403 });
+            }
+        }
+
         // --- AUTHENTICATION ---
         let authorized = false;
         let staffName = "Admin";

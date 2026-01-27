@@ -70,6 +70,8 @@ export default function TouchpointMonitoringPanel() {
 
     async function handleProvision() {
         const wallet = provisionWallet.trim();
+        const brandKey = provisionInstallId.includes(":") ? "" : (document.getElementById("provision-brand") as HTMLInputElement)?.value.trim();
+
         if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
             alert("Invalid wallet address");
             return;
@@ -77,6 +79,12 @@ export default function TouchpointMonitoringPanel() {
 
         if (!provisionInstallId.trim()) {
             alert("Installation ID required");
+            return;
+        }
+
+        const isPlatform = process.env.NEXT_PUBLIC_CONTAINER_TYPE !== "partner";
+        if (isPlatform && !brandKey) {
+            alert("Brand key required for platform provisioning");
             return;
         }
 
@@ -89,6 +97,7 @@ export default function TouchpointMonitoringPanel() {
                     installationId: provisionInstallId.trim(),
                     mode: provisionMode,
                     merchantWallet: wallet,
+                    brandKey: isPlatform ? brandKey : undefined
                 }),
             });
 
@@ -391,6 +400,22 @@ export default function TouchpointMonitoringPanel() {
                                 className="w-full h-9 px-3 rounded-md border bg-background text-sm font-mono"
                             />
                         </div>
+
+                        {process.env.NEXT_PUBLIC_CONTAINER_TYPE !== "partner" && (
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Brand Key</label>
+                                <input
+                                    id="provision-brand"
+                                    type="text"
+                                    placeholder="e.g. paynex"
+                                    defaultValue="basaltsurge"
+                                    className="w-full h-9 px-3 rounded-md border bg-background text-sm"
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                    Target brand for this device (default: basaltsurge)
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <button

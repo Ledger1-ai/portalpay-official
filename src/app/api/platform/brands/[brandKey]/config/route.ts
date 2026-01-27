@@ -30,6 +30,8 @@ type BrandConfigDoc = {
   defaultMerchantFeeBps?: number;
   // Partner Split config
   partnerWallet?: string;
+  // Access control for partner containers
+  accessMode?: "open" | "request"; // "open" = anyone can use, "request" = requires approval
   // Email Configuration
   email?: {
     senderName?: string;
@@ -220,6 +222,11 @@ function normalizePatch(raw: any): Partial<BrandConfigDoc> {
       list.push({ productId, aliasName, aliasDescription, visible, docsSlug });
     }
     out.apimCatalog = list;
+  }
+
+  // Access Mode for partner containers (open or request-based)
+  if (raw?.accessMode === "open" || raw?.accessMode === "request") {
+    out.accessMode = raw.accessMode;
   }
 
   return out;

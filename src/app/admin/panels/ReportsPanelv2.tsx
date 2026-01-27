@@ -410,7 +410,7 @@ export default function ReportsPanel({ merchantWallet, theme }: { merchantWallet
                     <select
                         value={reportType}
                         onChange={e => setReportType(e.target.value)}
-                        className="w-full text-sm font-medium bg-background border rounded-lg px-3 py-2.5 hover:border-primary/50 transition-colors focus:ring-1 focus:ring-primary shadow-sm"
+                        className="w-full text-sm font-medium bg-background border rounded-lg px-3 py-2.5 hover:border-primary/50 transition-colors focus:ring-1 focus:ring-primary shadow-sm cursor-pointer relative z-20"
                     >
                         <option value="z-report">Z-Report (End of Day)</option>
                         <option value="x-report">X-Report (Snapshot)</option>

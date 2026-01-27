@@ -58,6 +58,7 @@ import WritersWorkshopPanelExt from "@/app/admin/panels/WritersWorkshopPanel";
 import PublicationsPanelExt from "@/app/admin/panels/PublicationsPanel";
 // Placeholder to avoid errors - I will read file first
 import ReportsPanel from "@/app/admin/panels/ReportsPanel";
+import ClientRequestsPanel from "@/app/admin/panels/ClientRequestsPanel";
 import { isPlatformCtx, isPartnerCtx, isPlatformSuperAdmin, canAccessPanel } from "@/lib/authz";
 
 
@@ -9324,6 +9325,11 @@ export default function AdminPage() {
       )}
       {activeTab === "shopifyPlatform" && isPlatform && isSuperadmin && (
         <ShopifyIntegrationPanel />
+      )}
+      {activeTab === "clientRequests" && (canBranding || isSuperadmin) && (
+        <div className="glass-pane rounded-xl border p-6">
+          <ClientRequestsPanel />
+        </div>
       )}
       {activeTab === "support" && (
         <div className="h-[calc(100vh-180px)] md:h-[calc(100vh-120px)] -mt-4 -mx-4">

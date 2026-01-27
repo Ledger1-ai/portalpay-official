@@ -24,9 +24,16 @@ function isValidHexAddress(addr?: string): addr is `0x${string}` {
   }
 }
 
-export async function ensureSplitForWallet(account: Account | any, brandKeyOverride?: string): Promise<string | undefined> {
+export async function ensureSplitForWallet(
+  account: Account | any,
+  brandKeyOverride?: string,
+  partnerFeeBpsOverride?: number,
+  merchantWalletOverride?: string
+): Promise<string | undefined> {
   try {
-    const merchant = String((account?.address || "")).toLowerCase();
+    const signerAddress = String((account?.address || "")).toLowerCase();
+    const merchant = merchantWalletOverride ? String(merchantWalletOverride).toLowerCase() : signerAddress;
+
     if (!isValidHexAddress(merchant)) return undefined;
 
     // Resolve brand key: prefer override from caller, else env, else hostname fallback
@@ -122,8 +129,15 @@ export async function ensureSplitForWallet(account: Account | any, brandKeyOverr
       : 50;
     // Platform container never has partner recipient
     const isPartner = brandKey !== "portalpay" && brandKey !== "basaltsurge";
-    const partnerBps = !isPartner ? 0 : (isValidHexAddress(partner) && typeof brand.partnerFeeBps === "number")
-      ? Math.max(0, Math.min(10000 - platformBps, brand.partnerFeeBps))
+
+    // Use override if provided, otherwise brand default
+    let effectivePartnerBps = brand.partnerFeeBps;
+    if (typeof partnerFeeBpsOverride === "number") {
+      effectivePartnerBps = partnerFeeBpsOverride;
+    }
+
+    const partnerBps = !isPartner ? 0 : (isValidHexAddress(partner) && typeof effectivePartnerBps === "number")
+      ? Math.max(0, Math.min(10000 - platformBps, effectivePartnerBps))
       : 0;
     const merchantBps = Math.max(0, 10000 - platformBps - partnerBps);
 
