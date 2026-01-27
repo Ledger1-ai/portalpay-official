@@ -290,6 +290,7 @@ export async function generateMetadata(): Promise<Metadata> {
         partnerWallet: typeof b.partnerWallet === "string" && b.partnerWallet ? b.partnerWallet : baseBrand.partnerWallet,
         apimCatalog: Array.isArray(b.apimCatalog) ? b.apimCatalog : baseBrand.apimCatalog,
         meta: b.meta && typeof b.meta === "object" ? b.meta : baseBrand.meta,
+        accessMode: typeof b.accessMode === "string" ? b.accessMode : baseBrand.accessMode,
       };
     }
   } catch { }
@@ -616,6 +617,7 @@ export default async function RootLayout({
         partnerWallet: typeof b.partnerWallet === "string" && b.partnerWallet ? b.partnerWallet : baseBrand.partnerWallet,
         apimCatalog: Array.isArray(b.apimCatalog) ? b.apimCatalog : baseBrand.apimCatalog,
         meta: b.meta && typeof b.meta === "object" ? b.meta : baseBrand.meta,
+        accessMode: typeof b.accessMode === "string" ? b.accessMode : baseBrand.accessMode,
       };
     }
   } catch { }

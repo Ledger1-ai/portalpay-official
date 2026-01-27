@@ -49,6 +49,10 @@ export type BrandConfigDoc = {
   containerFqdn?: string;
   containerResourceId?: string;
   containerState?: string;
+
+  // Access Control
+  accessMode?: "open" | "request";
+
   updatedAt?: number;
 };
 
@@ -256,6 +260,7 @@ export function toEffectiveBrand(brandKey: string, overrides?: Partial<BrandConf
     defaultMerchantFeeBps: typeof overrides.defaultMerchantFeeBps === "number" ? overrides.defaultMerchantFeeBps : withDefaults.defaultMerchantFeeBps,
     partnerWallet: typeof overrides.partnerWallet === "string" ? overrides.partnerWallet : (withDefaults as any).partnerWallet,
     apimCatalog: Array.isArray(overrides.apimCatalog) ? overrides.apimCatalog : withDefaults.apimCatalog,
+    accessMode: (overrides.accessMode === "request" || overrides.accessMode === "open") ? overrides.accessMode : withDefaults.accessMode,
   });
 
   // FORCE override for BasaltSurge to ensure new branding assets are used

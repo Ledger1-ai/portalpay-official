@@ -407,16 +407,25 @@ export default function ReportsPanel({ merchantWallet, theme }: { merchantWallet
                     <div className="flex items-center gap-2 mb-2">
                         <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Report Type</span>
                     </div>
-                    <select
-                        value={reportType}
-                        onChange={e => setReportType(e.target.value)}
-                        className="w-full text-sm font-medium bg-background border rounded-lg px-3 py-2.5 hover:border-primary/50 transition-colors focus:ring-1 focus:ring-primary shadow-sm cursor-pointer relative z-20"
-                    >
-                        <option value="z-report">Z-Report (End of Day)</option>
-                        <option value="x-report">X-Report (Snapshot)</option>
-                        <option value="employee">Employee Performance</option>
-                        <option value="hourly">Hourly Sales</option>
-                    </select>
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            { id: "z-report", label: "Z-Report" },
+                            { id: "x-report", label: "X-Report" },
+                            { id: "employee", label: "Staff" },
+                            { id: "hourly", label: "Hourly" }
+                        ].map(t => (
+                            <button
+                                key={t.id}
+                                onClick={() => setReportType(t.id)}
+                                className={`flex-1 min-w-[80px] px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${reportType === t.id
+                                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                    : "bg-background text-muted-foreground border-border hover:bg-muted/50 hover:text-foreground"
+                                    }`}
+                            >
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
                 <div className="md:col-span-2">
                     <div className="flex items-center gap-2 mb-2">
