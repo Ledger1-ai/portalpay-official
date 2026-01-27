@@ -311,10 +311,6 @@ export function Navbar() {
                 const walletId = activeWallet?.id;
                 const isEmbeddedWallet = walletId === "inApp" || walletId === "embedded";
 
-                // CRITICAL: Check Access Mode
-                const accessMode = (brand as any)?.accessMode || "open";
-                const isPrivate = accessMode === "request";
-
                 // Show authentication modal for both social and external wallets (or pending modal if blocked)
                 setAuthed(false);
                 setTimeout(() => {
