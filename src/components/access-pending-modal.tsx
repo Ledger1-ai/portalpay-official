@@ -1,0 +1,61 @@
+"use client";
+
+import { motion, AnimatePresence } from "framer-motion";
+import { useBrand } from "@/contexts/BrandContext";
+import Image from "next/image";
+
+interface AccessPendingModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+export function AccessPendingModal({ isOpen, onClose }: AccessPendingModalProps) {
+    const brand = useBrand();
+    // Normalization logic similar to Wizard/Navbar
+    const rawName = (brand as any)?.name || "BasaltSurge";
+    const key = String((brand as any)?.key || "").toLowerCase();
+    const isPlatform = !key || key === "basaltsurge" || key === "portalpay";
+    const brandName = isPlatform ? "BasaltSurge" : rawName;
+    const brandLogo = isPlatform ? "/Surge.png" : ((brand as any)?.logos?.symbol || (brand as any)?.logos?.app || "/Surge.png");
+
+    if (!isOpen) return null;
+
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[9000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                onClick={onClose}
+            >
+                <div
+                    className="relative w-full max-w-sm bg-black/90 border border-white/10 rounded-2xl p-6 shadow-2xl overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div className="flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mb-4">
+                            <div className="relative w-8 h-8 opacity-80">
+                                <Image src={brandLogo} alt={brandName} fill className="object-contain" />
+                            </div>
+                        </div>
+
+                        <h2 className="text-xl font-bold text-white mb-2">Access Pending</h2>
+                        <p className="text-sm text-gray-400 mb-6">
+                            Your application to join <span className="text-white font-medium">{brandName}</span> is currently under review.
+                            <br /><br />
+                            We will notify you once your access has been approved.
+                        </p>
+
+                        <button
+                            onClick={onClose}
+                            className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold transition-colors border border-white/5"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
+        </AnimatePresence>
+    );
+}

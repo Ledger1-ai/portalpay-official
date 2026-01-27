@@ -11,6 +11,7 @@ import { client, chain, getWallets } from "@/lib/thirdweb/client";
 import { usePortalThirdwebTheme, getConnectButtonStyle, connectButtonClass } from "@/lib/thirdweb/theme";
 import { ChevronDown, Dot, Ellipsis } from "lucide-react";
 import { AuthModal } from "./auth-modal";
+import { AccessPendingModal } from "./access-pending-modal";
 import { SignupWizard } from "./signup-wizard";
 import { useTranslations } from "next-intl";
 import { cachedContainerIdentity } from "@/lib/client-api-cache";
@@ -53,6 +54,7 @@ export function Navbar() {
     const [showSignupWizard, setShowSignupWizard] = useState(false);
     const checkingAuth = useRef(false);
     const [authed, setAuthed] = useState(false);
+    const [showAccessPending, setShowAccessPending] = useState(false);
     const [pendingAdminNav, setPendingAdminNav] = useState(false);
     const router = useRouter();
     const brand = useBrand();
@@ -281,7 +283,16 @@ export function Navbar() {
                     .then(r => r.ok ? r.json() : { authed: false })
                     .catch(() => ({ authed: false }));
 
-                if (me?.authed) {
+                // Access Control Gating
+                const accessMode = (brand as any)?.accessMode || "open";
+                const isPrivate = accessMode === "request";
+                const isApproved = me?.shopStatus === "approved";
+
+                // If Private Mode and Not Approved (and not Platform/Owner bypass), block login
+                const isPlatformContainer = container.containerType === "platform";
+                const blocked = isPrivate && !isPlatformContainer && !isApproved;
+
+                if (me?.authed && !blocked) {
                     setAuthed(true);
                     // Already authenticated, just register user
                     try {
@@ -299,18 +310,24 @@ export function Navbar() {
                 const walletId = activeWallet?.id;
                 const isEmbeddedWallet = walletId === "inApp" || walletId === "embedded";
 
-                // Show authentication modal for both social and external wallets
+                // Show authentication modal for both social and external wallets (or pending modal if blocked)
                 setAuthed(false);
                 setTimeout(() => {
-                    setIsSocialLogin(isEmbeddedWallet);
-                    setShowAuthModal(true);
+                    if (blocked && me?.authed) {
+                        // User has valid JWT but is not approved for this private container
+                        setShowAccessPending(true);
+                    } else if (!me?.authed) {
+                        // Not authenticated at all
+                        setIsSocialLogin(isEmbeddedWallet);
+                        setShowAuthModal(true);
+                    }
                     checkingAuth.current = false;
                 }, 800);
             } catch {
                 checkingAuth.current = false;
             }
         })();
-    }, [account, account?.address, activeWallet?.id]);
+    }, [account, account?.address, activeWallet?.id, brand, container]);
 
     // Broadcast login/logout so ThemeLoader can immediately apply merchant-scoped theme
     useEffect(() => {
@@ -1173,6 +1190,9 @@ export function Navbar() {
                     // The user connected via the wizard, they'll go through normal auth flow
                 }}
             />
+            <AccessPendingModal isOpen={showAccessPending} onClose={() => {
+                setShowAccessPending(false);
+            }} />
         </>
     );
 }

@@ -43,6 +43,9 @@ export type BrandConfig = {
 
   // New: APIM product aliasing/curation for Partner Developer portal
   apimCatalog?: ApimCatalogEntry[];
+
+  // Access Control
+  accessMode?: "open" | "request"; // default: open
 };
 
 export const BRANDS: Record<string, BrandConfig> = {

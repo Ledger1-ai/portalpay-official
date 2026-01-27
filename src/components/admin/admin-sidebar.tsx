@@ -351,7 +351,8 @@ export function AdminSidebar({ activeTab, onChangeTab, industryPack, canBranding
             { title: 'Merchants', key: 'users' as AdminTabKey },
             { title: 'SEO Pages', key: 'seoPages' as AdminTabKey },
             { title: 'Plugins', key: 'shopifyPartner' as AdminTabKey },
-            { title: 'Client Requests', key: 'clientRequests' as AdminTabKey },
+            { title: 'Plugins', key: 'shopifyPartner' as AdminTabKey },
+            ...((canBranding || isSuperadmin) ? [{ title: 'Client Requests', key: 'clientRequests' as AdminTabKey }] : []),
             ...(canAdmins ? [
               { title: 'Admin Users', key: 'admins' as AdminTabKey },
             ] : []),
