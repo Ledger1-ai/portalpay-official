@@ -320,7 +320,9 @@ export function Navbar() {
                         return;
                     }
 
-                    const isApproved = me?.authed || me?.approved; // Check if user is approved
+                    const platformWallet = (process.env.NEXT_PUBLIC_PLATFORM_WALLET || "").toLowerCase();
+                    const isPlatformAdmin = !!platformWallet && !!account?.address && account.address.toLowerCase() === platformWallet;
+                    const isApproved = me?.authed || me?.approved || isPlatformAdmin; // Check if user is approved (or super admin)
 
                     if (blocked && isApproved) {
                         // User has valid JWT but is explicitly blocked via admin/RBAC? (Edge case)

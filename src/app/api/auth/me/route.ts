@@ -25,22 +25,33 @@ export async function GET(req: NextRequest) {
 
     // Check for Shop Config status (for Partner Access Gating)
     let shopStatus = "none";
-    try {
-      const brandKey = (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "basaltsurge").toLowerCase();
-      const container = await getContainer();
-      const query = "SELECT top 1 c.status FROM c WHERE c.type = 'shop_config' AND c.wallet = @w AND c.brandKey = @b";
-      const { resources } = await container.items.query({
-        query,
-        parameters: [{ name: "@w", value: wallet }, { name: "@b", value: brandKey }]
-      }).fetchAll();
-      if (resources.length > 0) {
-        shopStatus = resources[0].status || "approved";
+    const platformWallet = (process.env.NEXT_PUBLIC_PLATFORM_WALLET || "").toLowerCase();
+    const isPlatformAdmin = !!platformWallet && wallet.toLowerCase() === platformWallet;
+
+    if (isPlatformAdmin) {
+      // Platform Admin Bypass: Always approved, always admin
+      shopStatus = "approved";
+      if (!roles.includes("admin")) {
+        roles.push("admin");
       }
-    } catch (e) {
-      // ignore, default to none
+    } else {
+      try {
+        const brandKey = (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "basaltsurge").toLowerCase();
+        const container = await getContainer();
+        const query = "SELECT top 1 c.status FROM c WHERE c.type = 'shop_config' AND c.wallet = @w AND c.brandKey = @b";
+        const { resources } = await container.items.query({
+          query,
+          parameters: [{ name: "@w", value: wallet }, { name: "@b", value: brandKey }]
+        }).fetchAll();
+        if (resources.length > 0) {
+          shopStatus = resources[0].status || "approved";
+        }
+      } catch (e) {
+        // ignore, default to none
+      }
     }
 
-    return NextResponse.json({ authed: true, wallet, roles, shopStatus });
+    return NextResponse.json({ authed: true, wallet, roles, shopStatus, isPlatformAdmin });
   } catch (e: any) {
     return NextResponse.json({ authed: false, error: e?.message || "failed" }, { status: 500 });
   }
