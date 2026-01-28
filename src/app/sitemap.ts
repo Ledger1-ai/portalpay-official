@@ -7,7 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const industries = getAllIndustries();
   const comparisons = getAllComparisons();
   const locations = getAllLocations();
-  const baseUrl = 'https://pay.ledger1.ai';
+  const baseUrl = 'https://surge.basalthq.com';
   const currentDate = new Date();
 
   return [

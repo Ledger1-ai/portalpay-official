@@ -9,7 +9,7 @@ import GeometricBackground from '@/components/landing/GeometricBackground';
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
-  const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://pay.ledger1.ai';
+  const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://surge.basalthq.com';
   const title = `BasaltSurge vs Competitors | Compare Payment Processors`;
   const description = `Compare BasaltSurge with Stripe, Square, PayPal, Toast, and other payment processors. See how you can save 70%+ on fees with instant settlement and crypto payments.`;
   return {

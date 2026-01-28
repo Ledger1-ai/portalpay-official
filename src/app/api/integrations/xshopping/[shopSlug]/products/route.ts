@@ -60,7 +60,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
             "brand"
         ];
 
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://pay.ledger1.ai"; // Fallback, should ideally use request host or config
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://surge.basalthq.com"; // Fallback, should ideally use request host or config
 
         const csvRows = items.map((item: any) => {
             const price = `${item.priceUsd || 0} ${item.currency || 'USD'}`;

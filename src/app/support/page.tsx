@@ -1,14 +1,38 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
+import { useBrand } from "@/contexts/BrandContext";
+import { getEnv } from "@/lib/env";
 
 export default function SupportPage() {
+    const brand = useBrand();
+    const env = getEnv();
+    const isPartnerContainer = String(env.CONTAINER_TYPE || "").toLowerCase() === "partner";
+
+    // Dynamic brand name: partner uses their brand, platform uses BasaltSurge
+    const displayBrandName = (() => {
+        if (isPartnerContainer && brand?.name) {
+            return brand.name;
+        }
+        return "BasaltSurge";
+    })();
+
+    // Dynamic contact email: partner uses their contactEmail, platform uses BasaltHQ
+    const contactEmail = (() => {
+        if (isPartnerContainer && (brand as any)?.contactEmail) {
+            return (brand as any).contactEmail;
+        }
+        return "info@basalthq.com";
+    })();
+
     return (
         <div className="space-y-10">
             {/* Hero */}
             <div className="space-y-4">
                 <h1 className="text-4xl font-bold tracking-tight">How can we help?</h1>
                 <p className="text-xl text-muted-foreground">
-                    Explore our guides and documentation to get the most out of PortalPay.
+                    Explore our guides and documentation to get the most out of {displayBrandName}.
                 </p>
                 <div className="relative max-w-lg">
                     <input
@@ -81,7 +105,7 @@ export default function SupportPage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                     </svg>
                                 </div>
-                                <div className="text-sm">support@portalpay.io</div>
+                                <div className="text-sm">{contactEmail}</div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-full bg-background border flex items-center justify-center shrink-0">

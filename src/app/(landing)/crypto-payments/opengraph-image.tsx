@@ -1,13 +1,13 @@
 import { ImageResponse } from 'next/og';
-import { getBaseUrl } from '@/lib/base-url';
+import { getInternalBaseUrl } from '@/lib/base-url';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const alt = 'Crypto Payments for Every Industry';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/jpeg';
 
 export default async function Image() {
-  const baseUrl = getBaseUrl();
+  const baseUrl = getInternalBaseUrl();
 
   try {
     // Fetch the generated OG image from the browse-level API route

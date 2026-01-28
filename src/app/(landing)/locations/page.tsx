@@ -9,7 +9,7 @@ import GeometricBackground from '@/components/landing/GeometricBackground';
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
-  const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://pay.ledger1.ai';
+  const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://surge.basalthq.com';
   const title = `Locations | BasaltSurge`;
   const description = 'Browse crypto payment landing pages by city. Explore local context, relevant industries, and how BasaltSurge helps businesses accept digital payments worldwide.';
   return {

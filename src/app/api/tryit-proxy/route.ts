@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * - Consider adding additional gating (e.g., NODE_ENV check) if needed
  */
 
-const ALLOWED_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://pay.ledger1.ai';
+const ALLOWED_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://surge.basalthq.com';
 const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const AFD_EDGE_SECRET = process.env.AFD_EDGE_SECRET;
 

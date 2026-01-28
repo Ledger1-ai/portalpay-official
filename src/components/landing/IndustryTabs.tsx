@@ -152,7 +152,7 @@ export default function IndustryTabs({ slugs, initialSlug, className = '' }: Ind
 
             {/* Benefits Grid */}
             <section>
-              <h3 className="text-2xl font-bold mb-6">Why {data.name} Choose PortalPay</h3>
+              <h3 className="text-2xl font-bold mb-6">Why {data.name} Choose {siteTheme.brandName || "BasaltSurge"}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {data.benefits.map((benefit, idx) => (
                   <div key={idx} className="glass-pane rounded-xl border p-5">

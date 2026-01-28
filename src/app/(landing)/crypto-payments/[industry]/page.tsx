@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ industry:
   const data = getIndustryData(industry);
   const brand = getBrandConfig();
   const isPartner = isPartnerContext();
-  const BASE_URL = isPartner ? getBaseUrl() : 'https://pay.ledger1.ai';
+  const BASE_URL = isPartner ? getBaseUrl() : 'https://surge.basalthq.com';
   const dePortal = (s: any) =>
     typeof s === 'string'
       ? (isPartner ? s.replaceAll('PortalPay', brand.name) : s)
@@ -74,7 +74,7 @@ export default async function IndustryLandingPage({ params }: { params: Promise<
   const data = getIndustryData(industry);
   const brand = getBrandConfig();
   const isPartner = isPartnerContext();
-  const BASE_URL = isPartner ? getBaseUrl() : 'https://pay.ledger1.ai';
+  const BASE_URL = isPartner ? getBaseUrl() : 'https://surge.basalthq.com';
   const dePortal = (s: any) =>
     typeof s === 'string'
       ? (isPartner ? s.replaceAll('PortalPay', brand.name) : s)

@@ -25,6 +25,7 @@ type BrandConfigDoc = {
   meta?: BrandMeta;
   // Routing and fees
   appUrl?: string;
+  contactEmail?: string; // contact email for the brand
   platformFeeBps?: number;
   partnerFeeBps?: number;
   defaultMerchantFeeBps?: number;
@@ -112,6 +113,7 @@ function toEffectiveBrand(brandKey: string, overrides?: Partial<BrandConfigDoc>)
       }
       : withDefaults.meta,
     appUrl: overrides.appUrl ?? withDefaults.appUrl,
+    contactEmail: typeof overrides.contactEmail === "string" ? overrides.contactEmail : (withDefaults as any).contactEmail,
     platformFeeBps: typeof overrides.platformFeeBps === "number" ? overrides.platformFeeBps : withDefaults.platformFeeBps,
     partnerFeeBps: typeof overrides.partnerFeeBps === "number" ? overrides.partnerFeeBps : withDefaults.partnerFeeBps,
     defaultMerchantFeeBps: typeof overrides.defaultMerchantFeeBps === "number" ? overrides.defaultMerchantFeeBps : withDefaults.defaultMerchantFeeBps,

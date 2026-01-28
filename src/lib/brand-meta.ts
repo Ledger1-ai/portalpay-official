@@ -66,7 +66,7 @@ export async function buildOgTwitterForRoute(opts: {
       pageBase = runtimeBrand.appUrl.replace(/^http:\/\//, "https://");
     } else {
       // Final fallback - use platform default
-      pageBase = 'https://pay.ledger1.ai';
+      pageBase = 'https://surge.basalthq.com';
     }
   }
 

@@ -58,7 +58,7 @@ const KNOWN_PARTNER_DOMAINS: Record<string, string> = {
 
 // Main platform hostnames that should NOT be treated as partner containers (without subdomains)
 const PLATFORM_HOSTNAMES = [
-  "pay.ledger1.ai",
+  "surge.basalthq.com",
 ];
 
 function deriveBrandKeyFromHostname(host: string): { brandKey: string; containerType: string } | null {
@@ -612,6 +612,7 @@ export default async function RootLayout({
           symbol: resolveBrandSymbol(b.logos?.symbol || b.logos?.app || baseBrand.logos.symbol || baseBrand.logos.app, effectiveBrandKeyForFetch),
         },
         appUrl: typeof b.appUrl === "string" && b.appUrl ? b.appUrl : baseBrand.appUrl,
+        contactEmail: typeof b.contactEmail === "string" && b.contactEmail ? b.contactEmail : (baseBrand as any).contactEmail,
         partnerFeeBps: typeof b.partnerFeeBps === "number" ? b.partnerFeeBps : baseBrand.partnerFeeBps,
         defaultMerchantFeeBps: typeof b.defaultMerchantFeeBps === "number" ? b.defaultMerchantFeeBps : baseBrand.defaultMerchantFeeBps,
         partnerWallet: typeof b.partnerWallet === "string" && b.partnerWallet ? b.partnerWallet : baseBrand.partnerWallet,

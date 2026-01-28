@@ -55,7 +55,7 @@ export function getBaseUrl(): string {
     // Use a placeholder domain that indicates misconfiguration but won't leak localhost
     if (!url || isLocalhostUrl(url)) {
       // This signals an env configuration issue but won't cause broken localhost URLs
-      url = 'https://pay.ledger1.ai';
+      url = 'https://surge.basalthq.com';
     }
 
     // Force HTTPS if somehow HTTP was provided
@@ -90,7 +90,7 @@ export async function getProductionBaseUrl(): Promise<string> {
 
   // Final fallback for production - use a default domain that indicates misconfiguration
   if (!url || isLocalhostUrl(url)) {
-    url = 'https://pay.ledger1.ai';
+    url = 'https://surge.basalthq.com';
   }
 
   // Force HTTPS

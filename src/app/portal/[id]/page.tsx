@@ -192,7 +192,7 @@ export default function PortalReceiptPage() {
       brandLogoUrl: isBS ? "/BasaltSurgeWideD.png" : "/ppsymbol.png",
       brandFaviconUrl: "/favicon-32x32.png",
       symbolLogoUrl: isBS ? "/BasaltSurgeD.png" : undefined,
-      brandName: isBS ? "BasaltSurge" : "PortalPay",
+      brandName: "BasaltSurge",
       fontFamily:
         "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
       receiptBackgroundUrl: "/watermark.png",
@@ -300,7 +300,7 @@ export default function PortalReceiptPage() {
   // Fallback to brandLogoUrl (PFP) if symbolLogoUrl is missing to prevents dropping through to partner defaults
   const effectiveLogoSymbol = (hasMerchantForTheme && (theme.symbolLogoUrl || theme.brandLogoUrl)) || partnerLogoSymbol || theme.symbolLogoUrl || "";
   const effectiveLogoFavicon = (hasMerchantForTheme && theme.brandFaviconUrl) || partnerLogoFavicon || theme.brandFaviconUrl || "";
-  const effectiveBrandName = (hasMerchantForTheme && theme.brandName) || partnerBrandName || theme.brandName || "PortalPay";
+  const effectiveBrandName = (hasMerchantForTheme && theme.brandName) || partnerBrandName || theme.brandName || "BasaltSurge";
 
   // Helper functions to get the best available logo
   const defaultPortalSymbol = getDefaultBrandSymbol(theme.brandKey);
@@ -441,7 +441,7 @@ export default function PortalReceiptPage() {
             brandLogoUrl: "", // Start empty to force PFP fallback
             symbolLogoUrl: "",
             brandFaviconUrl: "/favicon-32x32.png",
-            brandName: "PortalPay",
+            brandName: "BasaltSurge",
             fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
             receiptBackgroundUrl: "/watermark.png",
             brandLogoShape: "round",
@@ -736,7 +736,7 @@ export default function PortalReceiptPage() {
         secondaryColor: "#2dd4bf",
         brandLogoUrl: getDefaultBrandSymbol(),
         brandFaviconUrl: "/favicon-32x32.png",
-        brandName: "PortalPay",
+        brandName: "BasaltSurge",
         fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
         receiptBackgroundUrl: "/watermark.png",
         brandLogoShape: "round",
@@ -2245,7 +2245,7 @@ export default function PortalReceiptPage() {
                       )}
 
                       <div className="microtext text-muted-foreground text-center mt-3">
-                        Trustless, permissionless settlement via PortalPay on Base. Funds settle on-chain — no custodial hold. Uses live payment flow and records spend/XP.
+                        Trustless, permissionless settlement via {effectiveBrandName} on Base. Funds settle on-chain — no custodial hold. Uses live payment flow and records spend/XP.
                         {isClientSide && isIframe && !isMobileViewport ? (
                           <div className="mt-2">
                             <button
@@ -2601,7 +2601,7 @@ export default function PortalReceiptPage() {
                     )}
 
                     <div className="microtext text-muted-foreground text-center mt-3">
-                      Trustless, permissionless settlement via PortalPay on Base. Funds settle on-chain — no custodial hold. Uses live payment flow and records spend/XP.
+                      Trustless, permissionless settlement via {effectiveBrandName} on Base. Funds settle on-chain — no custodial hold. Uses live payment flow and records spend/XP.
                       {isClientSide && isIframe && !isMobileViewport ? (
                         <div className="mt-2">
                           <button
@@ -2634,7 +2634,7 @@ export default function PortalReceiptPage() {
             className="px-4 py-2 text-[11px] opacity-80 rounded-b-2xl"
             style={{ background: effectiveSecondaryColor, color: "var(--pp-text-header)", flexShrink: 0 }}
           >
-            Trustless, permissionless on-chain settlement via PortalPay. Embedded view uses a transparent background to fit host UI.
+            Trustless, permissionless on-chain settlement via {effectiveBrandName}. Embedded view uses a transparent background to fit host UI.
           </div>
         )}
       </div>
@@ -2645,7 +2645,7 @@ export default function PortalReceiptPage() {
           className="px-4 py-2 text-[11px] opacity-80 rounded-xl mt-2 mx-auto max-w-[428px]"
           style={{ background: effectiveSecondaryColor, color: "var(--pp-text-header)" }}
         >
-          Trustless, permissionless on-chain settlement via PortalPay. Full-page view applies your configured branding and theme.
+          Trustless, permissionless on-chain settlement via {effectiveBrandName}. Full-page view applies your configured branding and theme.
         </div>
       )}
     </div>

@@ -25,7 +25,7 @@ export async function generateMetadata({
   const { competitor } = await params;
   const data = getComparisonData(competitor);
   const brand = getBrandConfig();
-  const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://pay.ledger1.ai';
+  const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://surge.basalthq.com';
   const isPartner = isPartnerContext();
   const dePortal = (s: any) =>
     typeof s === 'string'

@@ -1,11 +1,32 @@
+"use client";
+
 import React from "react";
+import { useBrand } from "@/contexts/BrandContext";
+import { getEnv } from "@/lib/env";
 
 export default function DevelopersSupportPage() {
+    const brand = useBrand();
+    const env = getEnv();
+    const isPartnerContainer = String(env.CONTAINER_TYPE || "").toLowerCase() === "partner";
+
+    // Dynamic brand name: partner uses their brand, platform uses BasaltSurge
+    const displayBrandName = (() => {
+        if (isPartnerContainer && brand?.name) {
+            return brand.name;
+        }
+        return "BasaltSurge";
+    })();
+
+    // Dynamic signature header: uses brand key for partner, BasaltSurge for platform
+    const signatureHeader = isPartnerContainer && brand?.key
+        ? `X-${brand.key.charAt(0).toUpperCase() + brand.key.slice(1)}-Signature`
+        : "X-BasaltSurge-Signature";
+
     return (
         <div className="space-y-8 max-w-3xl">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight mb-2">Developer Resources</h1>
-                <p className="text-lg text-muted-foreground">Technical documentation for the PortalPay API and SDKs.</p>
+                <p className="text-lg text-muted-foreground">Technical documentation for the {displayBrandName} API and SDKs.</p>
             </div>
 
             <div className="space-y-12">
@@ -19,9 +40,9 @@ export default function DevelopersSupportPage() {
                             <div>// Example: Create a Charge</div>
                             <div className="text-blue-400">POST /api/v1/charges</div>
                             <div>{`{`}</div>
-                            <div className="pl-4"><span className="text-purple-400">"amount"</span>: <span className="text-green-400">100.00</span>,</div>
-                            <div className="pl-4"><span className="text-purple-400">"currency"</span>: <span className="text-green-400">"USD"</span>,</div>
-                            <div className="pl-4"><span className="text-purple-400">"description"</span>: <span className="text-green-400">"Order #1234"</span></div>
+                            <div className="pl-4"><span className="text-purple-400">&quot;amount&quot;</span>: <span className="text-green-400">100.00</span>,</div>
+                            <div className="pl-4"><span className="text-purple-400">&quot;currency&quot;</span>: <span className="text-green-400">&quot;USD&quot;</span>,</div>
+                            <div className="pl-4"><span className="text-purple-400">&quot;description&quot;</span>: <span className="text-green-400">&quot;Order #1234&quot;</span></div>
                             <div>{`}`}</div>
                         </div>
                     </div>
@@ -65,7 +86,7 @@ export default function DevelopersSupportPage() {
                             Ensure your integration is secure by following these best practices.
                         </p>
                         <ul className="list-disc pl-5 space-y-2 mt-4">
-                            <li><strong>Verify Signatures:</strong> Always verify the `X-PortalPay-Signature` header on webhook requests.</li>
+                            <li><strong>Verify Signatures:</strong> Always verify the <code>{signatureHeader}</code> header on webhook requests.</li>
                             <li><strong>API Keys:</strong> Keep your Secret Keys server-side. Never expose them in client-side code.</li>
                             <li><strong>Idempotency:</strong> Use idempotency keys to prevent duplicate charges during network retries.</li>
                         </ul>

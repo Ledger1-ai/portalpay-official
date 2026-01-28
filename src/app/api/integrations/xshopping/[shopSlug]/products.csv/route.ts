@@ -100,7 +100,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
         // Construct Base URL based on request custom domain or env?
         // Ideally should match the shop's domain.
         // If shop has customDomain, use that.
-        let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://pay.ledger1.ai";
+        let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://surge.basalthq.com";
         if (shop.customDomain && shop.customDomainVerified) {
             baseUrl = `https://${shop.customDomain}`;
         } else if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -159,7 +159,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ shop
                 if (item.images && item.images.length > 0) {
                     imageLink = item.images[0];
                 } else {
-                    const platformUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pay.ledger1.ai";
+                    const platformUrl = process.env.NEXT_PUBLIC_APP_URL || "https://surge.basalthq.com";
                     imageLink = `${platformUrl}/api/integrations/xshopping/${effectiveSlug}/product-images/default?id=${encodedId}`;
                 }
 

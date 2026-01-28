@@ -53,14 +53,14 @@ export async function GET(req: NextRequest) {
     const { resources } = await container.items.query(spec).fetchAll();
     const receipts: Receipt[] = Array.isArray(resources)
       ? resources.map((row: any) => ({
-          receiptId: String(row.receiptId || ""),
-          totalUsd: Number(row.totalUsd || 0),
-          currency: "USD",
-          lineItems: Array.isArray(row.lineItems) ? row.lineItems : [],
-          createdAt: Number(row.createdAt || Date.now()),
-          brandName: typeof row.brandName === "string" ? row.brandName : undefined,
-          status: typeof row.status === "string" ? row.status : undefined,
-        }))
+        receiptId: String(row.receiptId || ""),
+        totalUsd: Number(row.totalUsd || 0),
+        currency: "USD",
+        lineItems: Array.isArray(row.lineItems) ? row.lineItems : [],
+        createdAt: Number(row.createdAt || Date.now()),
+        brandName: typeof row.brandName === "string" ? row.brandName : undefined,
+        status: typeof row.status === "string" ? row.status : undefined,
+      }))
       : [];
 
     return NextResponse.json(
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
     try {
       const cfg = await getSiteConfig().catch(() => null as any);
       if (typeof cfg?.theme?.brandName === "string" && cfg.theme.brandName) brandName = cfg.theme.brandName;
-    } catch {}
+    } catch { }
 
     // Compute split breakdown and effective processing fee
     const brand = getBrandConfig();
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
       const { resource } = await c.item("merchant:settings", wallet).read<any>();
       const n = Number((resource as any)?.merchantFeeBps);
       if (Number.isFinite(n)) merchantFeeBps = Math.max(0, Math.min(10000, Math.floor(n)));
-    } catch {}
+    } catch { }
     const grossMinor = Math.round(totalUsd * 100);
     const splits = computeSplitAmounts(grossMinor, brand, merchantFeeBps ?? 0);
     const effectiveProcessingFeeBps = getEffectiveProcessingFeeBps(brand, merchantFeeBps);
@@ -208,10 +208,10 @@ export async function POST(req: NextRequest) {
       try {
         // Degraded mode: push to in-memory store
         pushReceipts([{ receiptId: id, totalUsd, currency: "USD", lineItems, createdAt: now, brandName, status: "pending", wallet } as any]);
-      } catch {}
+      } catch { }
     }
 
-    const paymentUrl = `https://pay.ledger1.ai/pay/${encodeURIComponent(id)}`;
+    const paymentUrl = `https://surge.basalthq.com/pay/${encodeURIComponent(id)}`;
     return NextResponse.json(
       { id, paymentUrl, status: "pending" },
       { status: 201, headers: { "x-correlation-id": correlationId } }

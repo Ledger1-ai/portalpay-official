@@ -828,7 +828,7 @@ export async function POST(req: NextRequest) {
       if (theme.brandName) tParams.set("t_brand", theme.brandName);
       if (theme.brandLogoUrl) tParams.set("t_logo", theme.brandLogoUrl);
 
-      const portalLink = `https://pay.ledger1.ai/portal/${receiptId}?${tParams.toString()}`;
+      const portalLink = `https://surge.basalthq.com/portal/${receiptId}?${tParams.toString()}`;
 
       // no stock decrement here; inventory management can be extended later (reserved vs sold)
       return NextResponse.json(
@@ -838,7 +838,7 @@ export async function POST(req: NextRequest) {
     } catch (e: any) {
       // Graceful degrade when Cosmos isn't configured/available
       pushReceipts([{ ...receipt, wallet, brandKey } as any]);
-      const portalLink = `https://pay.ledger1.ai/portal/${receiptId}?recipient=${wallet}&t_text=%23ffffff`;
+      const portalLink = `https://surge.basalthq.com/portal/${receiptId}?recipient=${wallet}&t_text=%23ffffff`;
       return NextResponse.json(
         { ok: true, degraded: true, reason: e?.message || "cosmos_unavailable", receipt, portalLink },
         { status: 200, headers: { "x-correlation-id": correlationId } }

@@ -3,7 +3,7 @@ import { ImageResponse } from 'next/og';
 import React from 'react';
 import { getBrandConfig } from '@/config/brands';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const alt = 'Social Image';
 export const contentType = 'image/png';
 

@@ -234,7 +234,7 @@ export default function PartnersPage() {
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
             Launch Your Brand on
-            <span className="bg-gradient-to-r from-primary to-green-500 bg-clip-text text-transparent block sm:inline"> PortalPay</span>
+            <span className="bg-gradient-to-r from-primary to-green-500 bg-clip-text text-transparent block sm:inline"> BasaltSurge</span>
           </h1>
           <p className="mt-4 md:mt-6 text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
             Get a dedicated whitelabel container with full-stack crypto commerce: shops, receipts, QR terminals, and complete branding control.
@@ -582,7 +582,7 @@ function WizardMode({ steps, currentStep, form, setForm, selectedPackage, useFin
 
         {currentStep === 1 && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground mb-4">Enter your company information. The brand key will become your container identifier (e.g., "acme" → acme.portalpay.app).</p>
+            <p className="text-sm text-muted-foreground mb-4">Enter your company information. The brand key will become your container identifier (e.g., "acme" → acme.basaltsurge.com).</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Brand Key (slug) *</label>
@@ -668,7 +668,7 @@ function WizardMode({ steps, currentStep, form, setForm, selectedPackage, useFin
               <div className="flex items-start gap-2">
                 <Info className="h-5 w-5 text-primary mt-0.5" />
                 <div className="text-sm">
-                  <p><b>Platform fee</b> (0.5%) goes to PortalPay. You can request a reduction to 0.25% (subject to approval).</p>
+                  <p><b>Platform fee</b> (0.5%) goes to BasaltSurge. You can request a reduction to 0.25% (subject to approval).</p>
                   <p className="mt-1"><b>Partner fee</b> is your share from each transaction, paid to your wallet.</p>
                 </div>
               </div>

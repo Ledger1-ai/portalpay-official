@@ -1067,7 +1067,7 @@ function PreviewContent({ forcedMode }: { forcedMode: PreviewMode }) {
         </div>
       )}
       {showPortalMessage ? (
-        <div className="microtext text-muted-foreground text-center mt-3">Trustless, permissionless settlement via PortalPay on Base. Funds settle on-chain — no custodial hold. Uses live payment flow and records spend/XP.</div>
+        <div className="microtext text-muted-foreground text-center mt-3">Trustless, permissionless settlement via {theme.brandName || getDefaultBrandName(theme.brandKey)} on Base. Funds settle on-chain — no custodial hold. Uses live payment flow and records spend/XP.</div>
       ) : (
         <div className="microtext text-muted-foreground text-center mt-3">Demo checkout uses live payment flow and records spend/XP.</div>
       )}

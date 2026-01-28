@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 
-const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://pay.ledger1.ai').replace(/\/$/, '');
+const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://surge.basalthq.com').replace(/\/$/, '');
 
 export default function robots(): MetadataRoute.Robots {
   const disallow = [

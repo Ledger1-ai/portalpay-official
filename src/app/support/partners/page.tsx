@@ -1,11 +1,27 @@
+"use client";
+
 import React from "react";
+import { useBrand } from "@/contexts/BrandContext";
+import { getEnv } from "@/lib/env";
 
 export default function PartnersSupportPage() {
+    const brand = useBrand();
+    const env = getEnv();
+    const isPartnerContainer = String(env.CONTAINER_TYPE || "").toLowerCase() === "partner";
+
+    // Dynamic brand name: partner uses their brand, platform uses BasaltSurge
+    const displayBrandName = (() => {
+        if (isPartnerContainer && brand?.name) {
+            return brand.name;
+        }
+        return "BasaltSurge";
+    })();
+
     return (
         <div className="space-y-8 max-w-3xl">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight mb-2">Partner Program</h1>
-                <p className="text-lg text-muted-foreground">Resources for platforms, agencies, and developers building on PortalPay.</p>
+                <p className="text-lg text-muted-foreground">Resources for platforms, agencies, and developers building on {displayBrandName}.</p>
             </div>
 
             <div className="space-y-12">
@@ -13,7 +29,7 @@ export default function PartnersSupportPage() {
                     <h2 className="text-2xl font-bold border-b pb-2">Program Overview</h2>
                     <div className="prose prose-sm dark:prose-invert max-w-none">
                         <p>
-                            The PortalPay Partner Program allows you to integrate our payment infrastructure into your platform
+                            The {displayBrandName} Partner Program allows you to integrate our payment infrastructure into your platform
                             or offer it to your clients. Earn revenue share on every transaction processed through your integration.
                         </p>
                     </div>

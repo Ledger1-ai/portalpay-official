@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getBrandConfig } from '@/config/brands';
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://pay.ledger1.ai';
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://surge.basalthq.com';
 
 const FAQS = [
   {

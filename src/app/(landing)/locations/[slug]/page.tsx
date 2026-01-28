@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const data = getLocationData(slug);
   const brand = getBrandConfig();
-  const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://pay.ledger1.ai';
+  const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://surge.basalthq.com';
   const dePortal = (s: string) => (isPartnerContext() ? s.replaceAll('PortalPay', brand.name) : s);
   if (!data) {
     return {

@@ -1,22 +1,22 @@
 import { ImageResponse } from 'next/og';
-import { getBaseUrl } from '@/lib/base-url';
+import { getInternalBaseUrl } from '@/lib/base-url';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const alt = 'Payment Processor Comparison';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/jpeg';
 
 export default async function Image({ params }: { params: Promise<{ competitor: string }> }) {
   const { competitor } = await params;
-  
-  const baseUrl = getBaseUrl();
-  
+
+  const baseUrl = getInternalBaseUrl();
+
   try {
     // Fetch the generated OG image from our API route
     const ogImageRes = await fetch(`${baseUrl}/api/og-image/vs/${competitor}`, {
       cache: 'no-store',
     });
-    
+
     if (ogImageRes.ok) {
       const imageBuffer = await ogImageRes.arrayBuffer();
       return new Response(imageBuffer, {
@@ -29,7 +29,7 @@ export default async function Image({ params }: { params: Promise<{ competitor: 
   } catch (error) {
     console.error('OG image fetch error:', error);
   }
-  
+
   // Fallback: return a simple error response
   return new Response(null, {
     status: 404,
