@@ -53,6 +53,7 @@ type BrandConfigDoc = {
   logos?: { app?: string; favicon?: string; symbol?: string; footer?: string };
   meta?: { ogTitle?: string; ogDescription?: string };
   appUrl?: string;
+  contactEmail?: string;
   platformFeeBps?: number;
   partnerFeeBps?: number;
   defaultMerchantFeeBps?: number;
@@ -224,23 +225,23 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         partnerWallet: typeof updates?.partnerWallet === "string" ? updates.partnerWallet : app.partnerWallet,
         colors: updates?.colors
           ? {
-              primary: typeof updates.colors?.primary === "string" ? updates.colors.primary : app.colors?.primary,
-              accent: typeof updates.colors?.accent === "string" ? updates.colors.accent : app.colors?.accent,
-            }
+            primary: typeof updates.colors?.primary === "string" ? updates.colors.primary : app.colors?.primary,
+            accent: typeof updates.colors?.accent === "string" ? updates.colors.accent : app.colors?.accent,
+          }
           : app.colors,
         logos: updates?.logos
           ? {
-              app: typeof updates.logos?.app === "string" ? updates.logos.app : app.logos?.app,
-              favicon: typeof updates.logos?.favicon === "string" ? updates.logos.favicon : app.logos?.favicon,
-              symbol: typeof updates.logos?.symbol === "string" ? updates.logos.symbol : app.logos?.symbol,
-              footer: typeof updates.logos?.footer === "string" ? updates.logos.footer : app.logos?.footer,
-            }
+            app: typeof updates.logos?.app === "string" ? updates.logos.app : app.logos?.app,
+            favicon: typeof updates.logos?.favicon === "string" ? updates.logos.favicon : app.logos?.favicon,
+            symbol: typeof updates.logos?.symbol === "string" ? updates.logos.symbol : app.logos?.symbol,
+            footer: typeof updates.logos?.footer === "string" ? updates.logos.footer : app.logos?.footer,
+          }
           : app.logos,
         meta: updates?.meta
           ? {
-              ogTitle: typeof updates.meta?.ogTitle === "string" ? updates.meta.ogTitle : app.meta?.ogTitle,
-              ogDescription: typeof updates.meta?.ogDescription === "string" ? updates.meta.ogDescription : app.meta?.ogDescription,
-            }
+            ogTitle: typeof updates.meta?.ogTitle === "string" ? updates.meta.ogTitle : app.meta?.ogTitle,
+            ogDescription: typeof updates.meta?.ogDescription === "string" ? updates.meta.ogDescription : app.meta?.ogDescription,
+          }
           : app.meta,
         updatedAt: now,
       };
@@ -266,28 +267,29 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       // Apply overrides from application where provided
       name: typeof app.companyName === "string" ? app.companyName : existing?.name,
       appUrl: app.appUrl ?? existing?.appUrl,
+      contactEmail: typeof app.contactEmail === "string" ? app.contactEmail : existing?.contactEmail,
       partnerFeeBps: typeof app.partnerFeeBps === "number" ? app.partnerFeeBps : existing?.partnerFeeBps,
       defaultMerchantFeeBps: typeof app.defaultMerchantFeeBps === "number" ? app.defaultMerchantFeeBps : existing?.defaultMerchantFeeBps,
       partnerWallet: typeof app.partnerWallet === "string" ? app.partnerWallet : existing?.partnerWallet,
       colors: app.colors
         ? {
-            primary: typeof app.colors.primary === "string" ? app.colors.primary : existing?.colors?.primary,
-            accent: typeof app.colors.accent === "string" ? app.colors.accent : existing?.colors?.accent,
-          }
+          primary: typeof app.colors.primary === "string" ? app.colors.primary : existing?.colors?.primary,
+          accent: typeof app.colors.accent === "string" ? app.colors.accent : existing?.colors?.accent,
+        }
         : existing?.colors,
       logos: app.logos
         ? {
-            app: typeof app.logos.app === "string" ? app.logos.app : existing?.logos?.app,
-            favicon: typeof app.logos.favicon === "string" ? app.logos.favicon : existing?.logos?.favicon,
-            symbol: typeof app.logos.symbol === "string" ? app.logos.symbol : existing?.logos?.symbol,
-            footer: typeof app.logos.footer === "string" ? app.logos.footer : existing?.logos?.footer,
-          }
+          app: typeof app.logos.app === "string" ? app.logos.app : existing?.logos?.app,
+          favicon: typeof app.logos.favicon === "string" ? app.logos.favicon : existing?.logos?.favicon,
+          symbol: typeof app.logos.symbol === "string" ? app.logos.symbol : existing?.logos?.symbol,
+          footer: typeof app.logos.footer === "string" ? app.logos.footer : existing?.logos?.footer,
+        }
         : existing?.logos,
       meta: app.meta
         ? {
-            ogTitle: typeof app.meta.ogTitle === "string" ? app.meta.ogTitle : existing?.meta?.ogTitle,
-            ogDescription: typeof app.meta.ogDescription === "string" ? app.meta.ogDescription : existing?.meta?.ogDescription,
-          }
+          ogTitle: typeof app.meta.ogTitle === "string" ? app.meta.ogTitle : existing?.meta?.ogTitle,
+          ogDescription: typeof app.meta.ogDescription === "string" ? app.meta.ogDescription : existing?.meta?.ogDescription,
+        }
         : existing?.meta,
       updatedAt: now,
     };
