@@ -176,9 +176,8 @@ https://pay.ledger1.ai/pay/{receiptId}
 
 ## Support
 
-- Issues: Report bugs via GitHub Issues
-- Questions: Use /reportbug or contact support
-- Enterprise: Contact enterprise@portalpay.com
+- Issues: Report bugs using the Support Messaging feature in the Admin module under General
+- Questions: Use the Support Messaging feature in the Admin module under General
 
 ## License
 

@@ -95,5 +95,5 @@ curl -X POST "https://pay.ledger1.ai/api/inventory" \
 
 ## Contact
 
-- Business inquiries and Enterprise upgrades: enterprise@portalpay.com
+- Business inquiries and Enterprise upgrades: Use the Support Messaging feature in the Admin module under General
 - Community support: Discord or GitHub Issues

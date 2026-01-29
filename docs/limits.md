@@ -167,7 +167,7 @@ All merchants start on the **Starter** tier.
 
 ### Enterprise Plans
 
-For higher limits, contact enterprise@portalpay.com with:
+For higher limits, use the Support Messaging feature in the Admin module under General with:
 - Your use case
 - Expected request volume
 - Business details
@@ -335,4 +335,4 @@ A usage dashboard will be available showing:
 
 ---
 
-**Need Higher Limits?** Contact enterprise@portalpay.com
+**Need Higher Limits?** Use the Support Messaging feature in the Admin module under General

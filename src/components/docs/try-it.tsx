@@ -329,7 +329,7 @@ export function TryIt({ config }: { config: TryItConfig }) {
                 placeholder={process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.example.com'}
               />
               <p className="mt-1 text-xs text-muted-foreground overflow-wrap-anywhere">
-                Default is APP_URL. For AFD, enter only the AFD endpoint host (e.g., https://afd-endpoint-...) without any path; the /portalpay prefix is added automatically for /api/* and /healthz.
+                Default is APP_URL. For AFD, enter only the AFD endpoint host (e.g., https://afd-endpoint-...) without any path; the /{brandKey} prefix is added automatically for /api/* and /healthz.
               </p>
             </div>
             <div className="min-w-0">
