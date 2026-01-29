@@ -280,8 +280,11 @@ export function Navbar() {
 
         (async () => {
             try {
-                // Check if already authenticated
-                const me = await fetch('/api/auth/me', { cache: 'no-store' })
+                // Check if already authenticated (Passing x - wallet to detect approved but unauthenticated users)
+                const me = await fetch('/api/auth/me', {
+                    cache: 'no-store',
+                    headers: { 'x-wallet': w }
+                })
                     .then(r => r.ok ? r.json() : { authed: false })
                     .catch(() => ({ authed: false }));
 

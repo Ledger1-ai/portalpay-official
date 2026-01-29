@@ -280,12 +280,16 @@ export async function PATCH(req: NextRequest) {
         }
 
         // Update the request
-        const updatedDoc: ClientRequestDoc = {
+        const updatedDoc: any = {
             ...request,
             status: newStatus,
             reviewedBy: caller.wallet,
             reviewedAt: Date.now()
         };
+
+        if (splitConfig) {
+            updatedDoc.splitConfig = splitConfig;
+        }
 
         await container.item(request.id, request.wallet).replace(updatedDoc);
 

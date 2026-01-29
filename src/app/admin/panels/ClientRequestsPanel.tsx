@@ -27,6 +27,10 @@ type ClientRequest = {
     reviewedBy?: string;
     reviewedAt?: number;
     createdAt: number;
+    splitConfig?: {
+        partnerBps: number;
+        merchantBps: number;
+    };
 };
 
 export default function ClientRequestsPanel() {
@@ -106,9 +110,13 @@ export default function ClientRequestsPanel() {
         }
     }
 
-    const openApprovalModal = (id: string) => {
+    const openApprovalModal = (id: string, existingSplit?: { partnerBps: number }) => {
         setApprovingId(id);
-        setPartnerBps(50); // Reset to default
+        if (existingSplit) {
+            setPartnerBps(existingSplit.partnerBps);
+        } else {
+            setPartnerBps(50); // Reset to default
+        }
     };
 
     const confirmApproval = () => {
@@ -256,14 +264,29 @@ export default function ClientRequestsPanel() {
                                                         </button>
                                                     </>
                                                 )}
+                                                {req.status === "approved" && (
+                                                    <button
+                                                        className="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-xs font-semibold transition-colors flex items-center gap-1"
+                                                        onClick={() => openApprovalModal(req.id, req.splitConfig)}
+                                                        title="Update Revenue Split"
+                                                    >
+                                                        <span>{req.splitConfig ? `${(req.splitConfig.partnerBps / 100).toFixed(2)}% Split` : "Set Split"}</span>
+                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        </svg>
+                                                    </button>
+                                                )}
                                                 {req.status === "blocked" && (
                                                     <button
                                                         className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition-colors"
                                                         onClick={() => updateStatus(req.id, "pending")}
+                                                        title="Unblock this user"
                                                     >
                                                         Unblock
                                                     </button>
                                                 )}
+
                                                 {req.status !== "blocked" && (
                                                     <button
                                                         className="px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 text-xs font-semibold transition-colors"
@@ -283,81 +306,83 @@ export default function ClientRequestsPanel() {
                                             </div>
                                         </td>
                                     </tr>
-                                    {isExpanded && (
-                                        <tr className="bg-foreground/[0.02]">
-                                            <td colSpan={5} className="px-4 py-4 border-t border-foreground/5">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                    <div className="space-y-3">
-                                                        <h4 className="text-xs font-mono uppercase text-muted-foreground tracking-wider mb-2">Business Details</h4>
-                                                        <div className="space-y-2">
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">Legal Name</span>
-                                                                <span className="select-all">{req.legalBusinessName || "—"}</span>
-                                                            </div>
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">DBA Name</span>
-                                                                <span className="select-all">{req.shopName}</span>
-                                                            </div>
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">Type</span>
-                                                                <span className="uppercase">{req.businessType || "—"}</span>
-                                                            </div>
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">EIN/Tax ID (Last 4)</span>
-                                                                <span className="font-mono text-emerald-400 select-all">{req.ein || "—"}</span>
+                                    {
+                                        isExpanded && (
+                                            <tr className="bg-foreground/[0.02]">
+                                                <td colSpan={5} className="px-4 py-4 border-t border-foreground/5">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                        <div className="space-y-3">
+                                                            <h4 className="text-xs font-mono uppercase text-muted-foreground tracking-wider mb-2">Business Details</h4>
+                                                            <div className="space-y-2">
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">Legal Name</span>
+                                                                    <span className="select-all">{req.legalBusinessName || "—"}</span>
+                                                                </div>
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">DBA Name</span>
+                                                                    <span className="select-all">{req.shopName}</span>
+                                                                </div>
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">Type</span>
+                                                                    <span className="uppercase">{req.businessType || "—"}</span>
+                                                                </div>
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">EIN/Tax ID (Last 4)</span>
+                                                                    <span className="font-mono text-emerald-400 select-all">{req.ein || "—"}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
 
-                                                    <div className="space-y-3">
-                                                        <h4 className="text-xs font-mono uppercase text-muted-foreground tracking-wider mb-2">Contact & Location</h4>
-                                                        <div className="space-y-2">
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">Address</span>
-                                                                <span>
-                                                                    {req.businessAddress ? (
-                                                                        <>
-                                                                            {req.businessAddress.street}<br />
-                                                                            {req.businessAddress.city}, {req.businessAddress.state} {req.businessAddress.zip}<br />
-                                                                            {req.businessAddress.country}
-                                                                        </>
+                                                        <div className="space-y-3">
+                                                            <h4 className="text-xs font-mono uppercase text-muted-foreground tracking-wider mb-2">Contact & Location</h4>
+                                                            <div className="space-y-2">
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">Address</span>
+                                                                    <span>
+                                                                        {req.businessAddress ? (
+                                                                            <>
+                                                                                {req.businessAddress.street}<br />
+                                                                                {req.businessAddress.city}, {req.businessAddress.state} {req.businessAddress.zip}<br />
+                                                                                {req.businessAddress.country}
+                                                                            </>
+                                                                        ) : "—"}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">Website</span>
+                                                                    {req.website ? (
+                                                                        <a href={req.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate">
+                                                                            {req.website}
+                                                                        </a>
                                                                     ) : "—"}
-                                                                </span>
-                                                            </div>
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">Website</span>
-                                                                {req.website ? (
-                                                                    <a href={req.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate">
-                                                                        {req.website}
-                                                                    </a>
-                                                                ) : "—"}
-                                                            </div>
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">Phone</span>
-                                                                <a href={`tel:${req.phone}`} className="hover:text-white transition-colors">{req.phone || "—"}</a>
+                                                                </div>
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">Phone</span>
+                                                                    <a href={`tel:${req.phone}`} className="hover:text-white transition-colors">{req.phone || "—"}</a>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
 
-                                                    <div className="space-y-3">
-                                                        <h4 className="text-xs font-mono uppercase text-muted-foreground tracking-wider mb-2">Metadata</h4>
-                                                        <div className="space-y-2">
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">Wallet</span>
-                                                                <div className="font-mono text-xs break-all select-all opacity-80">{req.wallet}</div>
-                                                            </div>
-                                                            <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">Notes</span>
-                                                                <div className="text-xs italic bg-black/20 p-2 rounded border border-white/5 max-h-[80px] overflow-y-auto">
-                                                                    {req.notes || "No notes provided."}
+                                                        <div className="space-y-3">
+                                                            <h4 className="text-xs font-mono uppercase text-muted-foreground tracking-wider mb-2">Metadata</h4>
+                                                            <div className="space-y-2">
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">Wallet</span>
+                                                                    <div className="font-mono text-xs break-all select-all opacity-80">{req.wallet}</div>
+                                                                </div>
+                                                                <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                                                                    <span className="text-muted-foreground">Notes</span>
+                                                                    <div className="text-xs italic bg-black/20 p-2 rounded border border-white/5 max-h-[80px] overflow-y-auto">
+                                                                        {req.notes || "No notes provided."}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
+                                                </td>
+                                            </tr>
+                                        )
+                                    }
                                 </React.Fragment>
                             );
                         })}
@@ -375,91 +400,93 @@ export default function ClientRequestsPanel() {
                 </table>
             </div>
             {/* Split Config Modal */}
-            {approvingId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="p-6 border-b border-white/5">
-                            <h3 className="text-lg font-semibold text-white">Approve & Configure Splits</h3>
-                            <p className="text-xs text-zinc-400 mt-1">Configure revenue sharing for this merchant.</p>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-                            {/* Platform Fee (Locked) */}
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                    <span>Platform Fee</span>
-                                    <span>Locked</span>
-                                </div>
-                                <div className="p-3 rounded-lg bg-black/20 border border-white/5 flex justify-between items-center opacity-70">
-                                    <span className="text-zinc-400 text-sm">PortalPay Platform</span>
-                                    <span className="font-mono text-emerald-500">{(platformBps / 100).toFixed(2)}%</span>
-                                </div>
+            {
+                approvingId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                            <div className="p-6 border-b border-white/5">
+                                <h3 className="text-lg font-semibold text-white">Approve & Configure Splits</h3>
+                                <p className="text-xs text-zinc-400 mt-1">Configure revenue sharing for this merchant.</p>
                             </div>
 
-                            {/* Partner Fee (Slider) */}
-                            <div className="space-y-3">
-                                <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                    <span>Partner Fee</span>
-                                    <span>adjustable</span>
+                            <div className="p-6 space-y-6">
+                                {/* Platform Fee (Locked) */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                        <span>Platform Fee</span>
+                                        <span>Locked</span>
+                                    </div>
+                                    <div className="p-3 rounded-lg bg-black/20 border border-white/5 flex justify-between items-center opacity-70">
+                                        <span className="text-zinc-400 text-sm">PortalPay Platform</span>
+                                        <span className="font-mono text-emerald-500">{(platformBps / 100).toFixed(2)}%</span>
+                                    </div>
                                 </div>
-                                <div className="p-4 rounded-lg bg-zinc-800/50 border border-white/10 space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-white text-sm font-medium">Your Revenue</span>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="number"
-                                                value={partnerBps}
-                                                onChange={(e) => setPartnerBps(Math.min(9900, Math.max(0, parseInt(e.target.value) || 0)))}
-                                                className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-right font-mono text-sm text-white focus:border-emerald-500 outline-none"
-                                            />
-                                            <span className="text-zinc-500 text-xs">bps</span>
+
+                                {/* Partner Fee (Slider) */}
+                                <div className="space-y-3">
+                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                        <span>Partner Fee</span>
+                                        <span>adjustable</span>
+                                    </div>
+                                    <div className="p-4 rounded-lg bg-zinc-800/50 border border-white/10 space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-white text-sm font-medium">Your Revenue</span>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="number"
+                                                    value={partnerBps}
+                                                    onChange={(e) => setPartnerBps(Math.min(9900, Math.max(0, parseInt(e.target.value) || 0)))}
+                                                    className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-right font-mono text-sm text-white focus:border-emerald-500 outline-none"
+                                                />
+                                                <span className="text-zinc-500 text-xs">bps</span>
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="1000" // Max 10% for partner usually? Or allow up to 99%? Let's cap slider at 20% (2000bps) for UX, but input allows more.
+                                            step="5"
+                                            value={partnerBps}
+                                            onChange={(e) => setPartnerBps(parseInt(e.target.value))}
+                                            className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                        />
+                                        <div className="text-right text-xs text-emerald-400 font-mono">
+                                            {(partnerBps / 100).toFixed(2)}%
                                         </div>
                                     </div>
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1000" // Max 10% for partner usually? Or allow up to 99%? Let's cap slider at 20% (2000bps) for UX, but input allows more.
-                                        step="5"
-                                        value={partnerBps}
-                                        onChange={(e) => setPartnerBps(parseInt(e.target.value))}
-                                        className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                                    />
-                                    <div className="text-right text-xs text-emerald-400 font-mono">
-                                        {(partnerBps / 100).toFixed(2)}%
+                                </div>
+
+                                {/* Merchant Split (Remainder) */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                        <span>Merchant Receives</span>
+                                        <span>Remainder</span>
+                                    </div>
+                                    <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex justify-between items-center">
+                                        <span className="text-emerald-100 text-sm font-medium">Merchant Net</span>
+                                        <span className="font-mono text-emerald-400 font-bold text-lg">{(merchantBps / 100).toFixed(2)}%</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Merchant Split (Remainder) */}
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                    <span>Merchant Receives</span>
-                                    <span>Remainder</span>
-                                </div>
-                                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex justify-between items-center">
-                                    <span className="text-emerald-100 text-sm font-medium">Merchant Net</span>
-                                    <span className="font-mono text-emerald-400 font-bold text-lg">{(merchantBps / 100).toFixed(2)}%</span>
-                                </div>
+                            <div className="p-4 bg-black/20 border-t border-white/5 flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setApprovingId(null)}
+                                    className="px-4 py-2 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white text-sm transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmApproval}
+                                    className="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-sm shadow-lg shadow-emerald-500/10 transition-colors"
+                                >
+                                    Confirm Approval
+                                </button>
                             </div>
                         </div>
-
-                        <div className="p-4 bg-black/20 border-t border-white/5 flex gap-3 justify-end">
-                            <button
-                                onClick={() => setApprovingId(null)}
-                                className="px-4 py-2 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white text-sm transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmApproval}
-                                className="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-sm shadow-lg shadow-emerald-500/10 transition-colors"
-                            >
-                                Confirm Approval
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
