@@ -9,7 +9,6 @@ import { ArrowLeft, Github, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { getBaseUrl } from '@/lib/base-url';
 import { getBrandConfig } from '@/config/brands';
-import { isPartnerContext } from '@/lib/env';
 
 export async function generateStaticParams() {
   return [
@@ -48,7 +47,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const ogSuffix = slug.length > 0 ? `/${slug.join('/')}` : '';
   const ogImage = `${baseUrl}/api/og-image/docs${ogSuffix}`;
   const twitterImage = `${baseUrl}/api/og-image/docs${ogSuffix}`;
-  
+
   return {
     title: `${title} | ${brand.name} Docs`,
     description: `${brand.name} API Documentation`,
@@ -71,7 +70,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 
 async function getMarkdownContent(slug: string[]) {
   const docsPath = join(process.cwd(), 'docs');
-  
+
   let filePath: string;
   if (slug.length === 0) {
     filePath = join(docsPath, 'README.md');
@@ -79,7 +78,7 @@ async function getMarkdownContent(slug: string[]) {
     // Try direct .md file first
     filePath = join(docsPath, ...slug) + '.md';
   }
-  
+
   try {
     const content = await readFile(filePath, 'utf-8');
     return content;
@@ -108,16 +107,18 @@ export default async function DocsPage({ params }: { params: Promise<{ slug?: st
   }
   let processedContent: string = content;
   try {
-    if (processedContent && isPartnerContext()) {
-      processedContent = processedContent.replaceAll('PortalPay', brand.name);
-    }
-  } catch {}
+    // Apply platform branding universally - replace all hardcoded portalpay references
+    // with dynamic brand key and URLs based on the current brand config
+    const { replacePlatformReferences } = await import('@/lib/platformBranding');
+    const appUrl = brand.appUrl || process.env.NEXT_PUBLIC_APP_URL || '';
+    processedContent = replacePlatformReferences(processedContent, brand.key, brand.name, appUrl);
+  } catch { }
 
   const currentPath = slug.length === 0 ? '/docs' : `/docs/${slug.join('/')}`;
   const pageTitle = slug.length > 0
     ? slug[slug.length - 1].split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : 'Documentation';
-  
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}

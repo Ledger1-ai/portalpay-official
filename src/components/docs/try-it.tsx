@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useBrand } from '@/contexts/BrandContext';
 
 type QueryParam = {
   name: string;
@@ -43,6 +44,9 @@ function parseValue(v: string, type?: QueryParam['type']) {
 }
 
 export function TryIt({ config }: { config: TryItConfig }) {
+  const brand = useBrand();
+  const brandKey = brand.key || 'basaltsurge';
+
   const {
     method,
     path,
@@ -55,7 +59,36 @@ export function TryIt({ config }: { config: TryItConfig }) {
     baseUrl: configBaseUrl,
   } = config;
 
-  const [baseUrl, setBaseUrl] = useState(configBaseUrl ?? (process.env.NEXT_PUBLIC_APP_URL || ''));
+  // Compute dynamic base URL from browser origin
+  const [browserOrigin, setBrowserOrigin] = useState('');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setBrowserOrigin(window.location.origin);
+    }
+  }, []);
+
+  // Use browser origin as the base URL, applying brand key replacement to any config baseUrl
+  const effectiveBaseUrl = useMemo(() => {
+    const origin = browserOrigin || process.env.NEXT_PUBLIC_APP_URL || '';
+    if (configBaseUrl) {
+      // Replace any hardcoded portalpay references with the current origin/brand
+      return configBaseUrl
+        .replace(/https?:\/\/api\.pay\.ledger1\.ai\/portalpay/gi, `${origin}/${brandKey}`)
+        .replace(/https?:\/\/pay\.ledger1\.ai/gi, origin)
+        .replace(/\/portalpay(?=\/|$)/gi, `/${brandKey}`);
+    }
+    return origin;
+  }, [configBaseUrl, browserOrigin, brandKey]);
+
+  const [baseUrl, setBaseUrl] = useState(effectiveBaseUrl);
+
+  // Sync baseUrl when effectiveBaseUrl changes (e.g., after browser origin is detected)
+  useEffect(() => {
+    if (effectiveBaseUrl && effectiveBaseUrl !== baseUrl) {
+      setBaseUrl(effectiveBaseUrl);
+    }
+  }, [effectiveBaseUrl]);
+
   const [useProxy, setUseProxy] = useState(
     process.env.NEXT_PUBLIC_TRYIT_USE_PROXY === 'false' ? false : true
   );
@@ -77,15 +110,15 @@ export function TryIt({ config }: { config: TryItConfig }) {
   const urlWithParams = useMemo(() => {
     try {
       const pathForUrl = (() => {
-        try{
+        try {
           const u = new URL(baseUrl);
           const host = u.hostname.toLowerCase();
           const pathname = u.pathname;
-          // Always route developer API calls through /portalpay for /api/* and /healthz
+          // Always route developer API calls through /{brandKey} for /api/* and /healthz
           if (path.startsWith('/api/') || path === '/healthz') {
-            return '/portalpay' + path;
+            return '/' + brandKey + path;
           }
-        } catch {}
+        } catch { }
         return path;
       })();
       const url = new URL(pathForUrl, baseUrl);
@@ -118,11 +151,11 @@ export function TryIt({ config }: { config: TryItConfig }) {
           const u = new URL(baseUrl);
           const host = u.hostname.toLowerCase();
           const pathname = u.pathname;
-          // Always route developer API calls through /portalpay for /api/* and /healthz
+          // Always route developer API calls through /{brandKey} for /api/* and /healthz
           if (path.startsWith('/api/') || path === '/healthz') {
-            effectivePath = '/portalpay' + path;
+            effectivePath = '/' + brandKey + path;
           }
-        } catch {}
+        } catch { }
         const headersObj: Record<string, string> = apiKey ? { [headerName]: apiKey } : {};
         if (includeTrace) {
           headersObj['Ocp-Apim-Trace'] = 'true';
@@ -254,8 +287,8 @@ export function TryIt({ config }: { config: TryItConfig }) {
               </span>
               <code className="text-sm break-all min-w-0 max-w-full inline-block">{path}</code>
             </div>
-{title && <h3 className="text-lg font-semibold break-words overflow-wrap-anywhere max-w-full">{title}</h3>}
-{description && <p className="text-sm text-muted-foreground mt-1 break-words overflow-wrap-anywhere max-w-full">{description}</p>}
+            {title && <h3 className="text-lg font-semibold break-words overflow-wrap-anywhere max-w-full">{title}</h3>}
+            {description && <p className="text-sm text-muted-foreground mt-1 break-words overflow-wrap-anywhere max-w-full">{description}</p>}
           </div>
         </div>
 
@@ -268,7 +301,7 @@ export function TryIt({ config }: { config: TryItConfig }) {
               onChange={(e) => setUseProxy(e.target.checked)}
               className="rounded border-border"
             />
-<label htmlFor="use-proxy" className="text-sm text-muted-foreground cursor-pointer flex-1 min-w-0 overflow-wrap-anywhere leading-snug">
+            <label htmlFor="use-proxy" className="text-sm text-muted-foreground cursor-pointer flex-1 min-w-0 overflow-wrap-anywhere leading-snug">
               Use server-side proxy (recommended for local/container to avoid CORS)
             </label>
           </div>
@@ -280,7 +313,7 @@ export function TryIt({ config }: { config: TryItConfig }) {
               onChange={(e) => setIncludeTrace(e.target.checked)}
               className="rounded border-border"
             />
-<label htmlFor="include-trace" className="text-sm text-muted-foreground cursor-pointer flex-1 min-w-0 overflow-wrap-anywhere leading-snug">
+            <label htmlFor="include-trace" className="text-sm text-muted-foreground cursor-pointer flex-1 min-w-0 overflow-wrap-anywhere leading-snug">
               Include Ocp-Apim-Trace header (APIM diagnostics)
             </label>
           </div>
@@ -300,7 +333,7 @@ export function TryIt({ config }: { config: TryItConfig }) {
               </p>
             </div>
             <div className="min-w-0">
-<label className="block text-xs font-medium text-muted-foreground mb-1 break-words overflow-wrap-anywhere">
+              <label className="block text-xs font-medium text-muted-foreground mb-1 break-words overflow-wrap-anywhere">
                 {headerName} (not stored)
               </label>
               <input
@@ -314,7 +347,7 @@ export function TryIt({ config }: { config: TryItConfig }) {
                 The key is kept only in memory while this page is open. Do not paste secrets on shared machines.
               </p>
 
-<div className="mt-3 min-w-0">
+              <div className="mt-3 min-w-0">
                 <label className="block text-xs font-medium text-muted-foreground mb-1 break-words overflow-wrap-anywhere">
                   x-wallet (optional merchant wallet for public GET inventory/shop)
                 </label>
@@ -381,7 +414,7 @@ export function TryIt({ config }: { config: TryItConfig }) {
             {loading ? 'Sending…' : 'Send Request'}
           </button>
           <span className="text-xs text-muted-foreground min-w-0 leading-snug overflow-wrap-anywhere" style={{ flex: '1 1 0' }}>
-            {useProxy 
+            {useProxy
               ? 'Using server-side proxy to avoid CORS. Requests go through /api/tryit-proxy to AFD/APIM.'
               : 'Direct requests to AFD. May be blocked by CORS from local/container. Enable proxy if needed.'}
           </span>
@@ -390,14 +423,14 @@ export function TryIt({ config }: { config: TryItConfig }) {
         <div className="mt-4 min-w-0 max-w-full">
           <div className="text-sm font-medium mb-2 break-words">cURL</div>
           <div className="rounded-md border border-border bg-muted p-2 overflow-x-auto">
-<pre className="text-xs whitespace-pre-wrap break-words overflow-wrap-anywhere min-w-0">
-<code className="break-words overflow-wrap-anywhere">{curlSnippet}</code>
+            <pre className="text-xs whitespace-pre-wrap break-words overflow-wrap-anywhere min-w-0">
+              <code className="break-words overflow-wrap-anywhere">{curlSnippet}</code>
             </pre>
           </div>
         </div>
 
         {error && (
-<div className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-600 break-words overflow-wrap-anywhere whitespace-pre-wrap max-w-full">
+          <div className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-600 break-words overflow-wrap-anywhere whitespace-pre-wrap max-w-full">
             {error}
           </div>
         )}
@@ -412,11 +445,11 @@ export function TryIt({ config }: { config: TryItConfig }) {
           <div className="min-w-0 max-w-full">
             <div className="text-sm font-medium mb-2 break-words">Response Headers</div>
             <div className="rounded-md border border-border bg-muted p-2 text-xs overflow-x-auto max-h-40 overflow-y-auto">
-<pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere min-w-0">
+              <pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere min-w-0">
                 {Object.keys(respHeaders).length > 0
                   ? Object.entries(respHeaders)
-                      .map(([k, v]) => `${k}: ${v}`)
-                      .join('\n')
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join('\n')
                   : '—'}
               </pre>
             </div>
@@ -425,21 +458,21 @@ export function TryIt({ config }: { config: TryItConfig }) {
 
         <div className="mt-4 min-w-0 max-w-full">
           <div className="text-sm font-medium mb-2 break-words">Response Body</div>
-<div className="rounded-md border border-border bg-muted p-2 overflow-x-auto max-h-80 overflow-y-auto">
-<pre className="text-xs whitespace-pre-wrap break-words overflow-wrap-anywhere min-w-0">
+          <div className="rounded-md border border-border bg-muted p-2 overflow-x-auto max-h-80 overflow-y-auto">
+            <pre className="text-xs whitespace-pre-wrap break-words overflow-wrap-anywhere min-w-0">
               <code className="break-words">{respBody || '—'}</code>
             </pre>
           </div>
         </div>
 
         {status === 200 && !respBody && (
-<div className="mt-4 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-700 break-words overflow-wrap-anywhere max-w-full">
+          <div className="mt-4 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-700 break-words overflow-wrap-anywhere max-w-full">
             200 OK but no response body. This may indicate an empty result set (e.g., no inventory items for this wallet). Try creating data first with the POST endpoint, or check that you're using the correct Base URL and subscription key.
           </div>
         )}
 
         {status === 401 && (
-<div className="mt-4 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-700 break-words overflow-wrap-anywhere max-w-full">
+          <div className="mt-4 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-700 break-words overflow-wrap-anywhere max-w-full">
             {useProxy ? (
               <>
                 401 Unauthorized from APIM. Ensure you provide a valid subscription key in the "{headerName}" header.
