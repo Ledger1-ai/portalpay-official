@@ -48,8 +48,12 @@ export function replacePlatformReferences(
     );
 
     // Replace remaining /portalpay path prefixes (in case there are standalone references)
-    // Be careful to only replace when it's a path component, not part of a word
-    result = result.replace(/\/portalpay(?=\/|$|["'\s\)])/gi, `/${brandKey}`);
+    // This catches:
+    //   - `/portalpay/api/...` in markdown headers like `## POST /portalpay/api/orders`
+    //   - Backtick-wrapped paths like `/portalpay/healthz`
+    //   - Inline code and regular text references
+    // The lookahead ensures we only match when followed by: /, end of string, quote, space, ), `, newline, or end of line
+    result = result.replace(/\/portalpay(?=\/|$|["'\s)\`\n\r])/gi, `/${brandKey}`);
 
     // Replace brand name (case-sensitive for proper nouns)
     result = result.replace(/PortalPay/g, brandName);
