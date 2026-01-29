@@ -41,10 +41,10 @@ export function replacePlatformReferences(
         `${baseUrl}/${brandKey}`
     );
 
-    // Replace pay.ledger1.ai domain references  
+    // Replace pay.ledger1.ai domain references - ensure brandKey is appended for API consistency
     result = result.replace(
         /https?:\/\/pay\.ledger1\.ai/gi,
-        baseUrl
+        `${baseUrl}/${brandKey}`
     );
 
     // Replace remaining /portalpay path prefixes (in case there are standalone references)
@@ -55,11 +55,13 @@ export function replacePlatformReferences(
     // Match /portalpay followed by / or end of word (using word boundary-like pattern)
     result = result.replace(/\/portalpay(?=\/|[^a-zA-Z0-9_-]|$)/gi, `/${brandKey}`);
 
-    // Replace hardcoded "PortalPay" in environment variables (e.g., PORTALPAY_SUBSCRIPTION_KEY)
-    result = result.replace(/PORTALPAY_SUBSCRIPTION_KEY/g, "APP_SUBSCRIPTION_KEY");
+    // Replace hardcoded "PortalPay" in environment variables with DYNAMIC brand name
+    // e.g., PORTALPAY_SUBSCRIPTION_KEY -> BASALTSURGE_SUBSCRIPTION_KEY
+    const envVarPrefix = brandName.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+    result = result.replace(/PORTALPAY_SUBSCRIPTION_KEY/g, `${envVarPrefix}_SUBSCRIPTION_KEY`);
 
-    // Replace filenames or paths like "webhooks/portalpay" -> "webhooks/payment"
-    result = result.replace(/webhooks\/portalpay/g, "webhooks/payment");
+    // Replace filenames or paths like "webhooks/portalpay" -> "webhooks/{brandKey}"
+    result = result.replace(/webhooks\/portalpay/g, `webhooks/${brandKey}`);
 
     // Replace generic "PortalPay" text references (case-sensitive for proper nouns)
     // Avoid replacing if it's part of a larger word that wasn't caught above, though "PortalPay" is usually distinct.

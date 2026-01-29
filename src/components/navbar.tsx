@@ -285,10 +285,14 @@ export function Navbar() {
                     .then(r => r.ok ? r.json() : { authed: false })
                     .catch(() => ({ authed: false }));
 
+                // Detect Platform Admin (Pre-calculation for access gating)
+                const platformWallet = (process.env.NEXT_PUBLIC_PLATFORM_WALLET || "").toLowerCase();
+                const isPlatformAdmin = me?.isPlatformAdmin || (!!platformWallet && w === platformWallet);
+
                 // Access Control Gating
                 const accessMode = (brand as any)?.accessMode || "open";
                 const isPrivate = accessMode === "request";
-                const isApproved = me?.shopStatus === "approved";
+                const isApproved = me?.shopStatus === "approved" || isPlatformAdmin;
 
                 // If Private Mode and Not Approved (and not Platform/Owner bypass), block login
                 const isPlatformContainer = container.containerType === "platform";
@@ -320,11 +324,6 @@ export function Navbar() {
                         checkingAuth.current = false;
                         return;
                     }
-
-                    const platformWallet = (process.env.NEXT_PUBLIC_PLATFORM_WALLET || "").toLowerCase();
-                    const isPlatformAdmin = !!platformWallet && !!account?.address && account.address.toLowerCase() === platformWallet;
-
-                    const isApproved = me?.authed || me?.approved || isPlatformAdmin; // Check if user is approved (or super admin)
 
                     if (blocked && isApproved) {
                         // User has valid JWT but is explicitly blocked via admin/RBAC? (Edge case)
