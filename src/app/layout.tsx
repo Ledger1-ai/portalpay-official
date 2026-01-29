@@ -509,8 +509,8 @@ export async function generateMetadata(): Promise<Metadata> {
       url: true,
     },
     icons: {
-      // Use Surge.png directly for favicon
-      icon: [{ url: "/Surge.png" }],
+      // Use dynamic brand favicon logic
+      icon: [{ url: runtimeBrand.logos.favicon || "/Surge.png" }],
       apple: (() => {
         const isPartner = String(envMeta.CONTAINER_TYPE || "").toLowerCase() === "partner";
         const key = baseBrand.key || "";
@@ -519,7 +519,7 @@ export async function generateMetadata(): Promise<Metadata> {
           : [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }];
       })(),
       // Also advertise the dynamic endpoint as the shortcut icon so the tab updates correctly
-      shortcut: ["/api/favicon"],
+      shortcut: [runtimeBrand.logos.favicon || "/api/favicon"],
     },
     appleWebApp: {
       capable: true,

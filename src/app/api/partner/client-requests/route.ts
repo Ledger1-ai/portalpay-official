@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { encrypt, decrypt } from "@/lib/encryption";
 import { getContainer } from "@/lib/cosmos";
 import { requireThirdwebAuth } from "@/lib/auth";
 
@@ -81,7 +82,22 @@ export async function GET(req: NextRequest) {
 
         const { resources } = await container.items.query({ query, parameters: params }).fetchAll();
 
-        return json({ ok: true, requests: resources, brandKey });
+        // Decrypt and mask SSN/EIN for admin view security
+        const maskedResources = resources.map((r: any) => {
+            if (r.ein) {
+                try {
+                    const decrypted = decrypt(r.ein);
+                    // Show last 4 digits only
+                    const last4 = decrypted.length > 4 ? decrypted.slice(-4) : decrypted;
+                    return { ...r, ein: `***-**-${last4}` };
+                } catch {
+                    return r;
+                }
+            }
+            return r;
+        });
+
+        return json({ ok: true, requests: maskedResources, brandKey });
     } catch (e: any) {
         console.error("[client-requests] GET Error:", e);
         return json({ error: e?.message || "query_failed" }, { status: 500 });
@@ -139,7 +155,8 @@ export async function POST(req: NextRequest) {
             shopName,
             legalBusinessName: typeof body?.legalBusinessName === "string" ? body.legalBusinessName : undefined,
             businessType: typeof body?.businessType === "string" ? body.businessType : undefined,
-            ein: typeof body?.ein === "string" ? body.ein : undefined,
+            // Encrypt EIN/SSN if present to protect sensitive PII
+            ein: typeof body?.ein === "string" && body.ein ? encrypt(body.ein) : undefined,
             website: typeof body?.website === "string" ? body.website : undefined,
             phone: typeof body?.phone === "string" ? body.phone : undefined,
             businessAddress: body?.businessAddress || undefined,

@@ -67,6 +67,10 @@ export function replacePlatformReferences(
     // Avoid replacing if it's part of a larger word that wasn't caught above, though "PortalPay" is usually distinct.
     result = result.replace(/PortalPay/g, brandName);
 
+    // Aggressive replacement for remaining "portalpay" tokens (e.g. "portalpay_error", "subpath: portalpay", code vars)
+    // using a regex that checks ensuring it's not part of another word like "supportalpayment"
+    result = result.replace(/(?<![a-zA-Z])portalpay(?![a-zA-Z])/gi, brandKey);
+
     return result;
 }
 

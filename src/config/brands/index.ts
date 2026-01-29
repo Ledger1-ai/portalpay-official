@@ -181,6 +181,8 @@ export function applyBrandDefaults(raw: BrandConfig): BrandConfig {
     ? raw.apimCatalog.map((e) => ({ ...e, visible: e.visible ?? true }))
     : [];
 
+  const envAccessMode = (process.env.BRAND_ACCESS_MODE || process.env.NEXT_PUBLIC_BRAND_ACCESS_MODE || "").trim();
+
   // Compute effective colors, preferring DB overrides (raw), then env-injected values
   const effectivePrimary = (raw.colors?.primary || envBrandPrimary || "#0a0a0a");
   const effectiveAccent = (raw.colors?.accent || envBrandAccent || raw.colors?.accent);
@@ -209,6 +211,7 @@ export function applyBrandDefaults(raw: BrandConfig): BrandConfig {
     partnerFeeBps,
     defaultMerchantFeeBps,
     apimCatalog,
+    accessMode: (raw.accessMode as any) || (envAccessMode === "request" ? "request" : (envAccessMode === "open" ? "open" : undefined)) || raw.accessMode,
   };
 }
 

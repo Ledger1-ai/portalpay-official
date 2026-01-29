@@ -222,7 +222,7 @@ export default function ClientRequestsPanel() {
                                                                 <span className="uppercase">{req.businessType || "—"}</span>
                                                             </div>
                                                             <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                                                                <span className="text-muted-foreground">EIN/Tax ID</span>
+                                                                <span className="text-muted-foreground">EIN/Tax ID (Last 4)</span>
                                                                 <span className="font-mono text-emerald-400 select-all">{req.ein || "—"}</span>
                                                             </div>
                                                         </div>
