@@ -108,7 +108,7 @@ export function CostCalculator({
 
       {/* Savings Summary */}
       <div className="bg-[var(--pp-secondary)] text-[var(--primary-foreground)] rounded-lg p-4 mb-6">
-        <div className="text-sm opacity-90 mb-1">You Save with PortalPay</div>
+        <div className="text-sm opacity-90 mb-1">You Save with {brand.name || 'BasaltSurge'}</div>
         <div className="text-3xl font-bold mb-1">
           ${savings.annual.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           <span className="text-lg">/year</span>

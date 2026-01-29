@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const data = getLocationData(slug);
   const brand = getBrandConfig();
   const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://surge.basalthq.com';
-  const dePortal = (s: string) => (isPartnerContext() ? s.replaceAll('PortalPay', brand.name) : s);
+  const dePortal = (s: string) => (isPartnerContext() ? s.replaceAll('PortalPay', brand.name).replaceAll('BasaltSurge', brand.name) : s);
   if (!data) {
     return {
       title: 'Location Not Found',
@@ -55,7 +55,7 @@ export default async function LocationPage({ params }: PageProps) {
   const brand = getBrandConfig();
   const isPartner = isPartnerContext();
   const dePortal = (s: any) =>
-    typeof s === 'string' ? (isPartner ? s.replaceAll('PortalPay', brand.name) : s) : s;
+    typeof s === 'string' ? (isPartner ? s.replaceAll('PortalPay', brand.name).replaceAll('BasaltSurge', brand.name) : s) : s;
 
   const flagColors = getFlagColors(data.country);
 

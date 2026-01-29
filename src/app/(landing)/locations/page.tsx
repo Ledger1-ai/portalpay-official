@@ -10,8 +10,13 @@ import GeometricBackground from '@/components/landing/GeometricBackground';
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
   const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://surge.basalthq.com';
-  const title = `Locations | BasaltSurge`;
-  const description = 'Browse crypto payment landing pages by city. Explore local context, relevant industries, and how BasaltSurge helps businesses accept digital payments worldwide.';
+  const isPartner = isPartnerContext();
+  const brandName = brand.name;
+
+  const title = isPartner ? `Locations | ${brandName}` : `Locations | BasaltSurge`;
+  const description = isPartner
+    ? `Browse crypto payment landing pages by city. Explore local context, relevant industries, and how ${brandName} helps businesses accept digital payments worldwide.`
+    : 'Browse crypto payment landing pages by city. Explore local context, relevant industries, and how BasaltSurge helps businesses accept digital payments worldwide.';
   return {
     title,
     description,

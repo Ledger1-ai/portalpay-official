@@ -10,11 +10,17 @@ import GeometricBackground from '@/components/landing/GeometricBackground';
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
   const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://surge.basalthq.com';
+  const isPartner = isPartnerContext();
+  const brandName = brand.name;
+
+  const title = isPartner
+    ? `Crypto Payments for Every Industry | ${brandName}`
+    : `Crypto Payments for Every Industry | BasaltSurge`;
   return {
-    title: `Crypto Payments for Every Industry | BasaltSurge`,
+    title,
     description: 'Accept crypto payments in your industry. Restaurant POS, retail inventory, hotel PMS, and more. Lower fees (0.5-1%), instant settlement, free enterprise features.',
     openGraph: {
-      title: `Crypto Payments for Every Industry | BasaltSurge`,
+      title,
       description: 'Industry-specific crypto payment solutions. Save 70%+ on fees.',
       url: `${BASE_URL}/crypto-payments`,
       siteName: brand.name,
