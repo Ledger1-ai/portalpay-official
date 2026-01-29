@@ -19,7 +19,8 @@ function isCustomDomainHostname(hostname: string): boolean {
     h === "127.0.0.1" ||
     h === "0.0.0.0" ||
     h.includes("azurewebsites.net") ||
-    h.includes("vercel.app")
+    h.includes("vercel.app") ||
+    h.includes("xpaypass.com")
   );
 }
 
