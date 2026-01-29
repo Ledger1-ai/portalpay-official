@@ -632,7 +632,7 @@ export default function HomeContent() {
         <section className="mt-6 mb-12">
           <div className="glass-pane rounded-xl border p-6">
             <h2 className="text-xl font-semibold mb-3">Get Started</h2>
-            <div className="flex flex-col md:flex-row gap-8 items-start">
+            <div className="flex flex-col md:flex-row gap-6 items-stretch">
               <div className="flex-1 w-full">
                 <p className="text-sm text-muted-foreground mb-4">
                   Follow these steps to start accepting crypto in minutes.
@@ -651,15 +651,15 @@ export default function HomeContent() {
                   ]}
                 />
               </div>
-              <div className="w-full md:w-auto shrink-0 flex flex-col items-center md:items-start pt-4 md:pt-10">
-                {/* Re-aligned button to be side-by-side but better integrated, or just below on mobile */}
-                <div className="p-6 rounded-xl bg-white/5 border border-white/10 w-full md:w-[280px]">
+              <div className="w-full md:w-[280px] shrink-0 flex items-center justify-center">
+                <div className="p-6 rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 w-full">
                   <h3 className="text-lg font-bold text-white mb-2">Ready to launch?</h3>
                   <p className="text-xs text-gray-400 mb-4">
                     Create your portal in seconds. No credit card required.
                   </p>
                   <SignupButton
-                    className="block w-full text-center px-4 py-3 rounded-md bg-pp-secondary text-[var(--primary-foreground)] font-bold transition-opacity hover:opacity-90 shadow-lg"
+                    variant="shiny"
+                    className="block w-full text-center px-4 py-3 rounded-md bg-pp-secondary text-[var(--primary-foreground)] font-bold transition-all hover:opacity-90 shadow-lg hover:shadow-xl"
                   >
                     Sign Up Now
                   </SignupButton>
