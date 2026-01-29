@@ -475,12 +475,18 @@ export async function POST(req: NextRequest) {
     try {
       console.log("[split/deploy:POST] synth", { brandKey, partnerWallet, partnerFeeBps: partnerFeeBpsPost, platformRecipient });
     } catch { }
-    const merchantSharesBps = Math.max(0, 10000 - platformSharesBps - partnerSharesBps);
+    const agents = Array.isArray(body.agents) ? body.agents : [];
+    const agentSharesBps = agents.reduce((sum: number, a: any) => sum + clampBps(a?.bps || 0), 0);
+
+    const merchantSharesBps = Math.max(0, 10000 - platformSharesBps - partnerSharesBps - agentSharesBps);
+
+    // Build recipients list: Merchant + Partner + Platform + Agents
     const recipients = [
       { address: wallet, sharesBps: merchantSharesBps },
       ...(partnerSharesBps > 0 ? [{ address: partnerWallet as `0x${string}`, sharesBps: partnerSharesBps }] : []),
       { address: platformRecipient as `0x${string}`, sharesBps: platformSharesBps },
-    ];
+      ...agents.map((a: any) => ({ address: String(a.wallet || "").toLowerCase(), sharesBps: clampBps(a.bps) }))
+    ].filter(r => isHexAddress(r.address) && r.sharesBps > 0);
 
     /* Optional override: splitAddress provided by caller (e.g., from a deployment pipeline)
       In partner container, ignore caller-provided address (immutability); platform binds addresses. */

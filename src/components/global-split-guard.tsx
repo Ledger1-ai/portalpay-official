@@ -510,20 +510,22 @@ export default function GlobalSplitGuard() {
         )}
 
         <div className="mt-4 flex justify-end gap-2">
-          <button
-            className="px-4 py-2 rounded-md border text-sm hover:bg-muted/50 transition-colors"
-            onClick={() => {
-              try {
-                setAck(false);
-                setError("");
-                setOpen(false);
-              } catch { }
-            }}
-            disabled={deploying}
-            title="Close this dialog"
-          >
-            Close
-          </button>
+          {(!partnerContext || isAdmin) ? (
+            <button
+              className="px-4 py-2 rounded-md border text-sm hover:bg-muted/50 transition-colors"
+              onClick={() => {
+                try {
+                  setAck(false);
+                  setError("");
+                  setOpen(false);
+                } catch { }
+              }}
+              disabled={deploying}
+              title="Close this dialog"
+            >
+              Close
+            </button>
+          ) : null}
           <button
             className="px-4 py-2 rounded-md border text-sm hover:bg-muted/50 transition-colors"
             onClick={async () => {
@@ -565,40 +567,60 @@ export default function GlobalSplitGuard() {
               Skip (Admin)
             </button>
           )}
-          <button
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={async () => {
-              try {
-                setError("");
-                setDeploying(true);
-                const addr = await ensureSplitForWallet(account as any, brandKey);
-                if (addr) {
-                  // success: close modal
-                  setOpen(false);
-                } else {
-                  // deployment did not return an address - keep modal open and surface error
-                  setError("Unable to complete setup. Please check your wallet connection and try again, or contact support if the issue persists.");
-                  // schedule re-checks in case background state changed
-                  setTimeout(() => setRecheckNonce((n) => n + 1), 250);
-                  setTimeout(() => setRecheckNonce((n) => n + 1), 1000);
+
+          {/* Deploy Button - Hidden for non-admin partners */}
+          {(!partnerContext || isAdmin) && (
+            <button
+              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={async () => {
+                try {
+                  setError("");
+                  setDeploying(true);
+                  // Pass agents if any found in preview (though usually this flow is for fresh deploys without agents)
+                  const extraAgents = previewRecipients?.filter((r: any) =>
+                    r.address.toLowerCase() !== meAddr &&
+                    r.address.toLowerCase() !== partnerAddr &&
+                    r.address.toLowerCase() !== platformRecipient
+                  ).map((r: any) => ({ wallet: r.address, bps: r.sharesBps })) || [];
+
+                  const addr = await ensureSplitForWallet(account as any, brandKey, undefined, undefined, extraAgents);
+                  if (addr) {
+                    // success: close modal
+                    setOpen(false);
+                  } else {
+                    // deployment did not return an address - keep modal open and surface error
+                    setError("Unable to complete setup. Please check your wallet connection and try again, or contact support if the issue persists.");
+                    // schedule re-checks in case background state changed
+                    setTimeout(() => setRecheckNonce((n) => n + 1), 250);
+                    setTimeout(() => setRecheckNonce((n) => n + 1), 1000);
+                  }
+                } catch (e: any) {
+                  setError(e?.message || "Setup failed. Please try again or contact support.");
+                } finally {
+                  setDeploying(false);
                 }
-              } catch (e: any) {
-                setError(e?.message || "Setup failed. Please try again or contact support.");
-              } finally {
-                setDeploying(false);
+              }}
+              disabled={deploying || !platformValid || !ack}
+              title={
+                !platformValid
+                  ? "Platform recipient not configured"
+                  : !ack
+                    ? "Please acknowledge to continue"
+                    : "Deploy payment distribution contract"
               }
-            }}
-            disabled={deploying || !platformValid || !ack}
-            title={
-              !platformValid
-                ? "Platform recipient not configured"
-                : !ack
-                  ? "Please acknowledge to continue"
-                  : "Deploy payment distribution contract"
-            }
-          >
-            {deploying ? "Deploying..." : "Confirm & Deploy"}
-          </button>
+            >
+              {deploying ? "Deploying..." : "Confirm & Deploy"}
+            </button>
+          )}
+
+          {/* Partner Restriction Message (instead of Deploy button) */}
+          {partnerContext && !isAdmin && (
+            <div className="flex-1 flex items-center justify-end">
+              <span className="text-xs text-amber-500 font-medium italic">
+                Waiting for partner configuration...
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>,

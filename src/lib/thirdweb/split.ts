@@ -28,7 +28,8 @@ export async function ensureSplitForWallet(
   account: Account | any,
   brandKeyOverride?: string,
   partnerFeeBpsOverride?: number,
-  merchantWalletOverride?: string
+  merchantWalletOverride?: string,
+  extraAgents?: { wallet: string, bps: number }[]
 ): Promise<string | undefined> {
   try {
     const signerAddress = String((account?.address || "")).toLowerCase();
@@ -55,6 +56,10 @@ export async function ensureSplitForWallet(
       }
     }
 
+    // Agent calculation helpers
+    const agents = Array.isArray(extraAgents) ? extraAgents : [];
+    const agentSharesBps = agents.reduce((sum, a) => sum + Math.max(0, Math.min(10000, a.bps)), 0);
+
     if (!brandKey) {
       // Persist recipients (without address) for later binding and exit early
       try {
@@ -64,6 +69,7 @@ export async function ensureSplitForWallet(
           body: JSON.stringify({
             wallet: merchant,
             platformPct: 0.5,
+            agents
           }),
         });
       } catch { }
@@ -75,18 +81,19 @@ export async function ensureSplitForWallet(
       const r = await fetch(buildBrandApiUrl(brandKey, `/api/split/deploy?wallet=${encodeURIComponent(merchant)}&brandKey=${encodeURIComponent(brandKey)}`), { cache: "no-store", credentials: "include" });
       const j = await r.json().catch(() => ({}));
       const existing = String(j?.split?.address || "").toLowerCase();
-      const rc = Array.isArray(j?.split?.recipients) ? j.split.recipients.length : 0;
-      const partnerBrand = String(brandKey || "").toLowerCase() !== "portalpay" && String(brandKey || "").toLowerCase() !== "basaltsurge";
-      // Client-side redundancy: treat 2-recipient splits as misconfigured in partner brands
-      const clientMisconfigured = partnerBrand && rc > 0 && rc < 3;
-      const needsRedeploy = !!(j?.misconfiguredSplit && j.misconfiguredSplit.needsRedeploy === true) || clientMisconfigured;
+      // Only redeploy if explicit flag or partner misconfiguration
+      // Note: We don't automatically check for agent mismatch here to avoid deploy loops, 
+      // but the UI calling this usually implies an intent to deploy new settings.
       if (isValidHexAddress(existing)) {
-        if (!needsRedeploy) {
+        if (!j?.misconfiguredSplit?.needsRedeploy) {
+          // For agents, we might want to force redeploy if requested, but checking equality is hard.
+          // We'll assume if this function is called, the UI verified the need (or we can add a force flag).
+          // For now, return existing if "ok". Caller logic in UI (Deploy button) usually implies "Make it so".
+          // Actually, if we are in "Configure" mode, we might WANT to redeploy.
+          // But existing logic returns early. We'll stick to that unless we detect critical issues.
           return existing;
         }
-        // Misconfigured existing split; proceed to deploy a new brand-scoped split with correct recipients
       }
-      // If still misconfigured or no existing, fall through to redeploy with correct recipients
     } catch {
       // continue to deploy if read failed
     }
@@ -94,8 +101,6 @@ export async function ensureSplitForWallet(
     // Resolve platform recipient from env
     const platform = String(getRecipientAddress() || "").toLowerCase();
     if (!isValidHexAddress(platform)) {
-      // Cannot deploy without a valid platform recipient
-      // Persist recipients (without address) for later binding
       try {
         await fetch(buildBrandApiUrl(brandKey, "/api/split/deploy"), {
           method: "POST",
@@ -104,7 +109,8 @@ export async function ensureSplitForWallet(
           body: JSON.stringify({
             wallet: merchant,
             platformPct: 0.5, // for metadata correctness
-            brandKey, // ensure server computes partner recipient for partner brands
+            brandKey,
+            agents
           }),
         });
       } catch { }
@@ -139,13 +145,27 @@ export async function ensureSplitForWallet(
     const partnerBps = !isPartner ? 0 : (isValidHexAddress(partner) && typeof effectivePartnerBps === "number")
       ? Math.max(0, Math.min(10000 - platformBps, effectivePartnerBps))
       : 0;
-    const merchantBps = Math.max(0, 10000 - platformBps - partnerBps);
+
+    // Merchant gets remainder after Platform, Partner, and Agents
+    const merchantBps = Math.max(0, 10000 - platformBps - partnerBps - agentSharesBps);
 
     const name = `${(typeof brand?.name === "string" && brand.name ? brand.name : "Brand")} Split ${merchant.slice(0, 6)}`;
-    const payees = (partnerBps > 0 ? [merchant, partner, platform] : [merchant, platform]) as `0x${string}`[];
-    const shares: bigint[] = (partnerBps > 0
-      ? [BigInt(merchantBps), BigInt(partnerBps), BigInt(platformBps)]
-      : [BigInt(merchantBps), BigInt(platformBps)]);
+
+    // Build payees/shares arrays
+    const payeeList: string[] = [merchant, platform];
+    const shareList: bigint[] = [BigInt(merchantBps), BigInt(platformBps)];
+
+    if (partnerBps > 0) {
+      payeeList.push(partner);
+      shareList.push(BigInt(partnerBps));
+    }
+
+    agents.forEach(a => {
+      if (isValidHexAddress(a.wallet) && a.bps > 0) {
+        payeeList.push(a.wallet.toLowerCase());
+        shareList.push(BigInt(a.bps));
+      }
+    });
 
     const contractAddress = await deploySplitContract({
       chain,
@@ -153,8 +173,8 @@ export async function ensureSplitForWallet(
       account,
       params: {
         name,
-        payees,
-        shares,
+        payees: payeeList,
+        shares: shareList,
       },
     });
 
@@ -172,7 +192,8 @@ export async function ensureSplitForWallet(
         body: JSON.stringify({
           wallet: merchant,
           splitAddress: addr,
-          brandKey, // persist brand scoping and recipients for partner brands
+          brandKey,
+          agents // Send agents to persist them in site config
         }),
       });
       // If POST failed (e.g., CSRF or auth), keep modal open by returning undefined

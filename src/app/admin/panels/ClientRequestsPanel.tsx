@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useActiveAccount } from "thirdweb/react";
+import { ensureSplitForWallet } from "@/lib/thirdweb/split";
 
 type ClientRequest = {
     id: string;
@@ -30,6 +31,7 @@ type ClientRequest = {
     splitConfig?: {
         partnerBps: number;
         merchantBps: number;
+        agents?: { wallet: string; bps: number }[];
     };
 };
 
@@ -45,10 +47,15 @@ export default function ClientRequestsPanel() {
     // Split Config State
     const [approvingId, setApprovingId] = useState<string | null>(null);
     const [platformBps] = useState(25); // Locked platform fee (0.25%)
+
     const [partnerBps, setPartnerBps] = useState(50); // Default partner fee (0.5%)
+    const [agents, setAgents] = useState<{ wallet: string; bps: number }[]>([]);
+    const [deploying, setDeploying] = useState(false);
+    const [deployResult, setDeployResult] = useState<string>("");
 
     // Derived merchant bps
-    const merchantBps = 10000 - platformBps - partnerBps;
+    const agentsBps = agents.reduce((sum, a) => sum + (Number(a.bps) || 0), 0);
+    const merchantBps = 10000 - platformBps - partnerBps - agentsBps;
 
     async function load() {
         try {
@@ -80,7 +87,7 @@ export default function ClientRequestsPanel() {
         load();
     }, [account?.address]);
 
-    async function updateStatus(id: string, status: "pending" | "approved" | "rejected" | "blocked", splitConfig?: { partnerBps: number, merchantBps: number }) {
+    async function updateStatus(id: string, status: "pending" | "approved" | "rejected" | "blocked", splitConfig?: { partnerBps: number, merchantBps: number, agents?: { wallet: string, bps: number }[] }) {
         try {
             setError("");
             setInfo("");
@@ -110,18 +117,51 @@ export default function ClientRequestsPanel() {
         }
     }
 
-    const openApprovalModal = (id: string, existingSplit?: { partnerBps: number }) => {
+    const openApprovalModal = (id: string, existingSplit?: { partnerBps: number, agents?: { wallet: string, bps: number }[] }) => {
         setApprovingId(id);
+        setDeployResult("");
         if (existingSplit) {
             setPartnerBps(existingSplit.partnerBps);
+            setAgents(existingSplit.agents || []);
         } else {
             setPartnerBps(50); // Reset to default
+            setAgents([]);
+        }
+    };
+
+    const handleDeploy = async () => {
+        if (!approvingId || !account) return;
+        const req = items.find(i => i.id === approvingId);
+        if (!req) return;
+
+        try {
+            setDeploying(true);
+            setDeployResult("");
+            // Use ensureSplitForWallet to deploy/check split contract
+            const addr = await ensureSplitForWallet(
+                account,
+                brandKey,
+                partnerBps,
+                req.wallet,
+                agents
+            );
+
+            if (addr) {
+                setDeployResult(`Deployed: ${addr}`);
+            } else {
+                setDeployResult("Deployment failed or cancelled.");
+            }
+        } catch (e: any) {
+            console.error(e);
+            setDeployResult("Error: " + (e?.message || "Deployment failed"));
+        } finally {
+            setDeploying(false);
         }
     };
 
     const confirmApproval = () => {
         if (!approvingId) return;
-        updateStatus(approvingId, "approved", { partnerBps, merchantBps });
+        updateStatus(approvingId, "approved", { partnerBps, merchantBps, agents });
     };
 
     async function deleteRequest(id: string) {
@@ -270,7 +310,11 @@ export default function ClientRequestsPanel() {
                                                         onClick={() => openApprovalModal(req.id, req.splitConfig)}
                                                         title="Update Revenue Split"
                                                     >
-                                                        <span>{req.splitConfig ? `${(req.splitConfig.partnerBps / 100).toFixed(2)}% Split` : "Set Split"}</span>
+                                                        <span>
+                                                            {req.splitConfig
+                                                                ? `${(req.splitConfig.partnerBps / 100).toFixed(2)}% Split${(req.splitConfig.agents?.length || 0) > 0 ? ` (+${req.splitConfig.agents?.length} Agents)` : ''}`
+                                                                : "Set Split"}
+                                                        </span>
                                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -444,7 +488,7 @@ export default function ClientRequestsPanel() {
                                         <input
                                             type="range"
                                             min="0"
-                                            max="1000" // Max 10% for partner usually? Or allow up to 99%? Let's cap slider at 20% (2000bps) for UX, but input allows more.
+                                            max="1000" // Max 10%
                                             step="5"
                                             value={partnerBps}
                                             onChange={(e) => setPartnerBps(parseInt(e.target.value))}
@@ -453,6 +497,61 @@ export default function ClientRequestsPanel() {
                                         <div className="text-right text-xs text-emerald-400 font-mono">
                                             {(partnerBps / 100).toFixed(2)}%
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Agent Shares (Dynamic) */}
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                        <span>Agent Shares</span>
+                                        <button
+                                            onClick={() => setAgents([...agents, { wallet: "", bps: 0 }])}
+                                            className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                                        >
+                                            + Add Agent
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {agents.map((agent, idx) => (
+                                            <div key={idx} className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Agent Wallet (0x...)"
+                                                    value={agent.wallet}
+                                                    onChange={(e) => {
+                                                        const newAgents = [...agents];
+                                                        newAgents[idx].wallet = e.target.value;
+                                                        setAgents(newAgents);
+                                                    }}
+                                                    className="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none font-mono"
+                                                />
+                                                <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded px-2 w-24">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        value={agent.bps}
+                                                        onChange={(e) => {
+                                                            const newAgents = [...agents];
+                                                            newAgents[idx].bps = parseInt(e.target.value) || 0;
+                                                            setAgents(newAgents);
+                                                        }}
+                                                        className="w-full bg-transparent text-right font-mono text-sm text-white outline-none"
+                                                    />
+                                                    <span className="text-zinc-500 text-xs">bps</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => setAgents(agents.filter((_, i) => i !== idx))}
+                                                    className="p-2 hover:bg-red-500/20 text-zinc-500 hover:text-red-500 rounded transition-colors"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {agents.length === 0 && (
+                                            <div className="text-center py-4 border border-dashed border-white/10 rounded-lg text-xs text-zinc-500">
+                                                No agents configured.
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -466,6 +565,37 @@ export default function ClientRequestsPanel() {
                                         <span className="text-emerald-100 text-sm font-medium">Merchant Net</span>
                                         <span className="font-mono text-emerald-400 font-bold text-lg">{(merchantBps / 100).toFixed(2)}%</span>
                                     </div>
+                                </div>
+
+                                {/* Deployment Status */}
+                                <div className="pt-2 border-t border-white/5">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs uppercase tracking-wider font-mono text-zinc-500">Split Contract</span>
+                                        {deployResult && <span className="text-xs font-mono text-emerald-400">{deployResult.startsWith("Deployed") ? "Active" : "Error"}</span>}
+                                    </div>
+                                    {deployResult ? (
+                                        <div className="bg-black/40 p-3 rounded border border-white/10 text-xs font-mono break-all text-white">
+                                            {deployResult}
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={handleDeploy}
+                                            disabled={deploying}
+                                            className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-600/40 rounded-lg text-xs font-mono transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {deploying ? (
+                                                <>
+                                                    <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                                    Processing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                                                    Deploy / Verify Contract
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -484,7 +614,7 @@ export default function ClientRequestsPanel() {
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div >
                 )
             }
         </div >
