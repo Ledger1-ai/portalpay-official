@@ -6,6 +6,7 @@ import { getBaseUrl } from '@/lib/base-url';
 import { isPartnerContext } from '@/lib/env';
 import BrandText from '@/components/brand-text';
 import GeometricBackground from '@/components/landing/GeometricBackground';
+import { SignupButton } from '@/components/landing/SignupButton';
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
@@ -63,12 +64,11 @@ export default function LocationsIndexPage() {
             </p>
 
             <div className="flex flex-wrap gap-4 mb-12">
-              <Link
-                href="/admin"
+              <SignupButton
                 className="px-8 py-4 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-lg font-bold hover:scale-105 transition-transform shadow-2xl shadow-blue-500/30"
               >
                 Go Global Today →
-              </Link>
+              </SignupButton>
               <Link
                 href="#map"
                 className="px-8 py-4 rounded-lg border-2 border-white/30 text-lg font-semibold hover:bg-white/10 transition backdrop-blur-sm"

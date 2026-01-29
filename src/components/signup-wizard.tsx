@@ -372,12 +372,12 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[2147483646] bg-black/90 backdrop-blur-md"
+                className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-md"
                 onClick={onClose}
             />
 
-            {/* Modal Container - Max Z-Index, Full Screen Mobile aware */}
-            <div className="fixed inset-0 z-[2147483647] flex items-center justify-center pointer-events-none p-0 sm:p-4 pt-[safe-area-inset-top] sm:pt-20">
+            {/* Modal Container - High Z-Index, Full Screen Mobile aware (Lowered from MAX_INT to allow Connect Modal on top) */}
+            <div className="fixed inset-0 z-[1001] flex items-center justify-center pointer-events-none p-0 sm:p-4 pt-[safe-area-inset-top] sm:pt-20">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -20,7 +20,12 @@ export function SignupButton({ className, children, variant = "simple" }: Signup
     if (variant === "shiny") {
         return (
             <button
-                onClick={handleSignupClick}
+                type="button"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSignupClick(e);
+                }}
                 className={className || "group relative overflow-hidden px-8 py-4 rounded-md bg-pp-secondary text-[var(--primary-foreground)] font-bold text-lg transition-all hover:opacity-100 shadow-lg hover:shadow-xl"}
             >
                 <div
@@ -44,7 +49,12 @@ export function SignupButton({ className, children, variant = "simple" }: Signup
 
     return (
         <button
-            onClick={handleSignupClick}
+            type="button"
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSignupClick(e);
+            }}
             className={className || "px-8 py-3 rounded-md bg-pp-secondary text-[var(--primary-foreground)] font-bold text-lg transition-opacity hover:opacity-90"}
         >
             {children || "Sign Up Now"}

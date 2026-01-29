@@ -6,6 +6,7 @@ import { getBaseUrl } from '@/lib/base-url';
 import { isPartnerContext } from '@/lib/env';
 import BrandText from '@/components/brand-text';
 import GeometricBackground from '@/components/landing/GeometricBackground';
+import { SignupButton } from '@/components/landing/SignupButton';
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
@@ -62,12 +63,11 @@ export default function CryptoPaymentsIndexPage() {
             </p>
 
             <div className="flex flex-wrap gap-4 mb-12">
-              <Link
-                href="/admin"
+              <SignupButton
                 className="px-8 py-4 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white text-lg font-bold hover:scale-105 transition-transform shadow-2xl shadow-orange-500/30"
               >
                 Start the Revolution →
-              </Link>
+              </SignupButton>
               <Link
                 href="#industries"
                 className="px-8 py-4 rounded-lg border-2 border-white/30 text-lg font-semibold hover:bg-white/10 transition backdrop-blur-sm"
@@ -218,12 +218,11 @@ export default function CryptoPaymentsIndexPage() {
                 Just connect your wallet and start accepting payments.
               </p>
               <div className="flex flex-wrap justify-center gap-4">
-                <Link
-                  href="/admin"
+                <SignupButton
                   className="px-8 py-4 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white text-lg font-bold hover:scale-105 transition-transform"
                 >
                   Get Started Free
-                </Link>
+                </SignupButton>
                 <Link
                   href="/terminal"
                   className="px-8 py-4 rounded-lg border-2 border-white/30 text-white text-lg font-semibold hover:bg-white/10 transition"

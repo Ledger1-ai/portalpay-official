@@ -6,6 +6,7 @@ import { isPartnerContext } from '@/lib/env';
 import ComparisonsClient from './ComparisonsClient';
 import BrandText from '@/components/brand-text';
 import GeometricBackground from '@/components/landing/GeometricBackground';
+import { SignupButton } from '@/components/landing/SignupButton';
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
@@ -65,12 +66,11 @@ export default function ComparisonsIndexPage() {
             </p>
 
             <div className="flex flex-wrap gap-4 mb-12">
-              <Link
-                href="/admin"
+              <SignupButton
                 className="px-8 py-4 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-lg font-bold hover:scale-105 transition-transform shadow-2xl shadow-[var(--primary)]/30"
               >
                 Claim Your Freedom →
-              </Link>
+              </SignupButton>
               <Link
                 href="#comparisons"
                 className="px-8 py-4 rounded-lg border-2 border-white/30 text-lg font-semibold hover:bg-white/10 transition backdrop-blur-sm"

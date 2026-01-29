@@ -85,7 +85,7 @@ export default function ShopWizard({ initialConfig, onSave, onClose }: Props) {
     }, []);
 
     const content = (
-        <div className="fixed inset-0 z-[2147483647] flex bg-background overflow-hidden overscroll-none touch-none">
+        <div className="fixed inset-0 z-[1000] flex bg-background overflow-hidden overscroll-none touch-none">
             {/* Left Sidebar: Form */}
             <div className="w-full md:w-[450px] flex flex-col border-r bg-background h-full shadow-2xl z-10">
                 {/* Header */}
