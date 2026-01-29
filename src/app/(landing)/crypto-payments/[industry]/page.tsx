@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ industry:
   const BASE_URL = isPartner ? getBaseUrl() : 'https://surge.basalthq.com';
   const dePortal = (s: any) =>
     typeof s === 'string'
-      ? (isPartner ? s.replaceAll('PortalPay', brand.name) : s)
+      ? (isPartner ? s.replaceAll('PortalPay', brand.name).replaceAll('BasaltSurge', brand.name) : s)
       : s;
 
   if (!data) {
@@ -77,7 +77,7 @@ export default async function IndustryLandingPage({ params }: { params: Promise<
   const BASE_URL = isPartner ? getBaseUrl() : 'https://surge.basalthq.com';
   const dePortal = (s: any) =>
     typeof s === 'string'
-      ? (isPartner ? s.replaceAll('PortalPay', brand.name) : s)
+      ? (isPartner ? s.replaceAll('PortalPay', brand.name).replaceAll('BasaltSurge', brand.name) : s)
       : s;
 
   // Check if the industry slug exists in our data

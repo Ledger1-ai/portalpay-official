@@ -4,8 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { getAllComparisons } from '@/lib/landing-pages/comparisons';
 import LogoTile from '@/components/landing/LogoTile';
+import { useBrand } from '@/contexts/BrandContext';
 
 export default function ComparisonsClient() {
+  const brand = useBrand();
+  // Helper to replace platform names in content for partner contexts
+  const dePortal = (s: string) =>
+    s.replaceAll('PortalPay', brand.name).replaceAll('BasaltSurge', brand.name);
+
   const [pageStatuses, setPageStatuses] = useState<Record<string, { enabled: boolean }>>({});
 
   // Load SEO page statuses to filter enabled pages only
@@ -53,7 +59,7 @@ export default function ComparisonsClient() {
               </div>
               <h4 className="text-xl font-semibold mb-2 text-white group-hover:text-[var(--primary)] transition">vs {comparison.name}</h4>
               <p className="text-sm text-neutral-400 mb-4 line-clamp-2">
-                {comparison.subheadline}
+                {dePortal(comparison.subheadline)}
               </p>
               <div className="flex items-center text-[var(--primary)] text-sm font-medium group-hover:translate-x-1 transition-transform">
                 Compare now →

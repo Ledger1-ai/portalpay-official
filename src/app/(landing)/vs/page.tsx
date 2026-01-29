@@ -10,8 +10,15 @@ import GeometricBackground from '@/components/landing/GeometricBackground';
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrandConfig();
   const BASE_URL = isPartnerContext() ? getBaseUrl() : 'https://surge.basalthq.com';
-  const title = `BasaltSurge vs Competitors | Compare Payment Processors`;
-  const description = `Compare BasaltSurge with Stripe, Square, PayPal, Toast, and other payment processors. See how you can save 70%+ on fees with instant settlement and crypto payments.`;
+  const isPartner = isPartnerContext();
+  const brandName = brand.name;
+
+  const title = isPartner
+    ? `${brandName} vs Competitors | Compare Payment Processors`
+    : `BasaltSurge vs Competitors | Compare Payment Processors`;
+  const description = isPartner
+    ? `Compare ${brandName} with Stripe, Square, PayPal, Toast, and other payment processors. See how you can save 70%+ on fees with instant settlement and crypto payments.`
+    : `Compare BasaltSurge with Stripe, Square, PayPal, Toast, and other payment processors. See how you can save 70%+ on fees with instant settlement and crypto payments.`;
   return {
     title,
     description,

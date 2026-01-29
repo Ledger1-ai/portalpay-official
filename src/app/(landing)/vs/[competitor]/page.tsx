@@ -29,7 +29,7 @@ export async function generateMetadata({
   const isPartner = isPartnerContext();
   const dePortal = (s: any) =>
     typeof s === 'string'
-      ? (isPartner ? s.replaceAll('PortalPay', brand.name) : s)
+      ? (isPartner ? s.replaceAll('PortalPay', brand.name).replaceAll('BasaltSurge', brand.name) : s)
       : s;
 
   if (!data) {
@@ -74,7 +74,7 @@ export default async function ComparisonPage({
   const isPartner = isPartnerContext();
   const dePortal = (s: any) =>
     typeof s === 'string'
-      ? (isPartner ? s.replaceAll('PortalPay', brand.name) : s)
+      ? (isPartner ? s.replaceAll('PortalPay', brand.name).replaceAll('BasaltSurge', brand.name) : s)
       : s;
 
   if (!data) {
