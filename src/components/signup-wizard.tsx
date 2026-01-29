@@ -267,26 +267,31 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
     // Handle Wallet Connection in Private Mode
     async function handleWalletConnected(wallet: string) {
         setConnectedWallet(wallet);
-        if (isPrivate) {
-            // Check if user is already approved
-            try {
-                const res = await fetch("/api/auth/me"); // or specific check
-                const me = await res.json().catch(() => ({}));
 
-                // If already approved, allow login
-                if (me?.authed || me?.approved) {
-                    // Already approved? Then they should technically use Login, not Signup.
-                    // But if they are here, we can just close the wizard and let Navbar handle auth.
-                    onComplete();
-                } else {
-                    // Not approved -> Show Application Form
-                    setApplicationStatus("pending");
-                }
-            } catch {
+        // Strict Check: Platform and Public Partners skip application
+        if (!isPrivate) {
+            // Just close the wizard, Navbar will handle the rest (auth prompt if needed)
+            onComplete();
+            return;
+        }
+
+        // Private Mode Logic
+        try {
+            // Check if user is already approved
+            const res = await fetch("/api/auth/me", { cache: "no-store" });
+            const me = await res.json().catch(() => ({}));
+
+            // If already approved, allow login (skip application)
+            if (me?.authed || me?.approved) {
+                onComplete();
+            } else {
+                // Not approved -> Show Application Form
+                // Force state update to ensure UI switches
                 setApplicationStatus("pending");
             }
-        } else {
-            onComplete();
+        } catch {
+            // Fallback: Assume not approved
+            setApplicationStatus("pending");
         }
     }
 
@@ -650,7 +655,7 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                                                         onClick={() => handleWalletConnected(account.address)}
                                                         className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold shadow-lg shadow-emerald-500/20 transition-all active:scale-95 text-xs font-mono uppercase tracking-wider"
                                                     >
-                                                        Continue to Application
+                                                        {isPrivate ? "Continue to Application" : "Get Started"}
                                                     </button>
                                                 ) : (
                                                     <ConnectButton
@@ -658,7 +663,7 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                                                         chain={chain}
                                                         wallets={wallets}
                                                         connectButton={{
-                                                            label: <span className="text-xs font-mono font-bold uppercase tracking-wider">{isPrivate ? "Connect to Apply" : "Create Account"}</span>,
+                                                            label: <span className="text-xs font-mono font-bold uppercase tracking-wider">{isPrivate ? "Connect to Apply" : "Connect Wallet"}</span>,
                                                             className: "!w-full !h-12 !rounded-xl !font-mono !text-xs !tracking-wider !font-bold !border-none transition-all hover:opacity-90",
                                                             style: {
                                                                 background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
@@ -668,7 +673,7 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
                                                             },
                                                         }}
                                                         connectModal={{
-                                                            title: isPrivate ? "Connect to Apply" : "Create Your Account",
+                                                            title: isPrivate ? "Connect to Apply" : "Connect Wallet",
                                                             titleIcon: brandLogo,
                                                             size: "compact",
                                                             showThirdwebBranding: false

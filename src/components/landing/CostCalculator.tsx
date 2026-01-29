@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useBrand } from '@/contexts/BrandContext';
+import { SignupButton } from "@/components/landing/SignupButton";
 
 interface CompetitorPricing {
   processingFee: number;
@@ -179,12 +180,11 @@ export function CostCalculator({
 
       {/* CTA */}
       <div className="mt-6">
-        <a
-          href="/admin"
+        <SignupButton
           className="block w-full text-center px-6 py-3 rounded-md bg-[var(--pp-secondary)] text-[var(--primary-foreground)] font-semibold hover:opacity-90 transition"
         >
           Start Saving Today
-        </a>
+        </SignupButton>
       </div>
 
       <p className="text-xs text-muted-foreground text-center mt-3">
