@@ -271,7 +271,8 @@ export function Navbar() {
     // Check authentication status and auto-authenticate or show modal
     useEffect(() => {
         const w = (account?.address || "").toLowerCase();
-        if (!w || checkingAuth.current) {
+        // If wizard is open, DO NOT run this auth check. The wizard handles its own flow.
+        if (!w || checkingAuth.current || showSignupWizard) {
             return;
         }
 

@@ -241,23 +241,16 @@ export function SignupWizard({ isOpen, onClose, onComplete }: SignupWizardProps)
         if (isOpen) {
             setCurrentStep(0);
             setConnectedWallet("");
+            // Do not reset application status if we are already dealing with a connected wallet in this session
+            // forcing re-check will be handled by handleWalletConnected
             setApplicationStatus("none");
 
-            // Lock body scroll logic...
-            const scrollY = window.scrollY;
-            document.body.style.position = 'fixed';
-            document.body.style.top = `-${scrollY}px`;
-            document.body.style.left = '0';
-            document.body.style.right = '0';
+            // Prevent scroll on body/html to avoid background scrolling
+            const originalStyle = window.getComputedStyle(document.body).overflow;
             document.body.style.overflow = 'hidden';
 
             return () => {
-                document.body.style.position = '';
-                document.body.style.top = '';
-                document.body.style.left = '';
-                document.body.style.right = '';
-                document.body.style.overflow = '';
-                window.scrollTo(0, scrollY);
+                document.body.style.overflow = originalStyle;
             };
         }
     }, [isOpen]);
