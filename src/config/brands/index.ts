@@ -67,7 +67,7 @@ export const BRANDS: Record<string, BrandConfig> = {
     key: "basaltsurge",
     name: "BasaltSurge",
     colors: { primary: "#35ff7c", accent: "#FF6B35" },
-    logos: { app: "/BasaltSurgeWideD.png", favicon: "/favicon-32x32.png", symbol: "/BasaltSurgeD.png", og: "/BasaltSurgeD.png", twitter: "/BasaltSurgeD.png", navbarMode: "symbol" },
+    logos: { app: "/BasaltSurgeWideD.png", favicon: "/Surge.png", symbol: "/BasaltSurgeD.png", og: "/BasaltSurgeD.png", twitter: "/BasaltSurgeD.png", navbarMode: "symbol" },
     meta: { ogTitle: "BasaltSurge", ogDescription: "Payments & portals" },
     platformFeeBps: 50,
     partnerFeeBps: 0,
