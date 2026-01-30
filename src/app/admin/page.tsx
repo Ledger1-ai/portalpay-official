@@ -491,13 +491,13 @@ function WithdrawalInstructionsPanel() {
         });
         const j = await r.json().catch(() => ({}));
         const history = Array.isArray(j?.splitHistory) ? j.splitHistory : [];
-        const latestFromHistory = history.length > 0 ? history[history.length - 1] : null;
-
+        // splitHistory is prepended (newest first), so index 0 is the most recent archive.
+        // However, we should prefer the ACTIVE split address.
         const addrRaw =
-          (latestFromHistory?.address) ||
           (typeof j?.splitAddressUsed === "string" && j.splitAddressUsed) ||
           (typeof j?.splitAddress === "string" && j.splitAddress) ||
           (typeof j?.split?.address === "string" && j.split.address) ||
+          (history.length > 0 ? history[0].address : "") ||
           "";
         if (!cancelled) {
           let addr = addrRaw ? String(addrRaw).toLowerCase() : "";
