@@ -660,6 +660,47 @@ export default function ClientRequestsPanel() {
                                     </div>
                                 </div>
 
+                                {/* Allocation Validation Summary */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                        <span>Allocation Check</span>
+                                        <span>Total: {(totalFeeBps / 100).toFixed(2)}% Fees</span>
+                                    </div>
+                                    <div className="p-3 rounded-lg border border-white/5 bg-black/20 space-y-2">
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-zinc-400">Platform</span>
+                                            <span className="font-mono text-zinc-300">{(platformBps / 100).toFixed(2)}%</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-zinc-400">Partner</span>
+                                            <span className="font-mono text-zinc-300">{(partnerBps / 100).toFixed(2)}%</span>
+                                        </div>
+                                        {agents.length > 0 && (
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-zinc-400">Agents ({agents.length})</span>
+                                                <span className="font-mono text-zinc-300">{(agentsBps / 100).toFixed(2)}%</span>
+                                            </div>
+                                        )}
+                                        <div className="h-px bg-white/10 my-1" />
+                                        <div className="flex justify-between text-xs font-semibold">
+                                            <span className="text-zinc-300">Merchant Net</span>
+                                            <span className={`font-mono ${merchantBps < 0 ? "text-red-500" : "text-emerald-400"}`}>
+                                                {(merchantBps / 100).toFixed(2)}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {merchantBps < 0 && (
+                                        <div className="text-xs text-red-500 bg-red-500/10 p-2 rounded border border-red-500/20">
+                                            ⚠️ Warning: Fees exceed 100%. Merchant receives nothing.
+                                        </div>
+                                    )}
+                                    {totalFeeBps !== 10000 && merchantBps > 0 && (
+                                        <div className="text-[10px] text-zinc-500 text-right">
+                                            Checksum: {totalFeeBps + merchantBps} bps (100%)
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Merchant Split (Remainder) */}
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
