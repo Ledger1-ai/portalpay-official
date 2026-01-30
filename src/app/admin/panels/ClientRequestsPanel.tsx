@@ -124,7 +124,7 @@ export default function ClientRequestsPanel() {
         load();
     }, [account?.address]);
 
-    async function updateStatus(id: string, status: "pending" | "approved" | "rejected" | "blocked", splitConfig?: { partnerBps: number, merchantBps: number, agents?: { wallet: string, bps: number }[] }) {
+    async function updateStatus(id: string, status: "pending" | "approved" | "rejected" | "blocked", splitConfig?: { partnerBps: number, merchantBps: number, agents?: { wallet: string, bps: number }[] }, shouldClose = true) {
         try {
             setError("");
             setInfo("");
@@ -146,14 +146,15 @@ export default function ClientRequestsPanel() {
                 setError(j?.error || "Update failed");
                 return;
             }
-            setInfo(`Request ${status}.`);
+            if (shouldClose) {
+                setInfo(`Request ${status}.`);
+            }
             await load();
-            setApprovingId(null); // Close modal if open
+            if (shouldClose) setApprovingId(null);
         } catch (e: any) {
             setError(e?.message || "Action failed");
         }
     }
-
 
 
 
@@ -180,6 +181,9 @@ export default function ClientRequestsPanel() {
         if (!approvingId || !account) return;
         const req = items.find(i => i.id === approvingId);
         if (!req) return;
+
+        // Auto-save config before deploying
+        await updateStatus(req.id, req.status as any, { partnerBps, merchantBps, agents }, false);
 
         try {
             setDeploying(true);
@@ -530,15 +534,15 @@ export default function ClientRequestsPanel() {
             {/* Split Config Modal */}
             {
                 approvingId && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className="w-full max-w-4xl bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-                            <div className="p-6 border-b border-white/5 flex-shrink-0">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="w-full max-w-4xl bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh] sm:max-h-[90vh]">
+                            <div className="p-4 sm:p-6 border-b border-white/5 flex-shrink-0">
                                 <h3 className="text-lg font-semibold text-white">Approve & Configure Splits</h3>
                                 <p className="text-xs text-zinc-400 mt-1">Configure revenue sharing for this merchant.</p>
                             </div>
 
-                            <div className="p-6 overflow-y-auto">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className="p-4 sm:p-6 overflow-y-auto">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                                     {/* LEFT COLUMN: Configuration */}
                                     <div className="space-y-6">
                                         <div className="flex items-center gap-2 mb-2">
@@ -735,7 +739,7 @@ export default function ClientRequestsPanel() {
                                                         const _req = items.find(r => r.id === approvingId);
                                                         const count = (_req?.splitHistory?.length || 0);
                                                         if (count > 0 || _req?.deployedSplitAddress) {
-                                                            return <span className="text-[10px] text-zinc-600 font-mono">Version {count || 1}</span>
+                                                            return <span className="text-[10px] text-zinc-600 font-mono">Version {count + 1}</span>
                                                         }
                                                         return null;
                                                     })()}
@@ -814,7 +818,7 @@ export default function ClientRequestsPanel() {
                                     onClick={confirmApproval}
                                     className="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-sm shadow-lg shadow-emerald-500/10 transition-colors"
                                 >
-                                    Confirm Approval
+                                    {items.find(r => r.id === approvingId)?.status === "approved" ? "Save Configuration" : "Confirm Approval"}
                                 </button>
                             </div>
                         </div>
