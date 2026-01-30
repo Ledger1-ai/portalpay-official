@@ -39,6 +39,7 @@ type ClientRequest = {
         deployedAt: number;
         recipients?: string[];
     }>;
+    deployedSplitAddress?: string;
 };
 
 export default function ClientRequestsPanel() {
@@ -636,7 +637,17 @@ export default function ClientRequestsPanel() {
                                 <div className="pt-2 border-t border-white/5 space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs uppercase tracking-wider font-mono text-zinc-500">Split Contract</span>
-                                        {deployResult && <span className="text-xs font-mono text-emerald-400">{deployResult.startsWith("Deployed") ? "Active" : "Error"}</span>}
+                                        {deployResult ? (
+                                            <span className="text-xs font-mono text-emerald-400">{deployResult.startsWith("Deployed") ? "Active" : "Error"}</span>
+                                        ) : (
+                                            (items.find(r => r.id === approvingId)?.deployedSplitAddress) ? (
+                                                <span className="text-xs font-mono text-emerald-400">
+                                                    {(items.find(r => r.id === approvingId)?.deployedSplitAddress || "").slice(0, 6)}...{(items.find(r => r.id === approvingId)?.deployedSplitAddress || "").slice(-4)}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs font-mono text-zinc-600">Not Deployed</span>
+                                            )
+                                        )}
                                     </div>
 
                                     {/* History List */}

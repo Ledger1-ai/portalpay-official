@@ -491,6 +491,7 @@ function WithdrawalInstructionsPanel() {
         });
         const j = await r.json().catch(() => ({}));
         const addrRaw =
+          (Array.isArray(j?.splitHistory) && j.splitHistory.length > 0 ? j.splitHistory[0].address : "") ||
           (typeof j?.splitAddressUsed === "string" && j.splitAddressUsed) ||
           (typeof j?.splitAddress === "string" && j.splitAddress) ||
           (typeof j?.split?.address === "string" && j.split.address) ||

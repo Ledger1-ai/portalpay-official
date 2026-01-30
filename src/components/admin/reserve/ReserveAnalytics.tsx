@@ -366,16 +366,20 @@ export function ReserveAnalytics() {
         <h3 className="text-lg font-semibold">Reserve Analytics</h3>
         <div className="flex items-center gap-2">
           {/* Version Selector */}
-          {data?.splitHistory && data.splitHistory.length > 0 && (
+          {(data?.splitAddressUsed || (data?.splitHistory && data.splitHistory.length > 0)) && (
             <select
               value={selectedSplitVersion}
               onChange={(e) => fetchBalances(e.target.value)}
               className="bg-black/20 border border-white/10 rounded px-2 py-1 text-xs font-mono outline-none focus:border-white/30"
             >
-              <option value="" disabled>Select Version</option>
-              {data.splitHistory.map((h, i) => (
+              {data?.splitAddressUsed && (
+                <option value={data.splitAddressUsed}>
+                  Latest ({data.splitAddressUsed.slice(0, 6)}...)
+                </option>
+              )}
+              {data?.splitHistory?.map((h, i) => (
                 <option key={h.address} value={h.address}>
-                  {i === 0 ? "Latest" : `v${data.splitHistory!.length - i}`} ({h.address.slice(0, 6)}...)
+                  v{data.splitHistory!.length - i} ({h.address.slice(0, 6)}...)
                 </option>
               ))}
             </select>
