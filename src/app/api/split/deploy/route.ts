@@ -460,11 +460,26 @@ export async function POST(req: NextRequest) {
       return jsonResponse({ error: e?.message || "bad_origin" }, { status: e?.status || 403 });
     }
 
-    const platformRecipient = String(process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.PLATFORM_WALLET || "").toLowerCase();
+    let platformRecipient = String(process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.PLATFORM_WALLET || "").toLowerCase();
+
+    // Safety check: specific hardcoded platform wallet for PortalPay/Basalt
+    // If we are in a partner context and the platform recipient matches the partner wallet, we must fix it.
+    // The known Platform (Basalt) wallet is 0x00fe4f0104a989ca65df6b825a6c1682413bca56
+    const CANONICAL_PLATFORM_WALLET = "0x00fe4f0104a989ca65df6b825a6c1682413bca56";
+    const partnerWalletBrand = String(brand?.partnerWallet || "").toLowerCase();
+
+    if (platformRecipient === partnerWalletBrand && partnerWalletBrand !== "") {
+      platformRecipient = CANONICAL_PLATFORM_WALLET;
+    }
+
+    if (!isHexAddress(platformRecipient)) {
+      // Fallback to canonical if env is missing/invalid
+      platformRecipient = CANONICAL_PLATFORM_WALLET;
+    }
+
     if (!isHexAddress(platformRecipient)) {
       return jsonResponse({ error: "platform_recipient_not_configured" }, { status: 400 });
     }
-    const partnerWalletBrand = String(brand?.partnerWallet || "").toLowerCase();
     // Platform share derived from brand config/env/static defaults; allow body override (client-asserted)
     const platformSharesBps = resolvePlatformBpsFromBrand(brandKey, brand, body);
     // Partner recipient present when brandKey !== 'portalpay' and partner is configured
