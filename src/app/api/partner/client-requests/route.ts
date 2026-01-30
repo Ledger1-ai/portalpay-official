@@ -93,7 +93,11 @@ export async function GET(req: NextRequest) {
                 if (r.type === "client_request" && (!statusFilter || statusFilter === r.status)) {
                     requestsMap.set(w, r);
                 } else if (r.type === "site_config" || r.type === "shop_config") {
-                    if (!configMap.has(w) || r.type === "site_config") {
+                    const existing = configMap.get(w);
+                    // Prioritize site_config over shop_config
+                    // And since we sort by DESC, the first site_config we see is the newest.
+                    // Do NOT overwrite existing site_config with older ones.
+                    if (!existing || (r.type === "site_config" && existing.type !== "site_config")) {
                         configMap.set(w, r);
                     }
                 }
