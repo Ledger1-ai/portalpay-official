@@ -77,7 +77,9 @@ export async function GET(req: NextRequest) {
         const container = await getContainer();
 
         // Fetch requests AND their corresponding site configs (for split persistence)
-        let query = `SELECT * FROM c WHERE (c.type = 'client_request' OR c.type = 'site_config' OR c.type = 'shop_config') AND c.brandKey = @brand ORDER BY c.createdAt DESC`;
+        // Fetch requests AND their corresponding site configs (for split persistence)
+        // Use StringEquals for case-insensitive brand matching to handle XOINPAY vs xoinpay discrepancies
+        let query = `SELECT * FROM c WHERE (c.type = 'client_request' OR c.type = 'site_config' OR c.type = 'shop_config') AND StringEquals(c.brandKey, @brand, true) ORDER BY c.createdAt DESC`;
         const params: any[] = [{ name: "@brand", value: brandKey }];
 
         const { resources } = await container.items.query({ query, parameters: params }).fetchAll();
