@@ -438,9 +438,13 @@ export async function POST(req: NextRequest) {
     const isPartnerAdmin = isHexAddress(brand?.partnerWallet) && callerWallet === String(brand.partnerWallet).toLowerCase();
     const isAdmin = caller.role === "admin" || (caller.permissions && caller.permissions.includes("split:write"));
 
-    // Platform admin check: allow if caller is the canonical platform wallet
+    // Platform admin check: allow if caller is the canonical platform wallet OR the authorized admin
     const platformWallet = String(process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || "0x00fe4f0104a989ca65df6b825a6c1682413bca56").toLowerCase();
-    const isPlatformAdmin = callerWallet === platformWallet;
+    const authorizedAdmins = [
+      platformWallet,
+      "0x2da9327a02a187fef7c4a0a5b9402499fc80bb01" // GenRevo / Admin
+    ];
+    const isPlatformAdmin = authorizedAdmins.includes(callerWallet);
 
     console.log("[SPLIT_DEPLOY_AUTH_DEBUG]", {
       callerWallet,
