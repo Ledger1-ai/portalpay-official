@@ -485,7 +485,7 @@ function WithdrawalInstructionsPanel() {
           return;
         }
         setAddrLoading(true);
-        const r = await fetch(`/api/reserve/balances?wallet=${encodeURIComponent(account.address)}`, {
+        const r = await fetch(`/api/reserve/balances?wallet=${encodeURIComponent(account.address)}${brand?.key ? `&brandKey=${encodeURIComponent(brand.key)}` : ""}`, {
           headers: { "x-wallet": account.address },
           cache: "no-store",
         });

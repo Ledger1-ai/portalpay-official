@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     } else {
       // Priority 2: Try site-config lookup
       try {
-        const cfg = await getSiteConfigForWallet(wallet);
+        const cfg = await getSiteConfigForWallet(wallet, queryBrandKey);
         const splitAddr = (cfg as any)?.splitAddress || (cfg as any)?.split?.address;
         if (typeof splitAddr === "string" && /^0x[a-f0-9]{40}$/i.test(splitAddr)) {
           walletToQuery = splitAddr.toLowerCase();
@@ -239,7 +239,7 @@ export async function GET(req: NextRequest) {
         rates,
         totalUsd,
         indexedMetrics,
-        splitHistory: (await getSiteConfigForWallet(wallet) as any)?.splitHistory || []
+        splitHistory: (await getSiteConfigForWallet(wallet, queryBrandKey) as any)?.splitHistory || []
       },
       { headers: { "x-correlation-id": correlationId } }
     );

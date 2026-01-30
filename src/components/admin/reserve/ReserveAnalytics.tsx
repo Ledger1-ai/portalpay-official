@@ -6,6 +6,7 @@ import { sendTransaction, prepareContractCall, getContract } from "thirdweb";
 import { client, chain } from "@/lib/thirdweb/client";
 import { createPortal } from "react-dom";
 import TruncatedAddress from "@/components/truncated-address";
+import { useBrand } from "@/contexts/BrandContext";
 
 type ReserveBalancesResponse = {
   degraded?: boolean;
@@ -44,6 +45,7 @@ export function ReserveAnalytics() {
   const [indexing, setIndexing] = useState(false);
   const [selectedSplitVersion, setSelectedSplitVersion] = useState<string>("");
   const account = useActiveAccount();
+  const brand = useBrand();
 
 
   const [withdrawLoading, setWithdrawLoading] = useState(false);
@@ -277,6 +279,9 @@ export function ReserveAnalytics() {
       let url = "/api/reserve/balances";
       if (overrideSplitAddress) {
         url += `?splitAddress=${encodeURIComponent(overrideSplitAddress)}`;
+      }
+      if (brand?.key) {
+        url += `${overrideSplitAddress ? "&" : "?"}brandKey=${encodeURIComponent(brand.key)}`;
       }
 
       const r = await fetch(url, {

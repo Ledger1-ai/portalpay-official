@@ -67,7 +67,7 @@ export async function ensureSplitForWallet(
     // SKIPPED if forceRedeploy is true
     if (!forceRedeploy) {
       try {
-        const r = await fetch(buildBrandApiUrl(brandKey, `/api/split/deploy?wallet=${encodeURIComponent(merchant)}&brandKey=${encodeURIComponent(brandKey)}`), { cache: "no-store", credentials: "include" });
+        const r = await fetch(buildApiUrl(`/api/split/deploy?wallet=${encodeURIComponent(merchant)}&brandKey=${encodeURIComponent(brandKey)}`), { cache: "no-store", credentials: "include" });
         const j = await r.json().catch(() => ({}));
         const existing = String(j?.split?.address || "").toLowerCase();
         // Only return existing if valid and not misconfigured
@@ -85,7 +85,7 @@ export async function ensureSplitForWallet(
     const platform = String(getRecipientAddress() || "").toLowerCase();
     if (!isValidHexAddress(platform)) {
       try {
-        await fetch(buildBrandApiUrl(brandKey, "/api/split/deploy"), {
+        await fetch(buildApiUrl("/api/split/deploy"), {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-wallet": merchant, "x-csrf": "1" },
           credentials: "include",
@@ -176,7 +176,7 @@ export async function ensureSplitForWallet(
 
     // Persist deployed address + recipients idempotently
     try {
-      const r2 = await fetch(buildBrandApiUrl(brandKey, "/api/split/deploy"), {
+      const r2 = await fetch(buildApiUrl("/api/split/deploy"), {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-wallet": merchant, "x-csrf": "1" },
         credentials: "include",
@@ -196,7 +196,7 @@ export async function ensureSplitForWallet(
       await r2.json().catch(() => ({}));
       // Verify persistence + recipients after POST
       try {
-        const r3 = await fetch(buildBrandApiUrl(brandKey, `/api/split/deploy?wallet=${encodeURIComponent(merchant)}&brandKey=${encodeURIComponent(brandKey)}`), { cache: "no-store", credentials: "include" });
+        const r3 = await fetch(buildApiUrl(`/api/split/deploy?wallet=${encodeURIComponent(merchant)}&brandKey=${encodeURIComponent(brandKey)}`), { cache: "no-store", credentials: "include" });
         const j3 = await r3.json().catch(() => ({}));
         const a3 = String(j3?.split?.address || "").toLowerCase();
         const rc3 = Array.isArray(j3?.split?.recipients) ? j3.split.recipients.length : 0;
