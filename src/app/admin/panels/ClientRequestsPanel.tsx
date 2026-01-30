@@ -531,264 +531,279 @@ export default function ClientRequestsPanel() {
             {
                 approvingId && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-6 border-b border-white/5">
+                        <div className="w-full max-w-4xl bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+                            <div className="p-6 border-b border-white/5 flex-shrink-0">
                                 <h3 className="text-lg font-semibold text-white">Approve & Configure Splits</h3>
                                 <p className="text-xs text-zinc-400 mt-1">Configure revenue sharing for this merchant.</p>
                             </div>
 
-                            <div className="p-6 space-y-6">
-                                {/* Partner Wallet Input */}
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                        <span>Partner Wallet</span>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        value={partnerWallet}
-                                        onChange={(e) => setPartnerWallet(e.target.value)}
-                                        placeholder="0x..."
-                                        className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none font-mono"
-                                    />
-                                    <p className="text-[10px] text-zinc-500">Destination wallet for partner fees.</p>
-                                </div>
+                            <div className="p-6 overflow-y-auto">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {/* LEFT COLUMN: Configuration */}
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-mono px-2 py-0.5 rounded uppercase tracking-wider">Configuration</span>
+                                        </div>
 
-                                {/* Platform Fee (Locked) */}
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                        <span>Platform Fee</span>
-                                        <span>Locked</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-black/20 border border-white/5 flex justify-between items-center opacity-70">
-                                        <span className="text-zinc-400 text-sm">Platform</span>
-                                        <span className="font-mono text-emerald-500">{(platformBps / 100).toFixed(2)}%</span>
-                                    </div>
-                                    <div className="text-[10px] text-zinc-500 font-mono flex justify-between">
-                                        <span>Wallet</span>
-                                        <span className="select-all" title={process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS}>
-                                            {(process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || "0x00fe4f0104a989ca65df6b825a6c1682413bca56").slice(0, 6)}...{(process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || "0x00fe4f0104a989ca65df6b825a6c1682413bca56").slice(-4)}
-                                        </span>
-                                    </div>
-                                </div>
+                                        {/* Partner Wallet Input */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                                <span>Partner Wallet</span>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={partnerWallet}
+                                                onChange={(e) => setPartnerWallet(e.target.value)}
+                                                placeholder="0x..."
+                                                className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none font-mono"
+                                            />
+                                            <p className="text-[10px] text-zinc-500">Destination wallet for partner fees.</p>
+                                        </div>
 
-                                {/* Partner Fee (Slider) */}
-                                <div className="space-y-3">
-                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                        <span>Partner Fee</span>
-                                        <span>adjustable</span>
-                                    </div>
-                                    <div className="p-4 rounded-lg bg-zinc-800/50 border border-white/10 space-y-4">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-white text-sm font-medium">Your Revenue</span>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="number"
-                                                    value={partnerBps}
-                                                    onChange={(e) => setPartnerBps(Math.min(9900, Math.max(0, parseInt(e.target.value) || 0)))}
-                                                    className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-right font-mono text-sm text-white focus:border-emerald-500 outline-none"
-                                                />
-                                                <span className="text-zinc-500 text-xs">bps</span>
+                                        {/* Platform Fee (Locked) */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                                <span>Platform Fee</span>
+                                                <span>Locked</span>
+                                            </div>
+                                            <div className="p-3 rounded-lg bg-black/20 border border-white/5 flex justify-between items-center opacity-70">
+                                                <span className="text-zinc-400 text-sm">Platform</span>
+                                                <span className="font-mono text-emerald-500">{(platformBps / 100).toFixed(2)}%</span>
+                                            </div>
+                                            <div className="text-[10px] text-zinc-500 font-mono flex justify-between">
+                                                <span>Wallet</span>
+                                                <span className="select-all" title={process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS}>
+                                                    {(process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || "0x00fe4f0104a989ca65df6b825a6c1682413bca56").slice(0, 6)}...{(process.env.NEXT_PUBLIC_PLATFORM_WALLET || process.env.NEXT_PUBLIC_RECIPIENT_ADDRESS || "0x00fe4f0104a989ca65df6b825a6c1682413bca56").slice(-4)}
+                                                </span>
                                             </div>
                                         </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="1000" // Max 10%
-                                            step="5"
-                                            value={partnerBps}
-                                            onChange={(e) => setPartnerBps(parseInt(e.target.value))}
-                                            className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                                        />
-                                        <div className="text-right text-xs text-emerald-400 font-mono">
-                                            {(partnerBps / 100).toFixed(2)}%
-                                        </div>
-                                    </div>
-                                </div>
 
-                                {/* Agent Shares (Dynamic) */}
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                        <span>Agent Shares</span>
-                                        <button
-                                            onClick={() => setAgents([...agents, { wallet: "", bps: 0 }])}
-                                            className="text-emerald-400 hover:text-emerald-300 transition-colors"
-                                        >
-                                            + Add Agent
-                                        </button>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {agents.map((agent, idx) => (
-                                            <div key={idx} className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Agent Wallet (0x...)"
-                                                    value={agent.wallet}
-                                                    onChange={(e) => {
-                                                        const newAgents = [...agents];
-                                                        newAgents[idx].wallet = e.target.value;
-                                                        setAgents(newAgents);
-                                                    }}
-                                                    className="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none font-mono"
-                                                />
-                                                <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded px-2 w-24">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="0"
-                                                        value={agent.bps}
-                                                        onChange={(e) => {
-                                                            const newAgents = [...agents];
-                                                            newAgents[idx].bps = parseInt(e.target.value) || 0;
-                                                            setAgents(newAgents);
-                                                        }}
-                                                        className="w-full bg-transparent text-right font-mono text-sm text-white outline-none"
-                                                    />
-                                                    <span className="text-zinc-500 text-xs">bps</span>
+                                        {/* Partner Fee (Slider) */}
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                                <span>Partner Fee</span>
+                                                <span>adjustable</span>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-zinc-800/50 border border-white/10 space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-white text-sm font-medium">Your Revenue</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={partnerBps}
+                                                            onChange={(e) => setPartnerBps(Math.min(9900, Math.max(0, parseInt(e.target.value) || 0)))}
+                                                            className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-right font-mono text-sm text-white focus:border-emerald-500 outline-none"
+                                                        />
+                                                        <span className="text-zinc-500 text-xs">bps</span>
+                                                    </div>
                                                 </div>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="1000" // Max 10%
+                                                    step="5"
+                                                    value={partnerBps}
+                                                    onChange={(e) => setPartnerBps(parseInt(e.target.value))}
+                                                    className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                                />
+                                                <div className="text-right text-xs text-emerald-400 font-mono">
+                                                    {(partnerBps / 100).toFixed(2)}%
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Agent Shares (Dynamic) */}
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                                <span>Agent Shares</span>
                                                 <button
-                                                    onClick={() => setAgents(agents.filter((_, i) => i !== idx))}
-                                                    className="p-2 hover:bg-red-500/20 text-zinc-500 hover:text-red-500 rounded transition-colors"
+                                                    onClick={() => setAgents([...agents, { wallet: "", bps: 0 }])}
+                                                    className="text-emerald-400 hover:text-emerald-300 transition-colors"
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                    + Add Agent
                                                 </button>
                                             </div>
-                                        ))}
-                                        {agents.length === 0 && (
-                                            <div className="text-center py-4 border border-dashed border-white/10 rounded-lg text-xs text-zinc-500">
-                                                No agents configured.
+                                            <div className="space-y-2">
+                                                {agents.map((agent, idx) => (
+                                                    <div key={idx} className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Agent Wallet (0x...)"
+                                                            value={agent.wallet}
+                                                            onChange={(e) => {
+                                                                const newAgents = [...agents];
+                                                                newAgents[idx].wallet = e.target.value;
+                                                                setAgents(newAgents);
+                                                            }}
+                                                            className="flex-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none font-mono"
+                                                        />
+                                                        <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded px-2 w-24">
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0"
+                                                                value={agent.bps}
+                                                                onChange={(e) => {
+                                                                    const newAgents = [...agents];
+                                                                    newAgents[idx].bps = parseInt(e.target.value) || 0;
+                                                                    setAgents(newAgents);
+                                                                }}
+                                                                className="w-full bg-transparent text-right font-mono text-sm text-white outline-none"
+                                                            />
+                                                            <span className="text-zinc-500 text-xs">bps</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setAgents(agents.filter((_, i) => i !== idx))}
+                                                            className="p-2 hover:bg-red-500/20 text-zinc-500 hover:text-red-500 rounded transition-colors"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                {agents.length === 0 && (
+                                                    <div className="text-center py-4 border border-dashed border-white/10 rounded-lg text-xs text-zinc-500">
+                                                        No agents configured.
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Allocation Validation Summary */}
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                        <span>Allocation Check</span>
-                                        <span>Total: {(totalFeeBps / 100).toFixed(2)}% Fees</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg border border-white/5 bg-black/20 space-y-2">
-                                        <div className="flex justify-between text-xs">
-                                            <span className="text-zinc-400">Platform</span>
-                                            <span className="font-mono text-zinc-300">{(platformBps / 100).toFixed(2)}%</span>
+                                    {/* RIGHT COLUMN: Summary & Actions */}
+                                    <div className="space-y-6 flex flex-col h-full">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="bg-blue-500/10 text-blue-400 text-[10px] font-mono px-2 py-0.5 rounded uppercase tracking-wider">Verify & Deploy</span>
                                         </div>
-                                        <div className="flex justify-between text-xs">
-                                            <span className="text-zinc-400">Partner</span>
-                                            <span className="font-mono text-zinc-300">{(partnerBps / 100).toFixed(2)}%</span>
-                                        </div>
-                                        {agents.length > 0 && (
-                                            <div className="flex justify-between text-xs">
-                                                <span className="text-zinc-400">Agents ({agents.length})</span>
-                                                <span className="font-mono text-zinc-300">{(agentsBps / 100).toFixed(2)}%</span>
+
+                                        {/* Allocation Validation Summary */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                                <span>Allocation Check</span>
+                                                <span>Total: {(totalFeeBps / 100).toFixed(2)}% Fees</span>
                                             </div>
-                                        )}
-                                        <div className="h-px bg-white/10 my-1" />
-                                        <div className="flex justify-between text-xs font-semibold">
-                                            <span className="text-zinc-300">Merchant Net</span>
-                                            <span className={`font-mono ${merchantBps < 0 ? "text-red-500" : "text-emerald-400"}`}>
-                                                {(merchantBps / 100).toFixed(2)}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {merchantBps < 0 && (
-                                        <div className="text-xs text-red-500 bg-red-500/10 p-2 rounded border border-red-500/20">
-                                            ⚠️ Warning: Fees exceed 100%. Merchant receives nothing.
-                                        </div>
-                                    )}
-                                    {totalFeeBps !== 10000 && merchantBps > 0 && (
-                                        <div className="text-[10px] text-zinc-500 text-right">
-                                            Checksum: {totalFeeBps + merchantBps} bps (100%)
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Merchant Split (Remainder) */}
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
-                                        <span>Merchant Receives</span>
-                                        <span>Remainder</span>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex justify-between items-center">
-                                        <span className="text-emerald-100 text-sm font-medium">Merchant Net</span>
-                                        <span className="font-mono text-emerald-400 font-bold text-lg">{(merchantBps / 100).toFixed(2)}%</span>
-                                    </div>
-                                </div>
-
-                                {/* Deployment Status & History */}
-                                <div className="pt-2 border-t border-white/5 space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex flex-col">
-                                            <span className="text-xs uppercase tracking-wider font-mono text-zinc-500">Split Contract</span>
-                                            {(() => {
-                                                const _req = items.find(r => r.id === approvingId);
-                                                const count = (_req?.splitHistory?.length || 0);
-                                                if (count > 0 || _req?.deployedSplitAddress) {
-                                                    return <span className="text-[10px] text-zinc-600 font-mono">Version {count || 1}</span>
-                                                }
-                                                return null;
-                                            })()}
-                                        </div>
-                                        {deployResult ? (
-                                            <span className="text-xs font-mono text-emerald-400">{deployResult.startsWith("Deployed") ? "Active" : "Error"}</span>
-                                        ) : (
-                                            (() => {
-                                                const _req = items.find(r => r.id === approvingId);
-                                                const addr = _req?.deployedSplitAddress || (_req?.splitHistory && _req.splitHistory.length > 0 ? _req.splitHistory[0].address : "");
-                                                if (addr) {
-                                                    return (
-                                                        <span className="text-xs font-mono text-emerald-400" title={addr}>
-                                                            {addr.slice(0, 6)}...{addr.slice(-4)}
-                                                        </span>
-                                                    );
-                                                }
-                                                return <span className="text-xs font-mono text-zinc-600">Not Deployed</span>;
-                                            })()
-                                        )}
-                                    </div>
-
-                                    {/* History List */}
-                                    {items.find(r => r.id === approvingId)?.splitHistory && (items.find(r => r.id === approvingId)?.splitHistory?.length || 0) > 0 && (
-                                        <div className="bg-black/20 rounded border border-white/5 p-2 space-y-1 mb-2">
-                                            <div className="text-[10px] text-zinc-500 uppercase font-mono mb-1">Version History</div>
-                                            {(items.find(r => r.id === approvingId)?.splitHistory || []).map((h: any, i: number) => (
-                                                <div key={i} className="flex justify-between items-center text-xs font-mono">
-                                                    <span className="text-zinc-400">{h.address.slice(0, 6)}...{h.address.slice(-4)}</span>
-                                                    <span className="text-zinc-600">{new Date(h.deployedAt).toLocaleDateString()}</span>
+                                            <div className="p-3 rounded-lg border border-white/5 bg-black/20 space-y-2">
+                                                <div className="flex justify-between text-xs">
+                                                    <span className="text-zinc-400">Platform</span>
+                                                    <span className="font-mono text-zinc-300">{(platformBps / 100).toFixed(2)}%</span>
                                                 </div>
-                                            ))}
+                                                <div className="flex justify-between text-xs">
+                                                    <span className="text-zinc-400">Partner</span>
+                                                    <span className="font-mono text-zinc-300">{(partnerBps / 100).toFixed(2)}%</span>
+                                                </div>
+                                                {agents.length > 0 && (
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-zinc-400">Agents ({agents.length})</span>
+                                                        <span className="font-mono text-zinc-300">{(agentsBps / 100).toFixed(2)}%</span>
+                                                    </div>
+                                                )}
+                                                <div className="h-px bg-white/10 my-1" />
+                                                <div className="flex justify-between text-xs font-semibold">
+                                                    <span className="text-zinc-300">Merchant Net</span>
+                                                    <span className={`font-mono ${merchantBps < 0 ? "text-red-500" : "text-emerald-400"}`}>
+                                                        {(merchantBps / 100).toFixed(2)}%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {merchantBps < 0 && (
+                                                <div className="text-xs text-red-500 bg-red-500/10 p-2 rounded border border-red-500/20">
+                                                    ⚠️ Warning: Fees exceed 100%. Merchant receives nothing.
+                                                </div>
+                                            )}
+                                            {totalFeeBps !== 10000 && merchantBps > 0 && (
+                                                <div className="text-[10px] text-zinc-500 text-right">
+                                                    Checksum: {totalFeeBps + merchantBps} bps (100%)
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
 
-                                    {deployResult ? (
-                                        <div className="bg-black/40 p-3 rounded border border-white/10 text-xs font-mono break-all text-white">
-                                            {deployResult}
+                                        {/* Merchant Split (Remainder) */}
+                                        <div className="space-y-2 hidden lg:block">
+                                            <div className="flex justify-between text-xs uppercase tracking-wider font-mono text-zinc-500">
+                                                <span>Merchant Receives</span>
+                                            </div>
+                                            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex justify-between items-center">
+                                                <span className="text-emerald-100 text-sm font-medium">Merchant Net</span>
+                                                <span className="font-mono text-emerald-400 font-bold text-lg">{(merchantBps / 100).toFixed(2)}%</span>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleDeploy(false)}
-                                                disabled={deploying}
-                                                className="flex-1 py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-600/40 rounded-lg text-xs font-mono transition-colors flex items-center justify-center gap-2"
-                                            >
-                                                {deploying ? "Checking..." : "Verify / Deploy"}
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    if (confirm("Force redeployment? This will archive the current split and deploy a new one.")) {
-                                                        handleDeploy(true);
-                                                    }
-                                                }}
-                                                disabled={deploying}
-                                                className="px-3 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-600/40 rounded-lg text-xs font-mono transition-colors"
-                                                title="Force Redeploy (Archive current)"
-                                            >
-                                                ↻
-                                            </button>
+
+                                        {/* Deployment Status & History */}
+                                        <div className="pt-2 border-t border-white/5 space-y-3 flex-1">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs uppercase tracking-wider font-mono text-zinc-500">Split Contract</span>
+                                                    {(() => {
+                                                        const _req = items.find(r => r.id === approvingId);
+                                                        const count = (_req?.splitHistory?.length || 0);
+                                                        if (count > 0 || _req?.deployedSplitAddress) {
+                                                            return <span className="text-[10px] text-zinc-600 font-mono">Version {count || 1}</span>
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                </div>
+                                                {deployResult ? (
+                                                    <span className="text-xs font-mono text-emerald-400">{deployResult.startsWith("Deployed") ? "Active" : "Error"}</span>
+                                                ) : (
+                                                    (() => {
+                                                        const _req = items.find(r => r.id === approvingId);
+                                                        const addr = _req?.deployedSplitAddress || (_req?.splitHistory && _req.splitHistory.length > 0 ? _req.splitHistory[0].address : "");
+                                                        if (addr) {
+                                                            return (
+                                                                <span className="text-xs font-mono text-emerald-400" title={addr}>
+                                                                    {addr.slice(0, 6)}...{addr.slice(-4)}
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return <span className="text-xs font-mono text-zinc-600">Not Deployed</span>;
+                                                    })()
+                                                )}
+                                            </div>
+
+                                            {/* History List */}
+                                            {items.find(r => r.id === approvingId)?.splitHistory && (items.find(r => r.id === approvingId)?.splitHistory?.length || 0) > 0 && (
+                                                <div className="bg-black/20 rounded border border-white/5 p-2 space-y-1 mb-2 max-h-[100px] overflow-y-auto">
+                                                    <div className="text-[10px] text-zinc-500 uppercase font-mono mb-1">Version History</div>
+                                                    {(items.find(r => r.id === approvingId)?.splitHistory || []).map((h: any, i: number) => (
+                                                        <div key={i} className="flex justify-between items-center text-xs font-mono">
+                                                            <span className="text-zinc-400">{h.address.slice(0, 6)}...{h.address.slice(-4)}</span>
+                                                            <span className="text-zinc-600">{new Date(h.deployedAt).toLocaleDateString()}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {deployResult ? (
+                                                <div className="bg-black/40 p-3 rounded border border-white/10 text-xs font-mono break-all text-white">
+                                                    {deployResult}
+                                                </div>
+                                            ) : (
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleDeploy(false)}
+                                                        disabled={deploying}
+                                                        className="flex-1 py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-600/40 rounded-lg text-xs font-mono transition-colors flex items-center justify-center gap-2"
+                                                    >
+                                                        {deploying ? "Checking..." : "Verify / Deploy"}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (confirm("Force redeployment? This will archive the current split and deploy a new one.")) {
+                                                                handleDeploy(true);
+                                                            }
+                                                        }}
+                                                        disabled={deploying}
+                                                        className="px-3 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-600/40 rounded-lg text-xs font-mono transition-colors"
+                                                        title="Force Redeploy (Archive current)"
+                                                    >
+                                                        ↻
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-black/20 border-t border-white/5 flex gap-3 justify-end">
+                            <div className="p-4 bg-black/20 border-t border-white/5 flex gap-3 justify-end flex-shrink-0">
                                 <button
                                     onClick={() => setApprovingId(null)}
                                     className="px-4 py-2 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white text-sm transition-colors"
