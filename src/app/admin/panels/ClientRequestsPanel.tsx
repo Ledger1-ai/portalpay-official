@@ -55,6 +55,7 @@ export default function ClientRequestsPanel() {
     // Split Config State
     const [approvingId, setApprovingId] = useState<string | null>(null);
     const [platformBps, setPlatformBps] = useState(50); // Default platform fee
+    const [historyViewerId, setHistoryViewerId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!brandKey) return;
@@ -327,6 +328,34 @@ export default function ClientRequestsPanel() {
                                                     <span className="text-muted-foreground">Type: </span>
                                                     <span className="uppercase text-xs font-mono bg-white/5 px-1.5 py-0.5 rounded">{req.businessType || "?"}</span>
                                                 </div>
+                                                {(req.deployedSplitAddress || (req.splitHistory && req.splitHistory.length > 0)) && (
+                                                    <div className="text-xs flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-muted-foreground">Split: </span>
+                                                            <a
+                                                                href={`https://basescan.org/address/${req.deployedSplitAddress || req.splitHistory?.[0]?.address}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="font-mono text-emerald-400 hover:text-emerald-300 hover:underline inline-flex items-center gap-1"
+                                                                title="View Contract on Basescan"
+                                                            >
+                                                                {(req.deployedSplitAddress || req.splitHistory?.[0]?.address || "").slice(0, 6)}...{(req.deployedSplitAddress || req.splitHistory?.[0]?.address || "").slice(-4)}
+                                                                <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                </svg>
+                                                            </a>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setHistoryViewerId(req.id)}
+                                                            className="p-1 rounded hover:bg-white/10 text-zinc-500 hover:text-white transition-colors"
+                                                            title="View Version History"
+                                                        >
+                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 align-top">
@@ -732,6 +761,124 @@ export default function ClientRequestsPanel() {
                     </div >
                 )
             }
-        </div >
+            {/* History Viewer Modal */}
+            {
+                historyViewerId && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                            <div className="p-6 border-b border-white/5 flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Split Version History</h3>
+                                    <p className="text-xs text-zinc-400 mt-1">
+                                        Review deployment history for <span className="text-emerald-400 font-mono">{items.find(r => r.id === historyViewerId)?.shopName}</span>
+                                    </p>
+                                </div>
+                                <button onClick={() => setHistoryViewerId(null)} className="text-zinc-500 hover:text-white">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                            <div className="p-0 max-h-[60vh] overflow-y-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="text-xs uppercase bg-black/40 text-zinc-500 sticky top-0 backdrop-blur-md">
+                                        <tr>
+                                            <th className="px-6 py-3 font-medium">Version</th>
+                                            <th className="px-6 py-3 font-medium">Status</th>
+                                            <th className="px-6 py-3 font-medium">Deployed</th>
+                                            <th className="px-6 py-3 font-medium text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {/* Current Version */}
+                                        {(() => {
+                                            const req = items.find(r => r.id === historyViewerId);
+                                            if (!req) return null;
+                                            const currentAddr = req.deployedSplitAddress;
+                                            // Combine with history for a full view, but highlight current
+                                            // The splitHistory works as a log of PAST versions usually, but sometimes includes current if newly archived.
+                                            // We'll show Current first, then history.
+                                            return (
+                                                <>
+                                                    {currentAddr && (
+                                                        <tr className="bg-emerald-500/5">
+                                                            <td className="px-6 py-4 font-mono text-xs">
+                                                                <span className="text-emerald-400">Current</span>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wide">
+                                                                    Active
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-xs text-zinc-400">
+                                                                {/* We don't track exact current deploy time separately easily without digging, assume recent or just show address */}
+                                                                <span className="font-mono text-white" title={currentAddr}>{currentAddr.slice(0, 6)}...{currentAddr.slice(-4)}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                <a
+                                                                    href={`https://basescan.org/address/${currentAddr}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-emerald-400 hover:underline text-xs"
+                                                                >
+                                                                    View
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                    {/* History */}
+                                                    {(req.splitHistory || []).map((h, i) => (
+                                                        <tr key={i} className="hover:bg-white/5 transition-colors">
+                                                            <td className="px-6 py-4 font-mono text-xs text-zinc-500">
+                                                                v{(req.splitHistory?.length || 0) - i}
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 uppercase tracking-wide">
+                                                                    Archived
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-xs">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-zinc-300">{new Date(h.deployedAt).toLocaleDateString()}</span>
+                                                                    <span className="font-mono text-zinc-600 text-[10px]">{h.address.slice(0, 6)}...{h.address.slice(-4)}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                <a
+                                                                    href={`https://basescan.org/address/${h.address}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-zinc-400 hover:text-white hover:underline text-xs"
+                                                                >
+                                                                    View
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {(!currentAddr && (!req.splitHistory || req.splitHistory.length === 0)) && (
+                                                        <tr>
+                                                            <td colSpan={4} className="px-6 py-8 text-center text-zinc-500 text-xs italic bg-black/20">
+                                                                No deployment history found.
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="p-4 bg-black/40 border-t border-white/5 flex justify-end">
+                                <button
+                                    onClick={() => setHistoryViewerId(null)}
+                                    className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-zinc-300 hover:text-white transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div>
     );
 }
