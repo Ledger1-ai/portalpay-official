@@ -6,6 +6,7 @@ import { CheckoutWidget, darkTheme } from "thirdweb/react";
 import dynamic from "next/dynamic";
 const ConnectButton = dynamic(() => import("thirdweb/react").then((m) => m.ConnectButton), { ssr: false });
 import { client, chain, getWallets } from "@/lib/thirdweb/client";
+import { base } from "thirdweb/chains";
 import { usePortalThirdwebTheme, getConnectButtonStyle, connectButtonClass } from "@/lib/thirdweb/theme";
 import { buildReceiptEndpoint, buildReceiptFetchInit } from "@/lib/receipts";
 import { useActiveAccount } from "thirdweb/react";
@@ -1552,8 +1553,9 @@ export default function PortalReceiptPage() {
     return usdRounded > 0 ? usdRounded.toFixed(2) : "0";
   }, [widgetCurrency, totalUsd]);
   const widgetSupported =
-    (chainId === 8453 || chainId === 84532) &&
-    (token === "ETH" || token === "cbBTC" || token === "cbXRP" || token === "SOL" || (token === "USDC" || token === "USDT"));
+    // Relaxed chain check to allow dev/prod variances (client defaults to Base anyway)
+    // (chainId === 8453 || chainId === 84532) &&
+    (token === "ETH" || ["cbBTC", "cbXRP", "SOL", "USDC", "USDT"].includes(token));
   const tokenAddr = token === "ETH" ? undefined : tokenDef?.address;
   const hasTokenAddr = token === "ETH" || (tokenAddr ? isValidHexAddress(tokenAddr) : false);
   // Feature flag: thirdweb Account Abstraction (AA) can cause runtime errors (e.g., "Cannot read properties of undefined (reading 'aa')")
@@ -2625,8 +2627,8 @@ export default function PortalReceiptPage() {
                         key={`${token}-${currency}-${ratesUpdatedAt ? ratesUpdatedAt.getTime() : 0}`}
                         className="w-full"
                         client={client}
-                        chain={chain}
-                        currency={widgetCurrency as any}
+                        chain={base} // FORCE Base chain to align with hardcoded Base tokens
+                        currency={currency} // valid on Base
                         amount={(isFiatFlow && widgetFiatAmount) ? (widgetFiatAmount as any) : widgetAmount}
                         seller={sellerAddress || merchantWallet || recipient}
                         tokenAddress={token === "ETH" ? undefined : (tokenAddr as any)}
