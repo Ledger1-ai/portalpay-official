@@ -34,7 +34,62 @@ export function ReserveSettings() {
   >("ETH");
   const [accumulationMode, setAccumulationMode] = useState<"fixed" | "dynamic">("fixed");
   const accModeUserChangedRef = useRef<boolean>(false);
+  // Baselines to highlight unsaved changes
+  const [lastSavedProcessingFeePct, setLastSavedProcessingFeePct] = useState<number>(0);
+  const [lastSavedStoreCurrency, setLastSavedStoreCurrency] = useState<string>("USD");
+  const [lastSavedRatios, setLastSavedRatios] = useState<Record<string, number>>({
+    USDC: 0.2,
+    USDT: 0.2,
+    cbBTC: 0.2,
+    cbXRP: 0.2,
+    ETH: 0.2,
+    SOL: 0,
+  });
+  const [lastSavedDefaultPaymentToken, setLastSavedDefaultPaymentToken] = useState<
+    "ETH" | "USDC" | "USDT" | "cbBTC" | "cbXRP" | "SOL"
+  >("ETH");
+  const [lastSavedAccumulationMode, setLastSavedAccumulationMode] = useState<"fixed" | "dynamic">("fixed");
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [savedPulse, setSavedPulse] = useState(false);
+  const ratiosDebounceRef = useRef<number | null>(null);
+
   const [loading, setLoading] = useState(true);
+
+  async function postRatios(newRatios: Record<string, number>) {
+    try {
+      const r = await fetch("/api/site/config", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wallet": account?.address || "",
+        },
+        body: JSON.stringify({ reserveRatios: newRatios }),
+      });
+      if (r.ok) {
+        setLastSavedRatios({ ...newRatios });
+        setSavedPulse(true);
+        try { setTimeout(() => setSavedPulse(false), 1200); } catch { }
+      } else {
+        const j = await r.json().catch(() => ({}));
+        setError(j?.error || "Failed to auto-save ratios");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to auto-save ratios");
+    }
+  }
+
+  function schedulePostRatios(newRatios: Record<string, number>) {
+    try {
+      if (ratiosDebounceRef.current) {
+        clearTimeout(ratiosDebounceRef.current as any);
+      }
+      ratiosDebounceRef.current = window.setTimeout(() => {
+        postRatios(newRatios);
+      }, 400) as any;
+    } catch { }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -78,6 +133,97 @@ export function ReserveSettings() {
       .catch(() => { })
       .finally(() => setLoading(false));
   }, [account?.address]);
+
+  useEffect(() => {
+    const onUpdated = (e: any) => {
+      try {
+        const next = e?.detail?.ratios;
+        if (next && typeof next === "object") {
+          setRatios((prev) => ({ ...prev, ...next }));
+        }
+      } catch { }
+    };
+    try { window.addEventListener("pp:reserveRatiosUpdated", onUpdated as any); } catch { }
+    return () => {
+      try { window.removeEventListener("pp:reserveRatiosUpdated", onUpdated as any); } catch { }
+    };
+  }, [account?.address]);
+
+  useEffect(() => {
+    const onSave = () => {
+      try { saveSettings(); } catch { }
+    };
+    try { window.addEventListener("pp:saveReserveSettings", onSave as any); } catch { }
+    return () => {
+      try { window.removeEventListener("pp:saveReserveSettings", onSave as any); } catch { }
+    };
+  }, [account?.address, processingFeePct, defaultPaymentToken, accumulationMode, ratios]);
+
+  function handleSliderChange(changedSymbol: string, newValue: number) {
+    const tokens = ["USDC", "USDT", "cbBTC", "cbXRP", "ETH", "SOL"];
+    const clampedValue = Math.max(0, Math.min(1, newValue);
+
+    const remaining = 1 - clampedValue;
+    const otherTokens = tokens.filter((t) => t !== changedSymbol);
+
+    const currentOthersSum = otherTokens.reduce((sum, t) => sum + (ratios[t] || 0), 0);
+
+    const newRatios: Record<string, number> = { [changedSymbol]: clampedValue };
+
+    if (currentOthersSum > 0) {
+      otherTokens.forEach((token) => {
+        const proportion = (ratios[token] || 0) / currentOthersSum;
+        newRatios[token] = remaining * proportion;
+      });
+    } else {
+      const equalShare = remaining / otherTokens.length;
+      otherTokens.forEach((token) => {
+        newRatios[token] = equalShare;
+      });
+    }
+
+    setRatios(newRatios);
+    schedulePostRatios(newRatios);
+    try { window.dispatchEvent(new CustomEvent("pp:reserveRatiosUpdated", { detail: { ratios: newRatios } })); } catch { }
+  }
+
+  async function saveSettings() {
+    try {
+      setSaving(true);
+      setError("");
+      const r = await fetch("/api/site/config", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wallet": account?.address || "",
+        },
+        body: JSON.stringify({
+          processingFeePct: Math.max(0, Number(processingFeePct)),
+          storeCurrency,
+          reserveRatios: ratios,
+          defaultPaymentToken,
+          accumulationMode,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(j?.error || "Failed to save");
+        return;
+      }
+      // Successful save: update baselines and pulse
+      setLastSavedProcessingFeePct(Math.max(0, Number(processingFeePct)));
+      setLastSavedStoreCurrency(storeCurrency || "USD");
+      setLastSavedRatios({ ...ratios });
+      setLastSavedDefaultPaymentToken(defaultPaymentToken);
+      setLastSavedAccumulationMode(accumulationMode);
+      setSavedPulse(true);
+      try { setTimeout(() => setSavedPulse(false), 1500); } catch { }
+    } catch (e: any) {
+      setError(e?.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Render loading skeleton
   if (loading) {
@@ -203,8 +349,8 @@ export function ReserveSettings() {
               <div
                 key={symbol}
                 className={`space-y-1 rounded-md border p-2 ${Math.abs((ratios[symbol] || 0) - (lastSavedRatios[symbol] || 0)) > 0.0005
-                    ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
-                    : "border-transparent"
+                  ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
+                  : "border-transparent"
                   }`}
               >
                 <div className="flex items-center justify-between">

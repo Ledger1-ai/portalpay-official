@@ -179,6 +179,46 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
 
   const config = configs[0] as (ShopConfig & { wallet: string }) | undefined;
 
+  // Merge site_config for payment preferences (defaultPaymentToken / accumulationMode)
+  if (config && config.wallet) {
+    const foundWallet = config.wallet.toLowerCase();
+    // 1. Determine Brand Key
+    const envBrandKey = (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "basaltsurge").toLowerCase();
+    const brandKey = (config as any).brandKey || envBrandKey;
+
+    // 2. Resolve Doc IDs
+    const docIdBase = "site:config";
+    const brandDocId = (brandKey && brandKey !== "portalpay") ? `${docIdBase}:${brandKey}` : `${docIdBase}:portalpay`;
+
+    let siteConf: any = null;
+    try {
+      // Try Brand-Specific
+      const { resource } = await container.item(brandDocId, foundWallet).read<any>();
+      siteConf = resource;
+    } catch { }
+
+    if (!siteConf && brandDocId !== "site:config:portalpay") {
+      try {
+        // Try Legacy Shared
+        const { resource } = await container.item("site:config:portalpay", foundWallet).read<any>();
+        siteConf = resource;
+      } catch { }
+    }
+
+    if (!siteConf) {
+      try {
+        // Try Global Legacy
+        const { resource } = await container.item("site:config", foundWallet).read<any>();
+        siteConf = resource;
+      } catch { }
+    }
+
+    if (siteConf) {
+      if (siteConf.defaultPaymentToken) (config as any).defaultPaymentToken = siteConf.defaultPaymentToken;
+      if (siteConf.accumulationMode) (config as any).accumulationMode = siteConf.accumulationMode;
+    }
+  }
+
   if (config?.theme) {
     config.theme = sanitizeShopTheme(config.theme);
   }
