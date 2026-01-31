@@ -373,119 +373,124 @@ export async function PATCH(req: NextRequest) {
 
         if (shopConfigUpdate) {
             console.log("[client-requests] Received shopConfigUpdate:", JSON.stringify(shopConfigUpdate));
-            // Apply shop config updates to the request doc mostly for list view consistency
-            if (newStatus === "approved" || shopConfigUpdate) {
-                // MATCHING LOGIC with api/shop/config/route.ts
-                // Default ID is "shop:config". For partners: "shop:config:brandKey".
-                const isPlatform = !brandKey || brandKey === "portalpay" || brandKey === "basaltsurge";
-                const configId = isPlatform ? "shop:config" : `shop:config:${brandKey}`;
-
-                // Check for EXISTING config to avoid overwriting or duplicating (FUZZY MATCH for safety)
-                const configQuery = {
-                    query: `SELECT * FROM c WHERE (c.type = 'site_config' OR c.type = 'shop_config') AND StringEquals(c.wallet, @w, true) AND StringEquals(c.brandKey, @brand, true) ORDER BY c.createdAt DESC`,
-                    parameters: [
-                        { name: "@w", value: request.wallet },
-                        { name: "@brand", value: brandKey }
-                    ]
-                };
-                const { resources: existingConfigs } = await container.items.query(configQuery).fetchAll();
-                const activeConfig = existingConfigs.find((c: any) => c.type === "site_config") || existingConfigs[0];
-
-                if (activeConfig) {
-                    // UPDATE existing config (Merge logic)
-                    // FORCE LOWERCASE on update to heal any legacy data
-                    const newConfig = {
-                        ...activeConfig,
-                        wallet: request.wallet.toLowerCase(),
-                        brandKey: brandKey.toLowerCase(),
-                        status: (newStatus === "approved" || activeConfig.status === "approved") ? "approved" : activeConfig.status,
-                        approvedBy: caller.wallet,
-                        approvedAt: Date.now()
-                    };
-                    console.log("[client-requests] Updating Shop Config (Auto-Heal):", JSON.stringify(newConfig));
-
-                    if (splitConfig) {
-                        newConfig.splitConfig = {
-                            partnerBps: Number(splitConfig.partnerBps),
-                            merchantBps: Number(splitConfig.merchantBps),
-                            agents: Array.isArray(splitConfig.agents) ? splitConfig.agents : []
-                        };
-                    }
-
-                    if (typeof body.processingFeePct === "number") {
-                        newConfig.processingFeePct = Number(body.processingFeePct);
-                    }
-
-                    if (shopConfigUpdate) {
-                        newConfig.name = shopConfigUpdate.name || newConfig.name;
-                        newConfig.theme = { ...(newConfig.theme || {}), ...shopConfigUpdate.theme };
-                        if (shopConfigUpdate.slug) newConfig.slug = shopConfigUpdate.slug;
-                        // Additional fields as needed
-                    }
-
-                    await container.item(activeConfig.id, activeConfig.wallet).replace(newConfig);
-
-                } else {
-                    // CREATE new shop_config
-                    const shopConfig: any = {
-                        id: configId,
-                        wallet: request.wallet.toLowerCase(), // Force lowercase to ensure auth/me match
-                        type: "shop_config",
-                        brandKey: brandKey.toLowerCase(), // Ensure brand key is normalized
-                        name: (shopConfigUpdate?.name) || request.shopName,
-                        theme: {
-                            primaryColor: (shopConfigUpdate?.theme?.primaryColor) || request.primaryColor || "#0ea5e9",
-                            brandLogoUrl: (shopConfigUpdate?.theme?.brandLogoUrl) || request.logoUrl,
-                            brandFaviconUrl: (shopConfigUpdate?.theme?.brandFaviconUrl) || request.faviconUrl,
-                            ...(shopConfigUpdate?.theme || {})
-                        },
-                        status: newStatus === "approved" ? "approved" : "pending",
-                        approvedBy: caller.wallet,
-                        approvedAt: Date.now(),
-                        createdAt: Date.now()
-                    };
-
-                    if (splitConfig) {
-                        shopConfig.splitConfig = {
-                            partnerBps: Number(splitConfig.partnerBps),
-                            merchantBps: Number(splitConfig.merchantBps),
-                            agents: Array.isArray(splitConfig.agents) ? splitConfig.agents : []
-                        };
-                    }
-
-                    if (typeof body.processingFeePct === "number") {
-                        shopConfig.processingFeePct = Number(body.processingFeePct);
-                    }
-
-                    if (shopConfigUpdate?.slug) {
-                        const slug = String(shopConfigUpdate.slug).toLowerCase().trim();
-                        // Check for slug collision within this brand
-                        const slugQuery = {
-                            query: "SELECT TOP 1 c.id FROM c WHERE (c.type = 'shop_config' OR c.type = 'site_config') AND c.slug = @slug AND c.brandKey = @brandKey AND c.wallet != @wallet",
-                            parameters: [
-                                { name: "@slug", value: slug },
-                                { name: "@brandKey", value: brandKey.toLowerCase() },
-                                { name: "@wallet", value: request.wallet.toLowerCase() }
-                            ]
-                        };
-                        const { resources: collisions } = await container.items.query(slugQuery).fetchAll();
-                        if (collisions.length > 0) {
-                            throw new Error(`Slug '${slug}' is already taken by another shop in this domain.`);
-                        }
-                        shopConfig.slug = slug;
-                    }
-
-                    console.log("[client-requests] Creating Shop Config:", JSON.stringify(shopConfig));
-                    await container.items.upsert(shopConfig);
-                }
-            }
-
-            return json({ ok: true, requestId, status: newStatus || request.status });
-        } catch (e: any) {
-            console.error("[client-requests] PATCH Error:", e);
-            return json({ error: e?.message || "update_failed" }, { status: 500 });
         }
+
+        // Apply shop config updates to the request doc mostly for list view consistency
+        if (newStatus === "approved" || shopConfigUpdate) {
+            // MATCHING LOGIC with api/shop/config/route.ts
+            // Default ID is "shop:config". For partners: "shop:config:brandKey".
+            const isPlatform = !brandKey || brandKey === "portalpay" || brandKey === "basaltsurge";
+            const configId = isPlatform ? "shop:config" : `shop:config:${brandKey}`;
+
+            // Check for EXISTING config to avoid overwriting or duplicating (FUZZY MATCH for safety)
+            const configQuery = {
+                query: `SELECT * FROM c WHERE (c.type = 'site_config' OR c.type = 'shop_config') AND StringEquals(c.wallet, @w, true) AND StringEquals(c.brandKey, @brand, true) ORDER BY c.createdAt DESC`,
+                parameters: [
+                    { name: "@w", value: request.wallet },
+                    { name: "@brand", value: brandKey }
+                ]
+            };
+            const { resources: existingConfigs } = await container.items.query(configQuery).fetchAll();
+            const activeConfig = existingConfigs.find((c: any) => c.type === "site_config") || existingConfigs[0];
+
+            if (activeConfig) {
+                // UPDATE existing config (Merge logic)
+                // FORCE LOWERCASE on update to heal any legacy data
+                const newConfig = {
+                    ...activeConfig,
+                    wallet: request.wallet.toLowerCase(),
+                    brandKey: brandKey.toLowerCase(),
+                    status: (newStatus === "approved" || activeConfig.status === "approved") ? "approved" : activeConfig.status,
+                    approvedBy: caller.wallet,
+                    approvedAt: Date.now()
+                };
+                console.log("[client-requests] Updating Shop Config (Auto-Heal):", JSON.stringify(newConfig));
+
+                if (splitConfig) {
+                    newConfig.splitConfig = {
+                        partnerBps: Number(splitConfig.partnerBps),
+                        merchantBps: Number(splitConfig.merchantBps),
+                        agents: Array.isArray(splitConfig.agents) ? splitConfig.agents : []
+                    };
+                }
+
+                if (typeof body.processingFeePct === "number") {
+                    newConfig.processingFeePct = Number(body.processingFeePct);
+                }
+
+                if (shopConfigUpdate) {
+                    newConfig.name = shopConfigUpdate.name || newConfig.name;
+                    newConfig.theme = { ...(newConfig.theme || {}), ...shopConfigUpdate.theme };
+                    if (shopConfigUpdate.slug) newConfig.slug = shopConfigUpdate.slug;
+                    // Additional fields as needed
+                }
+
+                await container.item(activeConfig.id, activeConfig.wallet).replace(newConfig);
+
+            } else {
+                // CREATE new shop_config
+                const shopConfig: any = {
+                    id: configId,
+                    wallet: request.wallet.toLowerCase(), // Force lowercase to ensure auth/me match
+                    type: "shop_config",
+                    brandKey: brandKey.toLowerCase(), // Ensure brand key is normalized
+                    name: (shopConfigUpdate?.name) || request.shopName,
+                    theme: {
+                        primaryColor: (shopConfigUpdate?.theme?.primaryColor) || request.primaryColor || "#0ea5e9",
+                        brandLogoUrl: (shopConfigUpdate?.theme?.brandLogoUrl) || request.logoUrl,
+                        brandFaviconUrl: (shopConfigUpdate?.theme?.brandFaviconUrl) || request.faviconUrl,
+                        ...(shopConfigUpdate?.theme || {})
+                    },
+                    status: newStatus === "approved" ? "approved" : "pending",
+                    approvedBy: caller.wallet,
+                    approvedAt: Date.now(),
+                    createdAt: Date.now()
+                };
+
+                if (splitConfig) {
+                    shopConfig.splitConfig = {
+                        partnerBps: Number(splitConfig.partnerBps),
+                        merchantBps: Number(splitConfig.merchantBps),
+                        agents: Array.isArray(splitConfig.agents) ? splitConfig.agents : []
+                    };
+                }
+
+                if (typeof body.processingFeePct === "number") {
+                    shopConfig.processingFeePct = Number(body.processingFeePct);
+                }
+
+                if (shopConfigUpdate?.slug) {
+                    const slug = String(shopConfigUpdate.slug).toLowerCase().trim();
+                    // Check for slug collision within this brand
+                    const slugQuery = {
+                        query: "SELECT TOP 1 c.id FROM c WHERE (c.type = 'shop_config' OR c.type = 'site_config') AND c.slug = @slug AND c.brandKey = @brandKey AND c.wallet != @wallet",
+                        parameters: [
+                            { name: "@slug", value: slug },
+                            { name: "@brandKey", value: brandKey.toLowerCase() },
+                            { name: "@wallet", value: request.wallet.toLowerCase() }
+                        ]
+                    };
+                    const { resources: collisions } = await container.items.query(slugQuery).fetchAll();
+                    if (collisions.length > 0) {
+                        throw new Error(`Slug '${slug}' is already taken by another shop in this domain.`);
+                    }
+                    shopConfig.slug = slug;
+                }
+
+                console.log("[client-requests] Creating Shop Config:", JSON.stringify(shopConfig));
+                await container.items.upsert(shopConfig);
+            }
+        }
+
+        // Update the Client Request itself (Status change / Notes / etc)
+        await container.item(request.id, request.wallet).replace(updatedDoc);
+
+        return json({ ok: true, requestId, status: newStatus || request.status });
+    } catch (e: any) {
+        console.error("[client-requests] PATCH Error:", e);
+        return json({ error: e?.message || "update_failed" }, { status: 500 });
     }
+}
 
 /**
  * DELETE /api/partner/client-requests
@@ -494,98 +499,98 @@ export async function PATCH(req: NextRequest) {
  * Body: { requestId }
  */
 export async function DELETE(req: NextRequest) {
-        try {
-            const caller = await requireThirdwebAuth(req).catch(() => null as any);
-            const roles = Array.isArray(caller?.roles) ? caller.roles : [];
+    try {
+        const caller = await requireThirdwebAuth(req).catch(() => null as any);
+        const roles = Array.isArray(caller?.roles) ? caller.roles : [];
 
-            // Platform wallet always has superadmin access
-            const platformWallet = String(process.env.NEXT_PUBLIC_PLATFORM_WALLET || "").toLowerCase();
-            const callerWallet = String(caller?.wallet || "").toLowerCase();
-            const isPlatformAdmin = !!platformWallet && platformWallet === callerWallet;
+        // Platform wallet always has superadmin access
+        const platformWallet = String(process.env.NEXT_PUBLIC_PLATFORM_WALLET || "").toLowerCase();
+        const callerWallet = String(caller?.wallet || "").toLowerCase();
+        const isPlatformAdmin = !!platformWallet && platformWallet === callerWallet;
 
-            if (!isPlatformAdmin && !roles.includes("admin") && !roles.includes("superadmin")) {
-                return json({ error: "forbidden" }, { status: 403 });
-            }
-
-            const brandKey = getBrandKey(req);
-            if (!brandKey) {
-                return json({ error: "missing_brand_key" }, { status: 500 });
-            }
-
-            const body = await req.json().catch(() => ({} as any));
-            const requestId = String(body?.requestId || "").trim();
-            const targetWallet = String(body?.wallet || "").toLowerCase();
-
-            if (!requestId && !targetWallet) {
-                return json({ error: "request_id_or_wallet_required" }, { status: 400 });
-            }
-
-            const container = await getContainer();
-
-            let merchantWallet = "";
-            let requestIdToDelete = requestId;
-
-            // Strategy 1: Look up by Request ID (standard flow)
-            if (requestId) {
-                const findQuery = {
-                    query: `SELECT * FROM c WHERE c.type = 'client_request' AND c.id = @id AND c.brandKey = @brand`,
-                    parameters: [
-                        { name: "@id", value: requestId },
-                        { name: "@brand", value: brandKey }
-                    ]
-                };
-                const { resources: requests } = await container.items.query<ClientRequestDoc>(findQuery).fetchAll();
-                if (requests[0]) {
-                    merchantWallet = requests[0].wallet;
-                    requestIdToDelete = requests[0].id;
-                }
-            }
-
-            // Strategy 2: If no request found but wallet provided (Orphan / Admin cleanup flow)
-            if (!merchantWallet && targetWallet) {
-                merchantWallet = targetWallet;
-            }
-
-            if (!merchantWallet) {
-                return json({ error: "request_not_found" }, { status: 404 });
-            }
-
-            // 1. Delete the specific request document if we have a valid ID and it's not synthetic
-            if (requestIdToDelete && !requestIdToDelete.startsWith("orphan-") && !requestIdToDelete.startsWith("site:")) {
-                try {
-                    await container.item(requestIdToDelete, merchantWallet).delete();
-                } catch (e) { /* ignore */ }
-            }
-
-            // 2. Query for all other documents belonging to this merchant wallet
-            // Includes: site_config, shop_config, inventory, orders, split_index, etc.
-            // We delete everything where partition key matches the wallet.
-            /* 
-               CRITICAL SAFETY FIX: Do not delete related documents automatically! 
-               This was wiping stores. Only delete the request itself.
-            */
-            // const relatedQuery = {
-            //     query: `SELECT * FROM c WHERE c.wallet = @w`,
-            //     parameters: [{ name: "@w", value: merchantWallet }]
-            // };
-            // const { resources: relatedDocs } = await container.items.query(relatedQuery).fetchAll();
-
-            // // Batch delete all related documents
-            // await Promise.all(relatedDocs.map(async (doc: any) => {
-            //     try {
-            //         // Determine partition key (usually wallet, but some might differ? No, query was by wallet)
-            //         // Use the doc's own partition key value just in case, but here it's merchantWallet
-            //         await container.item(doc.id, merchantWallet).delete();
-            //     } catch (err) {
-            //         console.warn(`[client-requests] Failed to delete doc ${doc.id}:`, err);
-            //     }
-            // }));
-
-            return json({ ok: true, requestId, wallet: merchantWallet, deleted: true });
-
-            return json({ ok: true, requestId, wallet: merchantWallet, deleted: true, relatedDocsDeleted: 0 });
-        } catch (e: any) {
-            console.error("[client-requests] DELETE Error:", e);
-            return json({ error: e?.message || "delete_failed" }, { status: 500 });
+        if (!isPlatformAdmin && !roles.includes("admin") && !roles.includes("superadmin")) {
+            return json({ error: "forbidden" }, { status: 403 });
         }
+
+        const brandKey = getBrandKey(req);
+        if (!brandKey) {
+            return json({ error: "missing_brand_key" }, { status: 500 });
+        }
+
+        const body = await req.json().catch(() => ({} as any));
+        const requestId = String(body?.requestId || "").trim();
+        const targetWallet = String(body?.wallet || "").toLowerCase();
+
+        if (!requestId && !targetWallet) {
+            return json({ error: "request_id_or_wallet_required" }, { status: 400 });
+        }
+
+        const container = await getContainer();
+
+        let merchantWallet = "";
+        let requestIdToDelete = requestId;
+
+        // Strategy 1: Look up by Request ID (standard flow)
+        if (requestId) {
+            const findQuery = {
+                query: `SELECT * FROM c WHERE c.type = 'client_request' AND c.id = @id AND c.brandKey = @brand`,
+                parameters: [
+                    { name: "@id", value: requestId },
+                    { name: "@brand", value: brandKey }
+                ]
+            };
+            const { resources: requests } = await container.items.query<ClientRequestDoc>(findQuery).fetchAll();
+            if (requests[0]) {
+                merchantWallet = requests[0].wallet;
+                requestIdToDelete = requests[0].id;
+            }
+        }
+
+        // Strategy 2: If no request found but wallet provided (Orphan / Admin cleanup flow)
+        if (!merchantWallet && targetWallet) {
+            merchantWallet = targetWallet;
+        }
+
+        if (!merchantWallet) {
+            return json({ error: "request_not_found" }, { status: 404 });
+        }
+
+        // 1. Delete the specific request document if we have a valid ID and it's not synthetic
+        if (requestIdToDelete && !requestIdToDelete.startsWith("orphan-") && !requestIdToDelete.startsWith("site:")) {
+            try {
+                await container.item(requestIdToDelete, merchantWallet).delete();
+            } catch (e) { /* ignore */ }
+        }
+
+        // 2. Query for all other documents belonging to this merchant wallet
+        // Includes: site_config, shop_config, inventory, orders, split_index, etc.
+        // We delete everything where partition key matches the wallet.
+        /* 
+           CRITICAL SAFETY FIX: Do not delete related documents automatically! 
+           This was wiping stores. Only delete the request itself.
+        */
+        // const relatedQuery = {
+        //     query: `SELECT * FROM c WHERE c.wallet = @w`,
+        //     parameters: [{ name: "@w", value: merchantWallet }]
+        // };
+        // const { resources: relatedDocs } = await container.items.query(relatedQuery).fetchAll();
+
+        // // Batch delete all related documents
+        // await Promise.all(relatedDocs.map(async (doc: any) => {
+        //     try {
+        //         // Determine partition key (usually wallet, but some might differ? No, query was by wallet)
+        //         // Use the doc's own partition key value just in case, but here it's merchantWallet
+        //         await container.item(doc.id, merchantWallet).delete();
+        //     } catch (err) {
+        //         console.warn(`[client-requests] Failed to delete doc ${doc.id}:`, err);
+        //     }
+        // }));
+
+        return json({ ok: true, requestId, wallet: merchantWallet, deleted: true });
+
+        return json({ ok: true, requestId, wallet: merchantWallet, deleted: true, relatedDocsDeleted: 0 });
+    } catch (e: any) {
+        console.error("[client-requests] DELETE Error:", e);
+        return json({ error: e?.message || "delete_failed" }, { status: 500 });
     }
+}

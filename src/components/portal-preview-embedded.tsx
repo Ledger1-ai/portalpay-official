@@ -388,11 +388,15 @@ export function PortalPreviewEmbedded({
 
         const t = cfg?.defaultPaymentToken;
         const ratios = cfg?.reserveRatios; // e.g. { USDC: 0.8, ETH: 0.2 }
+        const accumulationMode = cfg?.accumulationMode; // "fixed" or "dynamic"
 
         // Dynamic Strategy:
-        // If reserveRatios are present, use them for probabilistic selection.
-        // This effectively "rotates" the default token to match target accumulation breakdown.
-        const dynamicToken = selectTokenFromRatios(ratios, currentTokens);
+        // If accumulationMode is DYNAMIC and reserveRatios are present, use them.
+        // Otherwise, if FIXED, prioritize defaultPaymentToken.
+        let dynamicToken = null;
+        if (accumulationMode !== "fixed") {
+          dynamicToken = selectTokenFromRatios(ratios, currentTokens);
+        }
 
         if (dynamicToken) {
           console.log("[PORTAL-PREVIEW] Selected dynamic token from reserve ratios:", dynamicToken);
