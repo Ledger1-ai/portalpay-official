@@ -213,6 +213,7 @@ export default function ClientRequestsPanel() {
             if (shopConfigUpdate) {
                 body.shopConfigUpdate = shopConfigUpdate;
             }
+            console.log("[ClientRequests] updateStatus Payload:", JSON.stringify(body, null, 2));
 
             const r = await fetch("/api/partner/client-requests", {
                 method: "PATCH",

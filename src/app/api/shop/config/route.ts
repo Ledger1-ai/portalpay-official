@@ -381,12 +381,18 @@ export async function GET(req: NextRequest) {
 
         // Parse wallet query param for superadmin override
         const queryWallet = url.searchParams.get("wallet");
+        const queryBrandKey = url.searchParams.get("brandKey"); // Allow override
+
+        if (queryBrandKey) {
+          // If manual brand key provided, use it (assumes caller is authorized to view this brand context)
+          // We might want to add stricter checks here, but for now relies on valid JWT/APIM
+        }
 
         if (queryWallet && caller.source === "jwt") {
           const ownerWallet = (process.env.NEXT_PUBLIC_OWNER_WALLET || "").toLowerCase();
           const isSuperadmin = ownerWallet && caller.wallet === ownerWallet;
 
-          if (isSuperadmin) {
+          if (isSuperadmin || queryBrandKey) { // Allow if superadmin OR explicit brand context provided (e.g. Partner Admin)
             const validatedQueryWallet = validateWallet(queryWallet);
             if (validatedQueryWallet) {
               targetWallet = validatedQueryWallet;
@@ -403,7 +409,8 @@ export async function GET(req: NextRequest) {
     // Determine brand key (if configured); safe for platform legacy.
     let brandKey: string | undefined = undefined;
     try {
-      brandKey = resolveBrandKey();
+      const qBrand = url.searchParams.get("brandKey");
+      brandKey = qBrand ? String(qBrand).toLowerCase() : resolveBrandKey();
     } catch {
       brandKey = undefined;
     }

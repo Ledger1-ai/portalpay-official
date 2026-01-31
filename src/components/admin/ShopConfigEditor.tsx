@@ -44,7 +44,7 @@ export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave
             setLoading(true);
             try {
                 // Public GET endpoint supports x-wallet or query param
-                const r = await fetch(`/api/shop/config?wallet=${wallet}`, { cache: "no-store" });
+                const r = await fetch(`/api/shop/config?wallet=${wallet}&brandKey=${brandKey || ""}`, { cache: "no-store" });
                 const j = await r.json().catch(() => ({}));
                 if (j?.config) {
                     const c = j.config;
@@ -70,6 +70,7 @@ export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave
 
     const handleSave = async () => {
         setSaving(true);
+        console.log("[ShopConfigEditor] Saving:", config);
         try {
             await onSave({
                 name: config.name,
@@ -123,10 +124,12 @@ export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave
             console.error("Error generating favicon from logo", e);
             // Fallback: If canvas fails (CORS), just use the logo URL directly.
             // Better to have a large favicon than none.
-            setConfig((prev: any) => ({
-                ...prev,
-                theme: { ...prev.theme, brandFaviconUrl: logoUrl }
-            }));
+            if (logoUrl) {
+                setConfig((prev: any) => ({
+                    ...prev,
+                    theme: { ...prev.theme, brandFaviconUrl: logoUrl }
+                }));
+            }
         }
     };
 
