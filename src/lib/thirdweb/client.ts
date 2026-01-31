@@ -7,7 +7,10 @@ export function getClient() {
   if (!_client) {
     const secret = process.env.THIRDWEB_SECRET_KEY;
     const brandKey = process.env.NEXT_PUBLIC_BRAND_KEY || "";
-    const specificClientId = brandKey ? process.env[`NEXT_PUBLIC_THIRDWEB_CLIENT_ID_${brandKey.toUpperCase()}`] : undefined;
+    // For "basaltsurge" (platform), strictly use the main client ID, do NOT look for a brand-specific one.
+    // This avoids issues where NEXT_PUBLIC_THIRDWEB_CLIENT_ID_BASALTSURGE is set incorrectly or missing.
+    const isPlatform = !brandKey || brandKey.toLowerCase() === "basaltsurge" || brandKey.toLowerCase() === "portalpay";
+    const specificClientId = (!isPlatform && brandKey) ? process.env[`NEXT_PUBLIC_THIRDWEB_CLIENT_ID_${brandKey.toUpperCase()}`] : undefined;
     const clientId = specificClientId || process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
 
     _client = secret

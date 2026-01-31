@@ -78,11 +78,11 @@ function getBuildTimeTokens(): TokenDef[] {
   const tokens: TokenDef[] = [];
   tokens.push({ symbol: "ETH", type: "native" });
 
-  const usdc = (process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS || "").trim();
-  const usdt = (process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS || "").trim();
-  const cbbtc = (process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS || "").trim();
-  const cbxrp = (process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS || "").trim();
-  const sol = (process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS || "").trim();
+  const usdc = (process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913").trim(); // Base USDC
+  const usdt = (process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS || "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2").trim(); // Base USDT
+  const cbbtc = (process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS || "0xcbB7C0000ab88B473b1f5aFd9ef808440eed33Bf").trim(); // Base cbBTC
+  const cbxrp = (process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS || "0xcb585250f852C6c6bf90434AB21A00f02833a4af").trim(); // cbXRP (add fallback if known, leaving empty for now if unknown)
+  const sol = (process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS || "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82").trim();
 
   if (usdc)
     tokens.push({
@@ -1327,10 +1327,10 @@ export default function PortalReceiptPage() {
   const [token, setToken] = useState<"ETH" | "USDC" | "USDT" | "cbBTC" | "cbXRP" | "SOL">(() => {
     if (typeof window !== "undefined") {
       const p = new URLSearchParams(window.location.search);
-      const t = p.get("token");
-      if (t && ["ETH", "USDC", "USDT", "cbBTC", "cbXRP", "SOL"].includes(t.toUpperCase())) {
-        return t.toUpperCase() as any;
-      }
+      const t = (p.get("token") || "").trim();
+      const valid = ["ETH", "USDC", "USDT", "cbBTC", "cbXRP", "SOL"];
+      const match = valid.find(v => v.toLowerCase() === t.toLowerCase());
+      if (match) return match as any;
     }
     return "ETH";
   });
@@ -1348,7 +1348,21 @@ export default function PortalReceiptPage() {
         // Merge runtime tokens if present (preserves ETH, adds/updates others)
         if (cfg?.tokens && Array.isArray(cfg.tokens) && cfg.tokens.length > 0) {
           const runtimeTokens = cfg.tokens as TokenDef[];
-          if (!cancelled) setAvailableTokens(runtimeTokens);
+          // Start with build-time tokens (which have env vars)
+          const validBuildTokens = getBuildTimeTokens();
+          // Merge runtime tokens ON TOP of build tokens (updating addresses if needed), 
+          // BUT ensure we don't lose env-defined tokens just because server config excludes them.
+
+          const merged = [...validBuildTokens];
+          for (const rt of runtimeTokens) {
+            const idx = merged.findIndex(m => m.symbol === rt.symbol);
+            if (idx >= 0) {
+              merged[idx] = rt; // Update existing
+            } else {
+              merged.push(rt); // Add new
+            }
+          }
+          if (!cancelled) setAvailableTokens(merged);
         }
 
         // processingFeePct
@@ -1382,10 +1396,12 @@ export default function PortalReceiptPage() {
 
         let urlOverride = null;
         if (searchParams?.get("token")) {
-          const tParam = String(searchParams.get("token")).trim().toUpperCase();
-          const avail = effectiveTokens.find((x) => x.symbol === tParam || (tParam === "ETH" && x.symbol === "ETH"));
-          const ok = tParam === "ETH" || (!!avail?.address && isValidHexAddress(String(avail.address)));
-          if (ok) urlOverride = tParam;
+          const tParam = String(searchParams.get("token")).trim();
+          // Case-insensitive match against effective tokens
+          const avail = effectiveTokens.find((x) => x.symbol.toLowerCase() === tParam.toLowerCase());
+          const ok = (tParam.toUpperCase() === "ETH") || (!!avail?.address && isValidHexAddress(String(avail.address)));
+          if (ok && avail) urlOverride = avail.symbol;
+          else if (ok && tParam.toUpperCase() === "ETH") urlOverride = "ETH";
         }
 
         if (urlOverride) {
