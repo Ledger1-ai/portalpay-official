@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
                 events = await getContractEvents({
                     contract,
                     events: [event],
-                    fromBlock: BigInt(0), // Ideally we limit block range by time, but getContractEvents uses blocks. 
+                    fromBlock: BigInt(1), // Ideally we limit block range by time, but getContractEvents uses blocks. 
                     // We'll fetch recent and filter by timestamp if possible, or just trust the poll + since param?
                     // Events return blockNumber. We might need to fetch block time. 
                     // Optimization: We only care about events AFTER `since`. `since` is in ms or seconds?
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
                     events = await getContractEvents({
                         contract: tokenContract,
                         events: [event],
-                        fromBlock: BigInt(0), // Again, ideally limit by block
+                        fromBlock: BigInt(1), // Again, ideally limit by block
                     });
                 }
             }
