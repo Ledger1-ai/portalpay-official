@@ -2,6 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { useActiveAccount } from "thirdweb/react";
+// Forced HMR update
+import Link from "next/link";
+import TeamManagementPanel from "@/components/admin/team/TeamManagementPanel";
 import { ensureSplitForWallet } from "@/lib/thirdweb/split";
 import { useBrand } from "@/contexts/BrandContext";
 import ShopConfigEditor from "@/components/admin/ShopConfigEditor";
@@ -690,7 +693,7 @@ export default function ClientRequestsPanel() {
                                             <tr className="bg-foreground/[0.02]">
                                                 <td colSpan={5} className="px-4 py-4 border-t border-foreground/5">
                                                     <div className="flex items-center gap-4 mb-4 border-b border-white/5 pb-2">
-                                                        {["details", "config"].map(tab => (
+                                                        {["details", "config", "team"].map(tab => (
                                                             <button
                                                                 key={tab}
                                                                 onClick={() => setActiveTabs(prev => ({ ...prev, [req.id]: tab }))}
@@ -699,7 +702,7 @@ export default function ClientRequestsPanel() {
                                                                     : "border-transparent text-muted-foreground hover:text-zinc-300"
                                                                     }`}
                                                             >
-                                                                {tab === "details" ? "Details" : "Shop Config"}
+                                                                {tab === "details" ? "Details" : tab === "config" ? "Shop Config" : "Team"}
                                                             </button>
                                                         ))}
                                                     </div>
@@ -773,6 +776,13 @@ export default function ClientRequestsPanel() {
                                                                     </div>
                                                                 </div>
                                                             </div>
+                                                        </div>
+                                                    ) : (activeTabs[req.id] === "team") ? (
+                                                        <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                                                            <TeamManagementPanel
+                                                                merchantWallet={req.wallet}
+                                                                theme={(brand as any)?.theme}
+                                                            />
                                                         </div>
                                                     ) : (
                                                         <div className="animate-in fade-in slide-in-from-top-1 duration-200">

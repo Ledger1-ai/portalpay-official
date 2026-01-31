@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { formatCurrency } from "@/lib/fx";
 import { createPortal } from "react-dom";
 import ReportsPanelv2 from "@/app/admin/panels/ReportsPanelv2";
+import TeamManagementPanel from "@/components/admin/team/TeamManagementPanel";
 
 interface AdminDashboardProps {
     merchantWallet: string;
@@ -91,7 +92,7 @@ export default function TerminalAdminDashboard({
                     <ReportsPanelv2 merchantWallet={merchantWallet} theme={theme} />
                 )}
                 {activeTab === "team" && (
-                    <TeamPanel merchantWallet={merchantWallet} theme={theme} />
+                    <TeamManagementPanel merchantWallet={merchantWallet} theme={theme} />
                 )}
                 {activeTab === "settings" && (
                     <SettingsPanel
@@ -272,251 +273,9 @@ function ActivityPanel({ merchantWallet, theme }: PanelProps) {
 /* =========================
    TEAM PANEL
    ========================= */
-function TeamPanel({ merchantWallet, theme }: PanelProps) {
-    const [members, setMembers] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [editingMember, setEditingMember] = useState<any>(null);
+// TeamPanel logic moved to src/components/admin/team/TeamManagementPanel.tsx
 
-    useEffect(() => {
-        loadTeam();
-    }, [merchantWallet]);
-
-    async function loadTeam() {
-        setLoading(true);
-        try {
-            const res = await fetch(`/api/terminal/team`, {
-                headers: { "x-wallet": merchantWallet }
-            });
-            const data = await res.json();
-            setMembers(data.members || []);
-        } catch (e) {
-            console.error("Failed to load team", e);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function deleteMember(id: string) {
-        if (!confirm("Are you sure you want to remove this team member?")) return;
-        try {
-            await fetch(`/api/terminal/team`, {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json", "x-wallet": merchantWallet },
-                body: JSON.stringify({ id })
-            });
-            loadTeam();
-        } catch (e) {
-            alert("Failed to delete member");
-        }
-    }
-
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Team Members</h2>
-                <button
-                    onClick={() => { setEditingMember(null); setShowAddModal(true); }}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:brightness-110 transition-all"
-                    style={{ backgroundColor: theme?.primaryColor }}
-                >
-                    + Add Member
-                </button>
-            </div>
-
-            {loading ? (
-                <div className="text-center py-8 text-muted-foreground">Loading...</div>
-            ) : members.length === 0 ? (
-                <div className="text-center py-12 bg-card border rounded-xl">
-                    <div className="text-muted-foreground mb-4">No team members yet</div>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="text-primary hover:underline"
-                        style={{ color: theme?.primaryColor }}
-                    >
-                        Add your first team member
-                    </button>
-                </div>
-            ) : (
-                <div className="grid gap-4">
-                    {members.map((member) => (
-                        <div
-                            key={member.id}
-                            className="bg-card border rounded-xl p-4 flex items-center justify-between"
-                        >
-                            <div>
-                                <div className="font-semibold">{member.name}</div>
-                                <div className="text-sm text-muted-foreground capitalize">
-                                    {member.role || "Staff"}
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => { setEditingMember(member); setShowAddModal(true); }}
-                                    className="px-3 py-1.5 text-sm border rounded-lg hover:bg-muted"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={() => deleteMember(member.id)}
-                                    className="px-3 py-1.5 text-sm border rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Add/Edit Modal */}
-            {showAddModal && typeof window !== "undefined" && createPortal(
-                <TeamMemberModal
-                    member={editingMember}
-                    merchantWallet={merchantWallet}
-                    theme={theme}
-                    onClose={() => { setShowAddModal(false); setEditingMember(null); }}
-                    onSave={() => { setShowAddModal(false); setEditingMember(null); loadTeam(); }}
-                />,
-                document.body
-            )}
-        </div>
-    );
-}
-
-function TeamMemberModal({
-    member,
-    merchantWallet,
-    theme,
-    onClose,
-    onSave
-}: {
-    member: any;
-    merchantWallet: string;
-    theme?: any;
-    onClose: () => void;
-    onSave: () => void;
-}) {
-    const [name, setName] = useState(member?.name || "");
-    const [role, setRole] = useState(member?.role || "staff");
-    const [pin, setPin] = useState("");
-    const [loading, setLoading] = useState(false);
-
-    async function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        if (!name.trim()) {
-            alert("Name is required");
-            return;
-        }
-        if (!member && (!pin || pin.length < 4)) {
-            alert("PIN must be at least 4 digits");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const res = await fetch("/api/terminal/team", {
-                method: member ? "PATCH" : "POST",
-                headers: { "Content-Type": "application/json", "x-wallet": merchantWallet },
-                body: JSON.stringify({
-                    id: member?.id,
-                    name: name.trim(),
-                    role,
-                    pin: pin || undefined
-                })
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "Failed to save");
-            }
-
-            onSave();
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    return (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4">
-            <div className="bg-background border rounded-2xl max-w-md w-full p-6">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold">
-                        {member ? "Edit Team Member" : "Add Team Member"}
-                    </h2>
-                    <button
-                        onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted"
-                    >
-                        ✕
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Name</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="John Doe"
-                            className="w-full px-3 py-2 border rounded-lg bg-background"
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Role</label>
-                        <select
-                            value={role}
-                            onChange={(e) => setRole(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg bg-background"
-                        >
-                            <option value="staff">Staff</option>
-                            <option value="keyholder">Keyholder</option>
-                            <option value="manager">Manager</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-2">
-                            {member ? "New PIN (leave blank to keep)" : "PIN"}
-                        </label>
-                        <input
-                            type="password"
-                            value={pin}
-                            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                            placeholder="••••"
-                            className="w-full px-3 py-2 border rounded-lg bg-background font-mono text-center text-xl tracking-widest"
-                            maxLength={6}
-                        />
-                        <div className="text-xs text-muted-foreground mt-1">4-6 digits</div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex-1 px-4 py-3 border rounded-lg font-semibold hover:bg-muted"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:brightness-110 disabled:opacity-50 transition-all"
-                            style={{ backgroundColor: theme?.primaryColor }}
-                        >
-                            {loading ? "Saving..." : "Save"}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
+// TeamMemberModal moved to src/components/admin/team/TeamManagementPanel.tsx
 
 /* =========================
    SETTINGS PANEL
@@ -910,6 +669,165 @@ function ReserveSettings({ merchantWallet, theme, reserveRatios, accumulationMod
         }
     };
 
+    // --------------------------------------------------------------------------------
+    // SEQUENTIAL WITHDRAWAL LOGIC
+    // --------------------------------------------------------------------------------
+    const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+    const [withdrawQueue, setWithdrawQueue] = useState<string[]>([]);
+    const [withdrawProcessed, setWithdrawProcessed] = useState(0);
+    const [withdrawStatuses, setWithdrawStatuses] = useState<Record<string, { status: string; tx?: string; reason?: string }>>({});
+    const [withdrawResults, setWithdrawResults] = useState<any[]>([]);
+    const [isWithdrawingAll, setIsWithdrawingAll] = useState(false);
+
+    // Formatter for modal messages
+    function formatReleaseMessage(rr: { symbol?: string; status?: string; transactionHash?: string; reason?: string }): string {
+        try {
+            const sym = String(rr?.symbol || "").toUpperCase();
+            const st = String(rr?.status || "");
+            const statusLabel = st === "submitted" ? "Submitted" : st === "skipped" ? "Skipped" : st === "failed" ? "Failed" : st || "—";
+            const parts: string[] = [`${sym}: ${statusLabel}`];
+            if (rr?.reason) {
+                const r = String(rr.reason || "");
+                const friendly =
+                    r === "not_due_payment" ? "No funds due" :
+                        r === "signature_mismatch" ? "Method mismatch" :
+                            r === "token_address_not_configured" ? "Address missing" : r;
+                parts.push(friendly);
+            }
+            if (rr?.transactionHash) {
+                parts.push(String(rr.transactionHash).slice(0, 10) + "…");
+            }
+            return parts.join(" • ");
+        } catch {
+            return `${String(rr?.symbol || "").toUpperCase()}: ${String(rr?.status || "")}`;
+        }
+    }
+
+    // Helper: Identify preferred tokens for withdraw all
+    function getWithdrawQueue(): string[] {
+        if (!balances) return [];
+        const preferred = ["ETH", "USDC", "USDT", "cbBTC", "cbXRP", "SOL"];
+        return Object.entries(balances)
+            .filter(([sym, info]: [string, any]) => preferred.includes(sym) && Number(info?.units || 0) > 0)
+            .map(([sym]) => sym);
+    }
+
+    async function handleWithdrawAll() {
+        if (!activeAccount) {
+            alert("Wallet not connected");
+            return;
+        }
+
+        // Ensure we have a split address
+        let targetSplit = splitAddress;
+        if (!targetSplit && balances?.splitAddressUsed) targetSplit = balances.splitAddressUsed;
+
+        if (!targetSplit || !/^0x[a-f0-9]{40}$/i.test(targetSplit)) {
+            alert("No split contract found settings.");
+            return;
+        }
+
+        const queue = getWithdrawQueue();
+        if (queue.length === 0) {
+            alert("No balances available to withdraw.");
+            return;
+        }
+
+        if (!confirm(`Ready to withdraw ${queue.join(", ")}?\n\nYou will be prompted to sign a transaction for each token.`)) {
+            return;
+        }
+
+        // Initialize Modal State
+        setIsWithdrawingAll(true);
+        setWithdrawQueue(queue);
+        setWithdrawProcessed(0);
+        setWithdrawStatuses({});
+        setWithdrawResults([]);
+        setWithdrawModalOpen(true);
+
+        const PAYMENT_SPLITTER_ABI = [
+            { type: "function", name: "distribute", inputs: [], outputs: [], stateMutability: "nonpayable" },
+            { type: "function", name: "distribute", inputs: [{ name: "token", type: "address" }], outputs: [], stateMutability: "nonpayable" },
+        ] as const;
+
+        const contract = getContract({
+            client,
+            chain,
+            address: targetSplit as `0x${string}`,
+            abi: PAYMENT_SPLITTER_ABI as any,
+        });
+
+        // Mapping for token addresses (using balances data or fallback)
+        const getTokenAddr = (sym: string) => {
+            if (balances?.[sym]?.address) return balances[sym].address;
+            // Fallbacks if balances data missing address
+            const envMap: Record<string, string | undefined> = {
+                USDC: process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS,
+                USDT: process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS,
+                cbBTC: process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS,
+                cbXRP: process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS,
+                SOL: process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS,
+            };
+            return envMap[sym] || undefined;
+        };
+
+        // Process Queue
+        for (const symbol of queue) {
+            try {
+                let tx;
+                if (symbol === "ETH") {
+                    tx = (prepareContractCall as any)({
+                        contract: contract as any,
+                        method: "function distribute()",
+                        params: [],
+                    });
+                } else {
+                    const tAddr = getTokenAddr(symbol);
+                    if (!tAddr || !/^0x[a-f0-9]{40}$/i.test(tAddr)) {
+                        // Skip
+                        const rr = { symbol, status: "skipped", reason: "token_address_not_configured" };
+                        setWithdrawStatuses(prev => ({ ...prev, [symbol]: { status: rr.status, reason: rr.reason } }));
+                        setWithdrawResults(prev => [...prev, rr]);
+                        setWithdrawProcessed(p => p + 1);
+                        continue;
+                    }
+                    tx = (prepareContractCall as any)({
+                        contract: contract as any,
+                        method: "function distribute(address token)",
+                        params: [tAddr],
+                    });
+                }
+
+                const sent = await sendTransaction({
+                    account: activeAccount,
+                    transaction: tx,
+                });
+
+                const txHash = (sent as any)?.transactionHash || (sent as any)?.hash;
+                const rr = { symbol, transactionHash: txHash, status: "submitted" };
+
+                setWithdrawStatuses(prev => ({ ...prev, [symbol]: { status: "submitted", tx: txHash } }));
+                setWithdrawResults(prev => [...prev, rr]);
+
+            } catch (err: any) {
+                const raw = String(err?.message || err || "").toLowerCase();
+                const isNotDue = raw.includes("not due payment");
+                const stateStatus = isNotDue ? "skipped" : "failed";
+                const reason = isNotDue ? "not_due_payment" : "error";
+
+                setWithdrawStatuses(prev => ({ ...prev, [symbol]: { status: stateStatus, reason } }));
+                setWithdrawResults(prev => [...prev, { symbol, status: stateStatus, reason }]);
+            } finally {
+                setWithdrawProcessed(p => p + 1);
+            }
+        }
+
+        setIsWithdrawingAll(false);
+        // Refresh after short delay
+        setTimeout(() => fetchAll(), 2000);
+    }
+
+
     const [withdrawing, setWithdrawing] = useState<Record<string, boolean>>({});
 
     const handleWithdraw = async (symbol: string, tokenAddr?: string) => {
@@ -1261,44 +1179,83 @@ function ReserveSettings({ merchantWallet, theme, reserveRatios, accumulationMod
                             </div>
 
                             <div className="space-y-4">
-                                {["USDC", "USDT", "cbBTC", "cbXRP", "ETH", "SOL"].map((token) => (
-                                    <div key={token} className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                {getTokenIcon(token)}
-                                                <span className="font-mono text-sm font-medium">{token}</span>
-                                            </div>
-                                            <span className="text-sm font-bold">
-                                                {isEditing
-                                                    ? `${(ratios[token] ? ratios[token] * 100 : 0).toFixed(1)}%`
-                                                    : `${(reserveRatios?.[token] ? reserveRatios[token] * 100 : 0).toFixed(1)}%`}
-                                            </span>
+                                {/* FIXED MODE: Single Token Selection */}
+                                {isEditing && mode === "fixed" ? (
+                                    <div className="p-4 bg-muted/20 border border-muted rounded-xl space-y-3">
+                                        <label className="text-sm font-medium">Default Payment Token</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {["USDC", "USDT", "cbBTC", "cbXRP", "ETH", "SOL"].map((token) => {
+                                                const isSelected = ratios[token] === 1;
+                                                return (
+                                                    <button
+                                                        key={token}
+                                                        onClick={() => {
+                                                            const newRatios: Record<string, number> = {
+                                                                USDC: 0, USDT: 0, cbBTC: 0, cbXRP: 0, ETH: 0, SOL: 0
+                                                            };
+                                                            newRatios[token] = 1;
+                                                            setRatios(newRatios);
+                                                        }}
+                                                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${isSelected
+                                                            ? "bg-primary text-primary-foreground border-primary"
+                                                            : "bg-background hover:bg-muted"
+                                                            }`}
+                                                        style={isSelected ? { backgroundColor: theme?.primaryColor } : {}}
+                                                    >
+                                                        {getTokenIcon(token)}
+                                                        <span className="font-semibold">{token}</span>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                        {isEditing ? (
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max="1"
-                                                step="0.001"
-                                                value={ratios[token] || 0}
-                                                onChange={(e) => handleSmartSliderChange(token, parseFloat(e.target.value))}
-                                                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                                                style={{ accentColor: theme?.secondaryColor || theme?.primaryColor }}
-                                            />
-                                        ) : (
-                                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full transition-all duration-500"
-                                                    style={{
-                                                        width: `${(reserveRatios?.[token] || 0) * 100}%`,
-                                                        backgroundColor: theme?.secondaryColor || theme?.primaryColor || "#3b82f6"
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                            All revenue will be converted to the selected token.
+                                        </p>
                                     </div>
-                                ))}
+                                ) : (
+                                    /* DYNAMIC MODE: Sliders */
+                                    <div className="space-y-4">
+                                        {["USDC", "USDT", "cbBTC", "cbXRP", "ETH", "SOL"].map((token) => (
+                                            <div key={token} className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        {getTokenIcon(token)}
+                                                        <span className="font-mono text-sm font-medium">{token}</span>
+                                                    </div>
+                                                    <span className="text-sm font-bold">
+                                                        {isEditing
+                                                            ? `${(ratios[token] ? ratios[token] * 100 : 0).toFixed(1)}%`
+                                                            : `${(reserveRatios?.[token] ? reserveRatios[token] * 100 : 0).toFixed(1)}%`}
+                                                    </span>
+                                                </div>
+                                                {isEditing ? (
+                                                    <input
+                                                        type="range"
+                                                        min="0"
+                                                        max="1"
+                                                        step="0.001"
+                                                        value={ratios[token] || 0}
+                                                        onChange={(e) => handleSmartSliderChange(token, parseFloat(e.target.value))}
+                                                        className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                                                        style={{ accentColor: theme?.secondaryColor || theme?.primaryColor }}
+                                                    />
+                                                ) : (
+                                                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full transition-all duration-500"
+                                                            style={{
+                                                                width: `${(reserveRatios?.[token] || 0) * 100}%`,
+                                                                backgroundColor: theme?.secondaryColor || theme?.primaryColor || "#3b82f6"
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
+
                         </div>
                     </div>
 
@@ -1352,7 +1309,17 @@ function ReserveSettings({ merchantWallet, theme, reserveRatios, accumulationMod
 
             {/* Per Token Analytics */}
             <div className="bg-card border rounded-xl p-6">
-                <h2 className="text-lg font-semibold mb-4">Reserve Balances</h2>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">Reserve Balances</h2>
+                    <button
+                        onClick={handleWithdrawAll}
+                        disabled={isWithdrawingAll || loading || !balances}
+                        className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:brightness-110 disabled:opacity-50 transition-all"
+                        style={{ backgroundColor: theme?.primaryColor }}
+                    >
+                        {isWithdrawingAll ? "Processing..." : "Withdraw All"}
+                    </button>
+                </div>
                 {loading ? (
                     <div className="text-sm text-muted-foreground">Loading balances...</div>
                 ) : !balances ? (
@@ -1416,6 +1383,119 @@ function ReserveSettings({ merchantWallet, theme, reserveRatios, accumulationMod
                     </div>
                 )}
             </div>
+
+            {/* Sequential Withdrawal Modal */}
+            {
+                withdrawModalOpen && typeof window !== "undefined" && createPortal(
+                    <div
+                        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4 transition-all duration-200"
+                        onKeyDown={(e) => { if (e.key === "Escape" && !isWithdrawingAll) setWithdrawModalOpen(false); }}
+                    >
+                        <div className="w-full max-w-sm rounded-xl border bg-background p-5 shadow-2xl relative animate-in zoom-in-95 duration-200">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-base font-bold">Withdrawing Reserves</h3>
+                                {!isWithdrawingAll && (
+                                    <button
+                                        onClick={() => setWithdrawModalOpen(false)}
+                                        className="w-6 h-6 rounded-full border flex items-center justify-center hover:bg-muted text-xs"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Progress Bar */}
+                                <div className="space-y-1.5">
+                                    <div className="flex justify-between text-xs font-medium text-muted-foreground">
+                                        <span>Progress</span>
+                                        <span>{withdrawProcessed} / {Math.max(1, withdrawQueue.length)}</span>
+                                    </div>
+                                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-green-500 transition-all duration-300 ease-out"
+                                            style={{
+                                                backgroundColor: theme?.primaryColor || '#22c55e',
+                                                width: `${Math.min(100, Math.floor((withdrawProcessed / Math.max(1, withdrawQueue.length)) * 100))}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Status List */}
+                                <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                    {withdrawQueue.map((sym, idx) => {
+                                        const st = withdrawStatuses[sym];
+                                        const isPending = !st && withdrawProcessed === idx;
+                                        const isWaiting = !st && withdrawProcessed < idx;
+
+                                        let statusColor = "text-muted-foreground";
+                                        let icon = <div className="w-4 h-4 rounded-full border border-current opacity-30" />; // Empty circle
+
+                                        if (isPending) {
+                                            statusColor = "text-blue-500 animate-pulse";
+                                            icon = (
+                                                <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                            );
+                                        } else if (st?.status === "submitted") {
+                                            statusColor = "text-green-500";
+                                            icon = (
+                                                <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-[10px] text-white">
+                                                    ✓
+                                                </div>
+                                            );
+                                        } else if (st?.status === "failed") {
+                                            statusColor = "text-red-500";
+                                            icon = <div className="w-4 h-4 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[10px] font-bold">!</div>;
+                                        } else if (st?.status === "skipped") {
+                                            statusColor = "text-amber-500";
+                                            icon = <div className="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[10px] font-bold">-</div>;
+                                        }
+
+                                        return (
+                                            <div key={sym} className={`flex items-center gap-3 p-2 rounded-lg border ${isPending ? "bg-muted/50 border-primary/20" : "bg-card border-transparent"}`}>
+                                                <div className="shrink-0">{icon}</div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className={`text-sm font-medium ${isPending || st ? "text-foreground" : "text-muted-foreground"}`}>
+                                                            Withdraw {sym}
+                                                        </span>
+                                                        {st?.tx && (
+                                                            <a
+                                                                href={`https://basescan.org/tx/${st.tx}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-[10px] hover:underline opacity-70"
+                                                            >
+                                                                View Tx ↗
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                    <div className={`text-xs truncate ${statusColor}`}>
+                                                        {st?.reason || (st?.status === "submitted" ? "Transaction Submitted" : isPending ? "Waiting for signature..." : isWaiting ? "Queued" : st?.status)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Footer Actions */}
+                                <div className="pt-2 flex justify-end">
+                                    <button
+                                        onClick={() => setWithdrawModalOpen(false)}
+                                        disabled={isWithdrawingAll}
+                                        className="px-4 py-2 text-sm font-medium rounded-lg border hover:bg-muted disabled:opacity-50 transition-colors"
+                                    >
+                                        {isWithdrawingAll ? "Processing..." : "Close"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )
+            }
         </div >
     );
 }
