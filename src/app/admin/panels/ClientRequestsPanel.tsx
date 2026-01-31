@@ -139,6 +139,9 @@ export default function ClientRequestsPanel() {
         let finalRes = res;
         if (statusFilter !== "all") {
             finalRes = finalRes.filter(i => i.status === statusFilter);
+        } else {
+            // Default "All" view should exclude orphaned items (soft deleted)
+            finalRes = finalRes.filter(i => i.status !== "orphaned");
         }
 
         // 4. Sort
