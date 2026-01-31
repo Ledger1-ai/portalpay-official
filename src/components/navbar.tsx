@@ -284,7 +284,10 @@ export function Navbar() {
                 // Check if already authenticated (Passing x - wallet to detect approved but unauthenticated users)
                 const me = await fetch('/api/auth/me', {
                     cache: 'no-store',
-                    headers: { 'x-wallet': w }
+                    headers: {
+                        'x-wallet': w,
+                        'x-brand-key': (brand as any)?.key || ""
+                    }
                 })
                     .then(r => r.ok ? r.json() : { authed: false })
                     .catch(() => ({ authed: false }));
@@ -296,7 +299,7 @@ export function Navbar() {
                 // Access Control Gating
                 const accessMode = (brand as any)?.accessMode || "open";
                 const isPrivate = accessMode === "request";
-                const isApproved = me?.shopStatus === "approved" || isPlatformAdmin;
+                const isApproved = String(me?.shopStatus || "").toLowerCase() === "approved" || isPlatformAdmin;
 
                 // If Private Mode and Not Approved (and not Platform/Owner bypass), block login
                 const isPlatformContainer = container.containerType === "platform";

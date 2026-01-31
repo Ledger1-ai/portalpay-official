@@ -48,7 +48,8 @@ export async function GET(req: NextRequest) {
       }
     } else {
       try {
-        const brandKey = (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "basaltsurge").toLowerCase();
+        const headerBrandKey = req.headers.get("x-brand-key");
+        const brandKey = (headerBrandKey || process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "basaltsurge").toLowerCase();
         const container = await getContainer();
 
         // Check shop_config status
