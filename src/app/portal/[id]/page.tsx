@@ -79,11 +79,14 @@ function getBuildTimeTokens(): TokenDef[] {
   const tokens: TokenDef[] = [];
   tokens.push({ symbol: "ETH", type: "native" });
 
-  const usdc = (process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913").trim(); // Base USDC
-  const usdt = (process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS || "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2").trim(); // Base USDT
-  const cbbtc = (process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS || "0xcbB7C0000ab88B473b1f5aFd9ef808440eed33Bf").trim(); // Base cbBTC
-  const cbxrp = (process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS || "0xcb585250f852C6c6bf90434AB21A00f02833a4af").trim(); // cbXRP (add fallback if known, leaving empty for now if unknown)
-  const sol = (process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS || "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82").trim();
+  // Helper to sanitize env vars (remove quotes, whitespace)
+  const sanitize = (s: string | undefined) => (s || "").replace(/["']/g, "").trim();
+
+  const usdc = sanitize(process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS) || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC
+  const usdt = sanitize(process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS) || "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"; // Base USDT
+  const cbbtc = sanitize(process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS) || "0xcbB7C0000ab88B473b1f5aFd9ef808440eed33Bf"; // Base cbBTC
+  const cbxrp = sanitize(process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS) || "0xcb585250f852C6c6bf90434AB21A00f02833a4af"; // cbXRP
+  const sol = sanitize(process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS) || "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82";
 
   if (usdc)
     tokens.push({
@@ -2628,7 +2631,7 @@ export default function PortalReceiptPage() {
                         className="w-full"
                         client={client}
                         chain={base} // FORCE Base chain to align with hardcoded Base tokens
-                        currency={currency} // valid on Base
+                        currency={currency as any} // valid on Base
                         amount={(isFiatFlow && widgetFiatAmount) ? (widgetFiatAmount as any) : widgetAmount}
                         seller={sellerAddress || merchantWallet || recipient}
                         tokenAddress={token === "ETH" ? undefined : (tokenAddr as any)}
