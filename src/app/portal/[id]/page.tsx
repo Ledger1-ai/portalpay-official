@@ -1324,7 +1324,16 @@ export default function PortalReceiptPage() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  const [token, setToken] = useState<"ETH" | "USDC" | "USDT" | "cbBTC" | "cbXRP" | "SOL">("ETH");
+  const [token, setToken] = useState<"ETH" | "USDC" | "USDT" | "cbBTC" | "cbXRP" | "SOL">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("token");
+      if (t && ["ETH", "USDC", "USDT", "cbBTC", "cbXRP", "SOL"].includes(t.toUpperCase())) {
+        return t.toUpperCase() as any;
+      }
+    }
+    return "ETH";
+  });
   const [availableTokens, setAvailableTokens] = useState<TokenDef[]>(() => getBuildTimeTokens());
 
   // Consolidated site-config fetch (single call) to set fee, default token, and seller/split address

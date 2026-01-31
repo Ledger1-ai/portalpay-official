@@ -489,7 +489,8 @@ export async function GET(req: NextRequest) {
 
                   return jsonResponse({ config: n }, {
                     headers: {
-                      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+                      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                      "Surrogate-Control": "no-store",
                       "Pragma": "no-cache",
                       "Expires": "0",
                     },
