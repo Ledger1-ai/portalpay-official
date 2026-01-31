@@ -61,7 +61,8 @@ export async function GET(req: NextRequest) {
         const container = await getContainer();
 
         // Check shop_config status
-        const shopQuery = "SELECT top 1 c.status, c.brandKey, c.id FROM c WHERE c.type = 'shop_config' AND c.wallet = @w AND c.brandKey = @b";
+        // Check shop_config OR site_config status
+        const shopQuery = "SELECT top 1 c.status, c.brandKey, c.id FROM c WHERE (c.type = 'shop_config' OR c.type = 'site_config') AND c.wallet = @w AND c.brandKey = @b";
         console.log("[AuthMe] Checking Access:", { wallet, brandKey, isPlatformAdmin });
         const { resources: shopResources } = await container.items.query({
           query: shopQuery,
