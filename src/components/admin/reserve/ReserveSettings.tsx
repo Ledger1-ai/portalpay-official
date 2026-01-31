@@ -34,64 +34,10 @@ export function ReserveSettings() {
   >("ETH");
   const [accumulationMode, setAccumulationMode] = useState<"fixed" | "dynamic">("fixed");
   const accModeUserChangedRef = useRef<boolean>(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const ratiosDebounceRef = useRef<number | null>(null);
-
-  // Baselines to highlight unsaved changes
-  const [lastSavedProcessingFeePct, setLastSavedProcessingFeePct] = useState<number>(0);
-  const [lastSavedStoreCurrency, setLastSavedStoreCurrency] = useState<string>("USD");
-  const [lastSavedRatios, setLastSavedRatios] = useState<Record<string, number>>({
-    USDC: 0.2,
-    USDT: 0.2,
-    cbBTC: 0.2,
-    cbXRP: 0.2,
-    ETH: 0.2,
-    SOL: 0,
-  });
-  const [lastSavedDefaultPaymentToken, setLastSavedDefaultPaymentToken] = useState<
-    "ETH" | "USDC" | "USDT" | "cbBTC" | "cbXRP" | "SOL"
-  >("ETH");
-  const [lastSavedAccumulationMode, setLastSavedAccumulationMode] = useState<"fixed" | "dynamic">("fixed");
-
-  // Saved confirmation pulse
-  const [savedPulse, setSavedPulse] = useState<boolean>(false);
-
-  async function postRatios(newRatios: Record<string, number>) {
-    try {
-      const r = await fetch("/api/site/config", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-wallet": account?.address || "",
-        },
-        body: JSON.stringify({ reserveRatios: newRatios }),
-      });
-      if (r.ok) {
-        setLastSavedRatios({ ...newRatios });
-        setSavedPulse(true);
-        try { setTimeout(() => setSavedPulse(false), 1200); } catch {}
-      } else {
-        const j = await r.json().catch(() => ({}));
-        setError(j?.error || "Failed to auto-save ratios");
-      }
-    } catch (e: any) {
-      setError(e?.message || "Failed to auto-save ratios");
-    }
-  }
-
-  function schedulePostRatios(newRatios: Record<string, number>) {
-    try {
-      if (ratiosDebounceRef.current) {
-        clearTimeout(ratiosDebounceRef.current as any);
-      }
-      ratiosDebounceRef.current = window.setTimeout(() => {
-        postRatios(newRatios);
-      }, 400) as any;
-    } catch {}
-  }
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     fetch("/api/site/config", {
       headers: {
         "x-wallet": account?.address || "",
@@ -125,105 +71,22 @@ export function ReserveSettings() {
               window.dispatchEvent(
                 new CustomEvent("pp:accumulationModeChanged", { detail: { mode: cfg.accumulationMode } })
               );
-            } catch {}
+            } catch { }
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { })
+      .finally(() => setLoading(false));
   }, [account?.address]);
 
-  useEffect(() => {
-    const onUpdated = (e: any) => {
-      try {
-        const next = e?.detail?.ratios;
-        if (next && typeof next === "object") {
-          setRatios((prev) => ({ ...prev, ...next }));
-        }
-      } catch {}
-    };
-    try { window.addEventListener("pp:reserveRatiosUpdated", onUpdated as any); } catch {}
-    return () => {
-      try { window.removeEventListener("pp:reserveRatiosUpdated", onUpdated as any); } catch {}
-    };
-  }, [account?.address]);
-
-  useEffect(() => {
-    const onSave = () => {
-      try { saveSettings(); } catch {}
-    };
-    try { window.addEventListener("pp:saveReserveSettings", onSave as any); } catch {}
-    return () => {
-      try { window.removeEventListener("pp:saveReserveSettings", onSave as any); } catch {}
-    };
-  }, [account?.address, processingFeePct, defaultPaymentToken, accumulationMode, ratios]);
-
-  function handleSliderChange(changedSymbol: string, newValue: number) {
-    const tokens = ["USDC", "USDT", "cbBTC", "cbXRP", "ETH", "SOL"];
-    const clampedValue = Math.max(0, Math.min(1, newValue));
-
-    const remaining = 1 - clampedValue;
-    const otherTokens = tokens.filter((t) => t !== changedSymbol);
-
-    const currentOthersSum = otherTokens.reduce((sum, t) => sum + (ratios[t] || 0), 0);
-
-    const newRatios: Record<string, number> = { [changedSymbol]: clampedValue };
-
-    if (currentOthersSum > 0) {
-      otherTokens.forEach((token) => {
-        const proportion = (ratios[token] || 0) / currentOthersSum;
-        newRatios[token] = remaining * proportion;
-      });
-    } else {
-      const equalShare = remaining / otherTokens.length;
-      otherTokens.forEach((token) => {
-        newRatios[token] = equalShare;
-      });
-    }
-
-    setRatios(newRatios);
-    schedulePostRatios(newRatios);
-    try { window.dispatchEvent(new CustomEvent("pp:reserveRatiosUpdated", { detail: { ratios: newRatios } })); } catch {}
+  // Render loading skeleton
+  if (loading) {
+    return <div className="space-y-4 animate-pulse">
+      <div className="h-10 bg-muted/20 rounded-md w-full"></div>
+      <div className="h-10 bg-muted/20 rounded-md w-full"></div>
+      <div className="h-10 bg-muted/20 rounded-md w-full"></div>
+    </div>;
   }
-
-  async function saveSettings() {
-    try {
-      setSaving(true);
-      setError("");
-      const r = await fetch("/api/site/config", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-wallet": account?.address || "",
-        },
-        body: JSON.stringify({
-          processingFeePct: Math.max(0, Number(processingFeePct)),
-          storeCurrency,
-          reserveRatios: ratios,
-          defaultPaymentToken,
-          accumulationMode,
-        }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setError(j?.error || "Failed to save");
-        return;
-      }
-      // Successful save: update baselines and pulse
-      setLastSavedProcessingFeePct(Math.max(0, Number(processingFeePct)));
-      setLastSavedStoreCurrency(storeCurrency || "USD");
-      setLastSavedRatios({ ...ratios });
-      setLastSavedDefaultPaymentToken(defaultPaymentToken);
-      setLastSavedAccumulationMode(accumulationMode);
-      setSavedPulse(true);
-      try { setTimeout(() => setSavedPulse(false), 1500); } catch {}
-    } catch (e: any) {
-      setError(e?.message || "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const currentTotal = Object.values(ratios).reduce((sum, val) => sum + (val || 0), 0);
 
   return (
     <div className="space-y-4">
@@ -237,7 +100,7 @@ export function ReserveSettings() {
       <div>
         <label className="text-sm font-medium">Store Currency</label>
         <select
-          className={`w-full h-9 px-3 py-1 border rounded-md bg-background ${ (storeCurrency !== lastSavedStoreCurrency) ? "ring-1 ring-amber-500 border-amber-300" : "" }`}
+          className={`w-full h-9 px-3 py-1 border rounded-md bg-background ${(storeCurrency !== lastSavedStoreCurrency) ? "ring-1 ring-amber-500 border-amber-300" : ""}`}
           value={storeCurrency}
           onChange={(e) => setStoreCurrency(e.target.value)}
         >
@@ -258,7 +121,7 @@ export function ReserveSettings() {
           type="number"
           min={0}
           step={0.01}
-          className={`w-full h-9 px-3 py-1 border rounded-md bg-background ${ (Math.abs((processingFeePct || 0) - (lastSavedProcessingFeePct || 0)) > 0.0001) ? "ring-1 ring-amber-500 border-amber-300" : "" }`}
+          className={`w-full h-9 px-3 py-1 border rounded-md bg-background ${(Math.abs((processingFeePct || 0) - (lastSavedProcessingFeePct || 0)) > 0.0001) ? "ring-1 ring-amber-500 border-amber-300" : ""}`}
           value={processingFeePct}
           onChange={(e) => setProcessingFeePct(Math.max(0, Number(e.target.value || 0)))}
         />
@@ -270,7 +133,7 @@ export function ReserveSettings() {
       <div className="mt-3">
         <label className="text-sm font-medium">Accumulation Mode</label>
         <select
-          className={`w-full h-9 px-3 py-1 border rounded-md bg-background ${ (accumulationMode !== lastSavedAccumulationMode) ? "ring-1 ring-amber-500 border-amber-300" : "" }`}
+          className={`w-full h-9 px-3 py-1 border rounded-md bg-background ${(accumulationMode !== lastSavedAccumulationMode) ? "ring-1 ring-amber-500 border-amber-300" : ""}`}
           value={accumulationMode}
           onChange={(e) => {
             const mode = e.target.value as any;
@@ -278,7 +141,7 @@ export function ReserveSettings() {
             setAccumulationMode(mode);
             try {
               window.dispatchEvent(new CustomEvent("pp:accumulationModeChanged", { detail: { mode } }));
-            } catch {}
+            } catch { }
             (async () => {
               try {
                 const r = await fetch("/api/site/config", {
@@ -289,9 +152,9 @@ export function ReserveSettings() {
                 if (r.ok) {
                   setLastSavedAccumulationMode(mode);
                   setSavedPulse(true);
-                  try { setTimeout(() => setSavedPulse(false), 1200); } catch {}
+                  try { setTimeout(() => setSavedPulse(false), 1200); } catch { }
                 }
-              } catch {}
+              } catch { }
             })();
           }}
         >
@@ -307,7 +170,7 @@ export function ReserveSettings() {
         <div>
           <label className="text-sm font-medium">Default Payment Token</label>
           <select
-            className={`w-full h-9 px-3 py-1 border rounded-md bg-background ${ (defaultPaymentToken !== lastSavedDefaultPaymentToken) ? "ring-1 ring-amber-500 border-amber-300" : "" }`}
+            className={`w-full h-9 px-3 py-1 border rounded-md bg-background ${(defaultPaymentToken !== lastSavedDefaultPaymentToken) ? "ring-1 ring-amber-500 border-amber-300" : ""}`}
             value={defaultPaymentToken}
             onChange={(e) => setDefaultPaymentToken(e.target.value as any)}
           >
@@ -329,9 +192,8 @@ export function ReserveSettings() {
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium">Reserve Ratios (Target Fractions)</label>
             <span
-              className={`microtext font-medium ${
-                Math.abs(currentTotal - 1) < 0.001 ? "text-green-600" : "text-amber-600"
-              }`}
+              className={`microtext font-medium ${Math.abs(currentTotal - 1) < 0.001 ? "text-green-600" : "text-amber-600"
+                }`}
             >
               Total: {currentTotal.toFixed(3)}
             </span>
@@ -340,11 +202,10 @@ export function ReserveSettings() {
             {["USDC", "USDT", "cbBTC", "cbXRP", "ETH", "SOL"].map((symbol) => (
               <div
                 key={symbol}
-                className={`space-y-1 rounded-md border p-2 ${
-                  Math.abs((ratios[symbol] || 0) - (lastSavedRatios[symbol] || 0)) > 0.0005
+                className={`space-y-1 rounded-md border p-2 ${Math.abs((ratios[symbol] || 0) - (lastSavedRatios[symbol] || 0)) > 0.0005
                     ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
                     : "border-transparent"
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium">{symbol}</label>
