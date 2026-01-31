@@ -1374,6 +1374,11 @@ export default function PortalReceiptPage() {
         if (dynamicToken) {
           selected = dynamicToken;
           console.log("[PORTAL] Dynamic Reserve Strategy selected:", selected);
+        } else if (searchParams?.get("token")) {
+          const tParam = String(searchParams.get("token")).trim().toUpperCase();
+          const avail = effectiveTokens.find((x) => x.symbol === tParam);
+          const ok = tParam === "ETH" || (!!avail?.address && isValidHexAddress(String(avail.address)));
+          if (ok) selected = tParam;
         } else if (typeof t === "string") {
           const avail = effectiveTokens.find((x) => x.symbol === t);
           const ok = t === "ETH" || (!!avail?.address && isValidHexAddress(String(avail.address)));

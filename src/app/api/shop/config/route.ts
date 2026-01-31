@@ -70,6 +70,8 @@ export type ShopConfig = {
   bio?: string;
   theme: ShopTheme;
   arrangement: InventoryArrangement;
+  defaultPaymentToken?: "ETH" | "USDC" | "USDT" | "cbBTC" | "cbXRP" | "SOL";
+  accumulationMode?: "fixed" | "dynamic";
   xpPerDollar?: number; // Loyalty: XP multiplier per $1 spent
   loyalty?: {
     baseXP?: number;
@@ -103,7 +105,7 @@ export type ShopConfig = {
   updatedAt: number;
 };
 
-function defaults(brandKey?: string): Required<Omit<ShopConfig, "wallet" | "id" | "type" | "slug" | "brandKey" | "industryPack" | "industryPackActivatedAt">> {
+function defaults(brandKey?: string): Required<Omit<ShopConfig, "wallet" | "id" | "type" | "slug" | "brandKey" | "industryPack" | "industryPackActivatedAt" | "defaultPaymentToken" | "accumulationMode">> {
   // Check if we're in BasaltSurge context - brandKey OR environment variable
   const envBrandKey = (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase();
   const isBasalt = brandKey === "basaltsurge" || envBrandKey === "basaltsurge";
@@ -455,7 +457,21 @@ export async function GET(req: NextRequest) {
               if (brandKey) {
                 const { resource } = await c.item(getDocIdForBrand(brandKey), foundWallet).read<any>();
                 if (resource) {
-                  return jsonResponse({ config: normalize(resource, brandKey) }, {
+                  // Merge site_config for payment preferences
+                  let siteConf: any = null;
+                  try {
+                    const { resource: sc } = await c.item(getDocIdForBrand(brandKey).replace("shop:config", "site:config"), foundWallet).read<any>();
+                    siteConf = sc;
+                  } catch { }
+
+                  const n = normalize(resource, brandKey);
+                  // Inject payment tokens
+                  if (siteConf) {
+                    n.defaultPaymentToken = siteConf.defaultPaymentToken;
+                    n.accumulationMode = siteConf.accumulationMode;
+                  }
+
+                  return jsonResponse({ config: n }, {
                     headers: {
                       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
                       "Pragma": "no-cache",
@@ -479,7 +495,21 @@ export async function GET(req: NextRequest) {
             try {
               const { resource } = await c.item(DOC_ID, foundWallet).read<any>();
               if (resource) {
-                return jsonResponse({ config: normalize(resource, brandKey) }, {
+                // Merge site_config for payment preferences (legacy)
+                let siteConf: any = null;
+                try {
+                  // Legacy site config ID is "site:config"
+                  const { resource: sc } = await c.item("site:config", foundWallet).read<any>();
+                  siteConf = sc;
+                } catch { }
+
+                const n = normalize(resource, brandKey);
+                if (siteConf) {
+                  n.defaultPaymentToken = siteConf.defaultPaymentToken;
+                  n.accumulationMode = siteConf.accumulationMode;
+                }
+
+                return jsonResponse({ config: n }, {
                   headers: {
                     "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
                     "Pragma": "no-cache",

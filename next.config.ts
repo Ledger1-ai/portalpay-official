@@ -64,7 +64,7 @@ const nextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: https://explorer-api.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.com https://auth.privy.io https://*.rpc.privy.systems; frame-src https:; child-src https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https: https://use.typekit.net https://p.typekit.net; font-src 'self' https: data: https://use.typekit.net https://p.typekit.net; frame-ancestors *;",
+              "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: https://explorer-api.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.com https://auth.privy.io https://*.rpc.privy.systems; frame-src 'self' http: https:; child-src 'self' http: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https: https://use.typekit.net https://p.typekit.net; font-src 'self' https: data: https://use.typekit.net https://p.typekit.net; frame-ancestors *;",
           },
           {
             key: "Cross-Origin-Opener-Policy",

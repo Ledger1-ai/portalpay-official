@@ -1359,6 +1359,12 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
         if (brandName) q.set("t_brand", brandName);
         if (logo) q.set("t_logo", logo);
         if (cleanSlug) q.set("shop", cleanSlug);
+
+        // Pass preferred token if set in shop/site config
+        if ((cfg as any)?.defaultPaymentToken) {
+            q.set("token", (cfg as any).defaultPaymentToken);
+        }
+
         q.set("embedded", "1");
         q.set("layout", portalLayout === "wide" ? "wide" : "compact");
         if (portalLayout !== "wide") q.set("e_h", "480");
