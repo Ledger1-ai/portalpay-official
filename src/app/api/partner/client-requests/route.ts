@@ -544,24 +544,30 @@ export async function DELETE(req: NextRequest) {
         // 2. Query for all other documents belonging to this merchant wallet
         // Includes: site_config, shop_config, inventory, orders, split_index, etc.
         // We delete everything where partition key matches the wallet.
-        const relatedQuery = {
-            query: `SELECT * FROM c WHERE c.wallet = @w`,
-            parameters: [{ name: "@w", value: merchantWallet }]
-        };
-        const { resources: relatedDocs } = await container.items.query(relatedQuery).fetchAll();
+        /* 
+           CRITICAL SAFETY FIX: Do not delete related documents automatically! 
+           This was wiping stores. Only delete the request itself.
+        */
+        // const relatedQuery = {
+        //     query: `SELECT * FROM c WHERE c.wallet = @w`,
+        //     parameters: [{ name: "@w", value: merchantWallet }]
+        // };
+        // const { resources: relatedDocs } = await container.items.query(relatedQuery).fetchAll();
 
-        // Batch delete all related documents
-        await Promise.all(relatedDocs.map(async (doc: any) => {
-            try {
-                // Determine partition key (usually wallet, but some might differ? No, query was by wallet)
-                // Use the doc's own partition key value just in case, but here it's merchantWallet
-                await container.item(doc.id, merchantWallet).delete();
-            } catch (err) {
-                console.warn(`[client-requests] Failed to delete doc ${doc.id}:`, err);
-            }
-        }));
+        // // Batch delete all related documents
+        // await Promise.all(relatedDocs.map(async (doc: any) => {
+        //     try {
+        //         // Determine partition key (usually wallet, but some might differ? No, query was by wallet)
+        //         // Use the doc's own partition key value just in case, but here it's merchantWallet
+        //         await container.item(doc.id, merchantWallet).delete();
+        //     } catch (err) {
+        //         console.warn(`[client-requests] Failed to delete doc ${doc.id}:`, err);
+        //     }
+        // }));
 
-        return json({ ok: true, requestId, wallet: merchantWallet, deleted: true, relatedDocsDeleted: relatedDocs.length });
+        return json({ ok: true, requestId, wallet: merchantWallet, deleted: true });
+
+        return json({ ok: true, requestId, wallet: merchantWallet, deleted: true, relatedDocsDeleted: 0 });
     } catch (e: any) {
         console.error("[client-requests] DELETE Error:", e);
         return json({ error: e?.message || "delete_failed" }, { status: 500 });

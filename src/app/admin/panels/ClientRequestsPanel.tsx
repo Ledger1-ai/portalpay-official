@@ -195,8 +195,9 @@ export default function ClientRequestsPanel() {
     }
 
     useEffect(() => {
+        if (!account?.address) return;
         load();
-    }, [account?.address]);
+    }, [account?.address, brandKey]);
 
     async function updateStatus(id: string, status: "pending" | "approved" | "rejected" | "blocked" | "orphaned", splitConfig?: { partnerBps: number, merchantBps: number; agents?: { wallet: string; bps: number }[] }, shouldClose = true, shopConfigUpdate?: any) {
         try {
@@ -215,7 +216,7 @@ export default function ClientRequestsPanel() {
                 headers: {
                     "Content-Type": "application/json",
                     "x-wallet": account?.address || "",
-                    "x-brand-key": (brand as any)?.key || "",
+                    "x-brand-key": brandKey || (brand as any)?.key || "",
                 },
                 body: JSON.stringify(body),
             });
@@ -398,6 +399,7 @@ export default function ClientRequestsPanel() {
                 headers: {
                     "Content-Type": "application/json",
                     "x-wallet": account?.address || "",
+                    "x-brand-key": (brand as any)?.key || "",
                 },
                 body: JSON.stringify({
                     requestId: id,
@@ -661,11 +663,11 @@ export default function ClientRequestsPanel() {
                                                             </svg>
                                                         </button>
                                                         <button
-                                                            className="px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 text-xs font-semibold transition-colors"
-                                                            onClick={() => updateStatus(req.id, "pending")}
-                                                            title="Revert to Pending"
+                                                            className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition-colors"
+                                                            onClick={() => updateStatus(req.id, "approved", undefined, false)}
+                                                            title="Repair Access Config"
                                                         >
-                                                            Revert
+                                                            Repair
                                                         </button>
                                                     </>
                                                 )}

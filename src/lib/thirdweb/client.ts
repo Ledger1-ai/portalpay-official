@@ -6,7 +6,10 @@ let _client: ReturnType<typeof createThirdwebClient> | null = null;
 export function getClient() {
   if (!_client) {
     const secret = process.env.THIRDWEB_SECRET_KEY;
-    const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
+    const brandKey = process.env.NEXT_PUBLIC_BRAND_KEY || "";
+    const specificClientId = brandKey ? process.env[`NEXT_PUBLIC_THIRDWEB_CLIENT_ID_${brandKey.toUpperCase()}`] : undefined;
+    const clientId = specificClientId || process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
+
     _client = secret
       ? createThirdwebClient({ secretKey: secret as string })
       : createThirdwebClient({ clientId: String(clientId || "") });
