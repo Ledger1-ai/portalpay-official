@@ -14,7 +14,10 @@ type ShopConfigEditorProps = {
     onSave: (data: any) => Promise<void>;
 };
 
+import { useBrand } from "@/contexts/BrandContext";
+
 export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave }: ShopConfigEditorProps) {
+    const brand = useBrand();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -29,7 +32,7 @@ export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave
         theme: {
             primaryColor: initialData.primaryColor || "#0ea5e9",
             secondaryColor: "#22c55e", // Default
-            brandLogoUrl: initialData.logoUrl || "",
+            brandLogoUrl: initialData.logoUrl || brand?.logos?.symbol || "",
             brandFaviconUrl: initialData.faviconUrl || "",
         }
     });
@@ -192,6 +195,7 @@ export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave
                             const newUrl = String(url || "");
                             setConfig((prev: any) => ({
                                 ...prev,
+                                ...prev,
                                 theme: { ...prev.theme, brandLogoUrl: newUrl }
                             }));
                             if (newUrl && !config.theme.brandFaviconUrl) {
@@ -201,6 +205,28 @@ export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave
                         target="brand_logo"
                         compact
                     />
+                    {initialData.logoUrl && initialData.logoUrl !== config.theme.brandLogoUrl && (
+                        <div className="flex items-center gap-2 mt-1 px-1">
+                            <div className="text-[10px] text-gray-400">Application Logo:</div>
+                            <button
+                                onClick={() => {
+                                    setConfig((prev: any) => ({
+                                        ...prev,
+                                        theme: { ...prev.theme, brandLogoUrl: initialData.logoUrl }
+                                    }));
+                                    if (!config.theme.brandFaviconUrl) {
+                                        generateFavicon(initialData.logoUrl!);
+                                    }
+                                }}
+                                className="text-[10px] text-emerald-400 hover:text-emerald-300 underline"
+                            >
+                                Use this
+                            </button>
+                            <a href={initialData.logoUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-500 hover:text-gray-300">
+                                (View)
+                            </a>
+                        </div>
+                    )}
                 </div>
                 <div className="space-y-1">
                     <ImageUploadField

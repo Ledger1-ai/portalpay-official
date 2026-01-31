@@ -725,7 +725,9 @@ export function Navbar() {
         : effectiveLogo;
 
     // Modal icon should be a square symbol, not a full-width logo
-    const modalTitleIcon = isBasaltSurge ? "/Surge.png" : (effectiveLogoSymbol || effectiveLogoFavicon || "/Surge.png");
+    // Fix: Prioritize raw partner symbol from BrandContext to prevent ThemeContext from falling back to full logo
+    const rawPartnerSymbol = (brand as any)?.logos?.symbol;
+    const modalTitleIcon = isBasaltSurge ? "/Surge.png" : (rawPartnerSymbol || effectiveLogoSymbol || effectiveLogoFavicon || "/Surge.png");
 
     return (
         <>
