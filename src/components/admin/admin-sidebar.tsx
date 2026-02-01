@@ -30,6 +30,7 @@ type AdminTabKey =
   | 'terminal'
   | 'devices'
   | 'kitchen'
+  | 'tables'
   | 'delivery'
   | 'reserve'
 
@@ -335,6 +336,7 @@ export function AdminSidebar({ activeTab, onChangeTab, industryPack, canBranding
       items: [
         ...(industryPack === 'restaurant' ? [
           { title: 'Kitchen', key: 'kitchen' as AdminTabKey },
+          { title: 'Tables', key: 'tables' as AdminTabKey },
           { title: 'Delivery', key: 'delivery' as AdminTabKey }
         ] : []),
 

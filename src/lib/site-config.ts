@@ -8,7 +8,7 @@ function getDocIdForBrand(brandKey?: string): string {
   try {
     const key = String(brandKey || "").toLowerCase();
     // Legacy mapping: portalpay and basaltsurge share the 'site:config:portalpay' document ID
-    if (!key || key === "portalpay" || key === "basaltsurge") return "site:config:portalpay";
+    if (!key || key === "portalpay") return "site:config:portalpay";
     return `${DOC_ID}:${key}`;
   } catch {
     return DOC_ID;
@@ -168,11 +168,10 @@ export async function getSiteConfigForWallet(wallet?: string, brandKeyOverride?:
     try {
       const bRaw = brandKeyOverride || getBrandKey();
       brandKey = bRaw;
-      // Explicitly alias basaltsurge to portalpay to ensure it shares the exact same config/split logic
-      // This forces the lookup to treat basaltsurge exactly like the main portalpay instance
-      if (brandKey && String(brandKey).toLowerCase() === "basaltsurge") {
-        brandKey = "portalpay";
-      }
+      // Explicitly alias basaltsurge: NO MORE -> BasaltSurge is now its own brand document
+      // if (brandKey && String(brandKey).toLowerCase() === "basaltsurge") {
+      //   brandKey = "portalpay";
+      // }
     } catch {
       // brand not configured (e.g., platform container w/ legacy merchants) — continue with legacy flow
       brandKey = undefined;
@@ -192,7 +191,8 @@ export async function getSiteConfigForWallet(wallet?: string, brandKeyOverride?:
             // console.log("[site-config] step1 found", { id: resource.id, brandKey: resource.brandKey, hasSplit, splitAddr: n.splitAddress });
             const normalizedBrand = (brandKey || "").toLowerCase();
             const isPlatform = normalizedBrand === "portalpay" || normalizedBrand === "basaltsurge";
-            if (hasSplit || !isPlatform) return n;
+            // Allow returning brand-scoped doc even for platform brands as we migrate to per-brand docs
+            if (hasSplit || n.industryParams || !isPlatform || resource.id === "site:config:basaltsurge") return n;
             // platform brand without split in brand-scoped doc: continue to legacy/global search
           }
         } catch { }

@@ -6,7 +6,7 @@ import { Smartphone, RefreshCw, Plus, Trash2, Check, X, Clock } from "lucide-rea
 interface TouchpointDevice {
     id: string;
     installationId: string;
-    mode: "terminal" | "kiosk";
+    mode: "terminal" | "kiosk" | "handheld";
     merchantWallet: string;
     brandKey: string;
     locked: boolean;
@@ -25,7 +25,7 @@ export default function TouchpointMonitoringPanel() {
     // Provision form state
     const [showProvisionForm, setShowProvisionForm] = useState(false);
     const [provisionInstallId, setProvisionInstallId] = useState("");
-    const [provisionMode, setProvisionMode] = useState<"terminal" | "kiosk">("terminal");
+    const [provisionMode, setProvisionMode] = useState<"terminal" | "kiosk" | "handheld">("terminal");
     const [provisionWallet, setProvisionWallet] = useState("");
     const [provisioning, setProvisioning] = useState(false);
 
@@ -376,7 +376,7 @@ export default function TouchpointMonitoringPanel() {
 
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Mode</label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                 <button
                                     onClick={() => setProvisionMode("terminal")}
                                     className={`h-9 px-3 rounded-md border text-sm flex items-center justify-center gap-2 ${provisionMode === "terminal"
@@ -394,6 +394,15 @@ export default function TouchpointMonitoringPanel() {
                                         }`}
                                 >
                                     Kiosk
+                                </button>
+                                <button
+                                    onClick={() => setProvisionMode("handheld")}
+                                    className={`h-9 px-3 rounded-md border text-sm flex items-center justify-center gap-2 ${provisionMode === "handheld"
+                                        ? "bg-emerald-500/10 border-emerald-500 text-emerald-400"
+                                        : "bg-background hover:bg-foreground/5"
+                                        }`}
+                                >
+                                    Handheld
                                 </button>
                             </div>
                         </div>
@@ -611,7 +620,9 @@ export default function TouchpointMonitoringPanel() {
                                         <td className="p-3">
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${device.mode === "terminal"
                                                 ? "bg-blue-500/10 text-blue-400"
-                                                : "bg-purple-500/10 text-purple-400"
+                                                : device.mode === "handheld"
+                                                    ? "bg-orange-500/10 text-orange-400"
+                                                    : "bg-purple-500/10 text-purple-400"
                                                 }`}>
                                                 {device.mode}
                                             </span>

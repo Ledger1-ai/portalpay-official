@@ -68,8 +68,8 @@ export async function POST(req: NextRequest) {
         }
 
         const mode = String(body?.mode || "").toLowerCase();
-        if (mode !== "terminal" && mode !== "kiosk") {
-            return json({ error: "invalid_mode", message: "mode must be 'terminal' or 'kiosk'" }, { status: 400 });
+        if (mode !== "terminal" && mode !== "kiosk" && mode !== "handheld") {
+            return json({ error: "invalid_mode", message: "mode must be 'terminal', 'kiosk', or 'handheld'" }, { status: 400 });
         }
 
         const merchantWallet = String(body?.merchantWallet || "").trim();
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
             wallet, // partition key for Cosmos
             roles: [] as string[],
             installationId,
-            mode: mode as "terminal" | "kiosk",
+            mode: mode as "terminal" | "kiosk" | "handheld",
             merchantWallet,
             brandKey,
             locked: true,

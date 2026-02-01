@@ -59,6 +59,7 @@ import PublicationsPanelExt from "@/app/admin/panels/PublicationsPanel";
 // Placeholder to avoid errors - I will read file first
 import ReportsPanel from "@/app/admin/panels/ReportsPanel";
 import ClientRequestsPanel from "@/app/admin/panels/ClientRequestsPanel";
+import TablesPanel from "@/app/admin/panels/TablesPanel";
 import { isPlatformCtx, isPartnerCtx, isPlatformSuperAdmin, canAccessPanel } from "@/lib/authz";
 
 
@@ -9024,6 +9025,7 @@ export default function AdminPage() {
     | "terminal"
     | "devices"
     | "kitchen"
+    | "tables"
     | "pms"
     | "shopSetup"
     | "profileSetup"
@@ -9417,6 +9419,10 @@ export default function AdminPage() {
 
       {activeTab === "kitchen" && industryPack === 'restaurant' && (
         <KitchenDisplayPanel />
+      )}
+
+      {activeTab === "tables" && industryPack === 'restaurant' && (
+        <TablesPanel />
       )}
 
       {activeTab === "pms" && industryPack === 'hotel' && (

@@ -136,6 +136,8 @@ export const SiteConfigUpdateSchema = z.object({
   accumulationMode: z.enum(["fixed", "dynamic"]).optional(),
 
   taxConfig: TaxConfigSchema.optional(),
+
+  industryParams: z.record(z.string(), z.any()).optional(),
 });
 
 /**

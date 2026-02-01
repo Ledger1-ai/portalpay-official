@@ -17,12 +17,13 @@ import { getContainer } from "@/lib/cosmos";
  */
 export async function GET(request: NextRequest) {
   try {
-    const wallet = request.headers.get("x-wallet");
+    const { searchParams } = new URL(request.url);
+    const wallet = request.headers.get("x-wallet") || searchParams.get("wallet");
+
     if (!wallet) {
       return NextResponse.json({ error: "Wallet required" }, { status: 400 });
     }
 
-    const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get("status")?.split(",") || ["new", "preparing", "ready"];
     const sourceFilter = searchParams.get("source") || "all";
 
@@ -31,74 +32,114 @@ export async function GET(request: NextRequest) {
     // =====================
     // 1. Fetch POS Orders
     // =====================
+    // =====================
+    // 1. Fetch POS Orders (from Cosmos DB)
+    // =====================
     if (sourceFilter === "all" || sourceFilter === "pos") {
-      const allReceipts = getReceipts(undefined, wallet.toLowerCase());
-      const paidStatuses = ["checkout_success", "reconciled", "tx_mined", "recipient_validated", "paid"];
-      const paidReceipts = allReceipts.filter((r: any) => {
-        const status = String(r.status || "").toLowerCase();
-        return paidStatuses.includes(status);
-      });
+      try {
+        const container = await getContainer();
 
-      const inventory = getInventoryItems(wallet.toLowerCase());
-      const inventoryMap = new Map(
-        inventory.map((item: any) => [String(item.id || "").toLowerCase(), item])
-      );
+        // Build query for POS receipts
+        // We want receipts that have a kitchenStatus and are not cancelled/refunded (unless we track those too)
+        // AND status is relevant (e.g. not just 'generated' floating without items, but actual orders)
+        // kitchenStatus presence implies it's an order sent to kitchen.
 
-      for (const receipt of paidReceipts) {
-        const lineItems = Array.isArray(receipt.lineItems) ? receipt.lineItems : [];
-        const restaurantItems = [];
+        // Filter by kitchen statuses if specified
+        // statusFilter is array of strings.
+        // Cosmos IN clause: WHERE c.kitchenStatus IN ('new', 'preparing', 'ready')
+        const statusClause = statusFilter.length > 0
+          ? `AND ARRAY_CONTAINS(@statusFilter, c.kitchenStatus)`
+          : "";
 
-        for (const item of lineItems) {
-          const label = String(item.label || "").toLowerCase();
-          if (label.includes("processing fee") || label.includes("tax")) {
-            continue;
-          }
+        const querySpec = {
+          query: `
+            SELECT * FROM c 
+            WHERE c.type='receipt' 
+            AND c.wallet=@wallet 
+            AND IS_DEFINED(c.kitchenStatus) 
+            ${statusClause}
+            ORDER BY c.createdAt ASC
+          `,
+          parameters: [
+            { name: "@wallet", value: wallet.toLowerCase() },
+            { name: "@statusFilter", value: statusFilter }
+          ]
+        };
 
-          const itemId = String((item as any).itemId || "").toLowerCase();
-          const sku = String((item as any).sku || "").toLowerCase();
+        const { resources: posReceipts } = await container.items.query(querySpec).fetchAll();
 
-          let inventoryItem = null;
-          if (itemId) {
-            inventoryItem = inventoryMap.get(itemId);
-          }
-          if (!inventoryItem && sku) {
-            inventoryItem = inventory.find((inv: any) =>
-              String(inv.sku || "").toLowerCase() === sku
-            );
-          }
+        for (const receipt of posReceipts) {
+          const lineItems = Array.isArray(receipt.lineItems) ? receipt.lineItems : [];
 
-          if (inventoryItem && inventoryItem.industryPack === "restaurant") {
-            restaurantItems.push({
+          // Filter out taxes/fees
+          const restaurantItems = lineItems.filter((item: any) => {
+            const label = String(item.label || "").toLowerCase();
+            return !label.includes("processing fee") && !label.includes("tax") && !label.includes("discount");
+          }).map((item: any) => {
+            // Unify modifier structure for KDS
+            // The Handheld/API sends 'modifiers' array on the item directly now (step 803)
+            // The KDS component (step 843) expects 'attributes.modifierGroups' or similar?
+            // Actually, let's just pass 'modifiers' and update the frontend component to handle it.
+            // But to minimize frontend changes now, let's map it if possible.
+            // Component code: const modifiers = item.attributes?.modifierGroups || [];
+
+            let modGroups = item.attributes?.modifierGroups || [];
+            if (Array.isArray(item.modifiers) && item.modifiers.length > 0 && modGroups.length === 0) {
+              // Map flat modifiers to a "Modifiers" group
+              modGroups = [{
+                name: "Modifiers",
+                modifiers: item.modifiers.map((m: any) => ({
+                  name: m.name,
+                  priceAdjustment: m.priceAdjustment,
+                  selected: true
+                }))
+              }];
+            }
+
+            return {
               ...item,
-              industryPack: "restaurant",
-              attributes: inventoryItem.attributes || {},
-            });
-          }
-        }
+              attributes: {
+                ...item.attributes,
+                modifierGroups: modGroups
+              }
+            };
+          });
 
-        if (restaurantItems.length > 0) {
-          const kitchenStatus = String((receipt as any).kitchenStatus || "new");
-          if (statusFilter.includes(kitchenStatus)) {
+          if (restaurantItems.length > 0) {
+            let serverName = receipt.employeeName || receipt.metadata?.employeeName || receipt.servedBy;
+            let specialInstructions = receipt.note || receipt.specialInstructions;
+
+            // Fallback: Parse Server Name from note if not explicit
+            if (!serverName && specialInstructions && specialInstructions.includes("Server:")) {
+              const match = specialInstructions.match(/Server:\s*([^\n]+)/i);
+              if (match) {
+                serverName = match[1].trim();
+              }
+            }
+
             kitchenOrders.push({
               receiptId: receipt.receiptId,
               totalUsd: receipt.totalUsd,
               currency: receipt.currency || "USD",
               createdAt: receipt.createdAt,
               status: receipt.status,
-              kitchenStatus,
+              kitchenStatus: receipt.kitchenStatus,
               lineItems: restaurantItems,
               brandName: receipt.brandName,
-              kitchenMetadata: (receipt as any).kitchenMetadata || {
+              kitchenMetadata: receipt.kitchenMetadata || {
                 enteredKitchenAt: receipt.createdAt,
               },
-              orderType: (receipt as any).orderType || "dine-in",
-              tableNumber: (receipt as any).tableNumber,
-              customerName: (receipt as any).customerName,
-              specialInstructions: (receipt as any).specialInstructions,
+              orderType: receipt.orderType || (receipt.tableNumber ? "dine-in" : "takeout"),
+              tableNumber: receipt.tableNumber,
+              customerName: receipt.customerName || (receipt.tableNumber ? `Table ${receipt.tableNumber}` : "Guest"),
+              serverName,
+              specialInstructions,
               source: "pos",
             });
           }
         }
+      } catch (e) {
+        console.error("[kitchen/orders] Failed to fetch POS orders from Cosmos:", e);
       }
     }
 
@@ -227,7 +268,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const validStatuses = ["new", "preparing", "ready", "completed"];
+    const validStatuses = ["new", "preparing", "ready", "completed", "archived"];
     if (!validStatuses.includes(kitchenStatus)) {
       return NextResponse.json(
         { error: "Invalid kitchen status" },
@@ -293,27 +334,39 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Otherwise, it's a POS receipt
-    const allReceipts = getReceipts(undefined, wallet.toLowerCase());
-    const receipt = allReceipts.find((r: any) => r.receiptId === receiptId);
+    const container = await getContainer();
+    const { resources: posReceipts } = await container.items.query({
+      query: "SELECT * FROM c WHERE c.receiptId = @id AND c.wallet = @wallet",
+      parameters: [
+        { name: "@id", value: receiptId },
+        { name: "@wallet", value: wallet.toLowerCase() }
+      ]
+    }).fetchAll();
 
-    if (!receipt) {
+    if (posReceipts.length === 0) {
       return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
     }
 
-    const receiptWallet = String(receipt.wallet || "").toLowerCase();
-    if (receiptWallet !== wallet.toLowerCase()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    const posReceipt = posReceipts[0];
+    posReceipt.kitchenStatus = kitchenStatus;
+
+    // Add metadata timestamps for POS too
+    posReceipt.kitchenMetadata = posReceipt.kitchenMetadata || { enteredKitchenAt: posReceipt.createdAt };
+
+    if (kitchenStatus === "preparing") {
+      posReceipt.kitchenMetadata.startedPreparingAt = Date.now();
+    } else if (kitchenStatus === "ready") {
+      posReceipt.kitchenMetadata.markedReadyAt = Date.now();
+    } else if (kitchenStatus === "completed") {
+      posReceipt.kitchenMetadata.completedAt = Date.now();
     }
 
-    updateReceiptStatus(receiptId, wallet.toLowerCase(), `kitchen:${kitchenStatus}`);
-
-    const updatedReceipts = getReceipts(undefined, wallet.toLowerCase());
-    const updatedReceipt = updatedReceipts.find((r: any) => r.receiptId === receiptId);
+    await container.items.upsert(posReceipt);
 
     return NextResponse.json({
       ok: true,
       receipt: {
-        ...updatedReceipt,
+        ...posReceipt,
         kitchenStatus,
         source: "pos",
       },

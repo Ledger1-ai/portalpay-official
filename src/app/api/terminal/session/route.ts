@@ -49,13 +49,30 @@ export async function GET(req: NextRequest) {
         const { resources: stats } = await container.items.query(statsQuery).fetchAll();
         const aggregated = stats[0] || { totalSales: 0, totalTips: 0, count: 0 };
 
+        let orders: any[] = [];
+        if (searchParams.get("includeOrders") === "true") {
+            const detailQuery = merchantWallet ? {
+                query: "SELECT c.id, c.receiptId, c.createdAt, c.totalUsd, c.tipAmount, c.status, c.tableNumber FROM c WHERE c.type = 'receipt' AND c.sessionId = @sid AND c.wallet = @wallet AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled', 'settled', 'completed') ORDER BY c.createdAt DESC",
+                parameters: [
+                    { name: "@sid", value: sessionId },
+                    { name: "@wallet", value: merchantWallet.toLowerCase() }
+                ]
+            } : {
+                query: "SELECT c.id, c.receiptId, c.createdAt, c.totalUsd, c.tipAmount, c.status, c.tableNumber FROM c WHERE c.type = 'receipt' AND c.sessionId = @sid AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled', 'settled', 'completed') ORDER BY c.createdAt DESC",
+                parameters: [{ name: "@sid", value: sessionId }]
+            };
+            const { resources: orderList } = await container.items.query(detailQuery).fetchAll();
+            orders = orderList;
+        }
+
         return NextResponse.json({
             session: {
                 ...session,
                 totalSales: aggregated.totalSales || 0,
                 totalTips: aggregated.totalTips || 0,
                 transactionCount: aggregated.count || 0
-            }
+            },
+            orders // Return detailed list if requested
         });
 
     } catch (e: any) {

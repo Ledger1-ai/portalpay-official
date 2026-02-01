@@ -1324,6 +1324,13 @@ export async function POST(req: NextRequest) {
       candidate.split = body.split;
     }
 
+    // Optional industryParams update
+    if (body && typeof body.industryParams === "object" && body.industryParams) {
+      // Allow persisting arbitrary industry-specific settings (restaurant tables, etc)
+      // We expect the client to have merged this with existing params if needed
+      candidate.industryParams = body.industryParams;
+    }
+
     const normalized = normalizeSiteConfig(candidate);
 
     // Write brand-scoped doc in partner containers; use getDocIdForBrand() for consistency with GET.
