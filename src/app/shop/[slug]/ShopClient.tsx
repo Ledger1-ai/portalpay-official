@@ -1364,14 +1364,15 @@ export default function ShopClient({ config: cfg, items: initialItems, reviews: 
 
         // Pass preferred token if set in shop/site config
         if (cfg?.defaultPaymentToken) {
-            q.set("token", cfg.defaultPaymentToken);
+            const t = String(cfg.defaultPaymentToken).trim();
+            if (t) q.set("token", t);
         }
 
         q.set("embedded", "1");
         q.set("layout", portalLayout === "wide" ? "wide" : "compact");
         if (portalLayout !== "wide") q.set("e_h", "480");
         return q.toString();
-    }, [cfg?.theme, cfg?.name, merchantWallet, cleanSlug, portalLayout]);
+    }, [cfg?.theme, cfg?.name, cfg?.defaultPaymentToken, merchantWallet, cleanSlug, portalLayout]);
 
     function renderProductCard(it: InventoryItem, listView = false) {
         const img = Array.isArray(it.images) && it.images.length ? it.images[0] : undefined;
