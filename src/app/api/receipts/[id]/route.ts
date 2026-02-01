@@ -57,8 +57,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     /^0x[a-f0-9]{40}$/i.test(walletParam)
       ? walletParam
       : /^0x[a-f0-9]{40}$/i.test(headerWallet)
-      ? headerWallet
-      : defaultRecipient;
+        ? headerWallet
+        : defaultRecipient;
   function sumLineItems(items: any[]): number {
     try {
       const base = Array.isArray(items) ? items : [];
@@ -83,10 +83,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       try {
         if (!/^0x[a-f0-9]{40}$/i.test(String(w || ""))) return undefined;
         try {
-const { resource } = await c.item("site:config", w).read();
+          const { resource } = await c.item("site:config", w).read();
           const t = (resource && (resource as any).theme) || {};
           if (t && typeof t.brandName === "string" && t.brandName) return t.brandName;
-        } catch {}
+        } catch { }
         try {
           const spec = {
             query:
@@ -97,12 +97,12 @@ const { resource } = await c.item("site:config", w).read();
           const row = Array.isArray(resources) && resources[0] ? resources[0] : null;
           const ownerWallet = typeof (row as any)?.wallet === "string" ? String((row as any).wallet).toLowerCase() : "";
           if (ownerWallet) {
-const { resource: mapped } = await c.item("site:config", ownerWallet).read();
+            const { resource: mapped } = await c.item("site:config", ownerWallet).read();
             const t2 = (mapped && (mapped as any).theme) || {};
             if (t2 && typeof t2.brandName === "string" && t2.brandName) return t2.brandName;
           }
-        } catch {}
-      } catch {}
+        } catch { }
+      } catch { }
       return undefined;
     }
     const spec = {
@@ -158,10 +158,10 @@ const { resource: mapped } = await c.item("site:config", ownerWallet).read();
                   const payTo = String((sub as any).payTo || "").toLowerCase();
                   const brand = await resolveBrandName(container, payTo || wallet);
                   if (typeof brand === "string" && brand) rec.brandName = brand;
-                } catch {}
+                } catch { }
               }
             }
-          } catch {}
+          } catch { }
           if (!(rec.totalUsd > 0) && isTest) {
             rec.totalUsd = 5.0;
             rec.lineItems = demoItems;
@@ -195,7 +195,7 @@ const { resource: mapped } = await c.item("site:config", ownerWallet).read();
         try {
           const brand = await resolveBrandName(container, payTo || wallet);
           if (typeof brand === "string" && brand) brandName = brand;
-        } catch {}
+        } catch { }
         const rec: Receipt = {
           receiptId: id,
           totalUsd: amountUsd > 0 ? amountUsd : (isTest ? 5.0 : 0),
@@ -207,10 +207,10 @@ const { resource: mapped } = await c.item("site:config", ownerWallet).read();
           status: typeof (sub2 as any).status === "string" ? (sub2 as any).status : "pending",
         };
         if (rec.totalUsd > 0) {
-      return NextResponse.json({ receipt: rec }, { headers: { "x-correlation-id": correlationId, "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0" } });
+          return NextResponse.json({ receipt: rec }, { headers: { "x-correlation-id": correlationId, "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0" } });
         }
       }
-    } catch {}
+    } catch { }
     // Try in-memory receipts (seeded) when Cosmos has no match
     const mem = getReceipts();
     const cached = Array.isArray(mem) ? mem.find((r: any) => String(r.receiptId || "") === id) : undefined;
@@ -242,7 +242,7 @@ const { resource: mapped } = await c.item("site:config", ownerWallet).read();
         try {
           const brand = await resolveBrandName(container, wallet);
           if (brand) rec.brandName = brand;
-        } catch {}
+        } catch { }
       }
       return NextResponse.json({ receipt: rec }, { headers: { "x-correlation-id": correlationId, "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0" } });
     }
@@ -292,7 +292,7 @@ const { resource: mapped } = await c.item("site:config", ownerWallet).read();
           const cfg = await getSiteConfigForWallet(wallet).catch(() => null as any);
           const brand = (cfg as any)?.theme?.brandName;
           if (typeof brand === "string" && brand) rec.brandName = brand;
-        } catch {}
+        } catch { }
       }
       return NextResponse.json(
         { receipt: rec },
@@ -305,7 +305,7 @@ const { resource: mapped } = await c.item("site:config", ownerWallet).read();
         const cfg = await getSiteConfigForWallet(wallet).catch(() => null as any);
         brand = (cfg as any)?.theme?.brandName;
       }
-    } catch {}
+    } catch { }
     const demo: Receipt = {
       receiptId: id,
       totalUsd: 5.0,
@@ -417,6 +417,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       createdAt?: number;
       brandName?: string;
       lineItems?: ReceiptLineItem[];
+      status?: string;
+      transactionHash?: string;
     } | null = null;
 
     // Try Cosmos first (not strictly required to upsert, but helps brand and tax inference)
@@ -428,6 +430,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           createdAt: Number(resource.createdAt || Date.now()),
           brandName: typeof resource.brandName === "string" ? resource.brandName : undefined,
           lineItems: Array.isArray(resource.lineItems) ? resource.lineItems : [],
+          status: typeof resource.status === "string" ? resource.status : undefined,
+          transactionHash: typeof resource.transactionHash === "string" ? resource.transactionHash : undefined,
         };
       }
     } catch {
@@ -441,6 +445,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           createdAt: Number(cached.createdAt || Date.now()),
           brandName: typeof cached.brandName === "string" ? cached.brandName : undefined,
           lineItems: Array.isArray(cached.lineItems) ? cached.lineItems : [],
+          status: typeof cached.status === "string" ? cached.status : undefined,
+          transactionHash: typeof (cached as any).transactionHash === "string" ? (cached as any).transactionHash : undefined,
         };
       }
     }
@@ -475,7 +481,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
             taxRate = Math.max(0, Math.min(1, rate));
           }
         }
-      } catch {}
+      } catch { }
       // Fallback: infer from prior receipt (Tax line / prior non-tax subtotal)
       if (typeof taxRate !== "number") {
         try {
@@ -487,7 +493,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           if (priorSubtotal > 0 && priorTax) {
             taxRate = Math.max(0, Math.min(1, Number(priorTax.priceUsd || 0) / priorSubtotal));
           }
-        } catch {}
+        } catch { }
       }
       // If still undefined, set to 0
       if (typeof taxRate !== "number") taxRate = 0;
@@ -514,8 +520,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const brandName = (existing?.brandName as string) || (cfg?.theme?.brandName || "PortalPay");
     const createdAt = Number(existing?.createdAt || ts);
 
-    // Determine status: if transaction hash provided, mark as "paid", otherwise "edited"
-    const newStatus = transactionHash ? "paid" : "edited";
+    // Determine status: if transaction hash provided OR already exists and status was settled, keep as "paid"
+    // Otherwise mark as "edited"
+    const hasHash = !!(transactionHash || (existing && (existing as any)?.transactionHash));
+    const isSettled = existing && ["paid", "checkout_success", "confirmed", "tx_mined"].includes(String((existing as any)?.status || "").toLowerCase());
+    const newStatus = hasHash ? "paid" : (isSettled ? (existing as any)?.status : "edited");
 
     // Upsert to Cosmos with status history update
     try {
@@ -530,33 +539,33 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       }
       const next = resource
         ? {
-            ...resource,
-            lineItems: finalLineItems,
-            totalUsd,
-            taxRate: Math.max(0, Math.min(1, taxRate || 0)),
-            status: newStatus,
-            statusHistory: Array.isArray(resource.statusHistory)
-              ? [...resource.statusHistory, { status: newStatus, ts }]
-              : [{ status: newStatus, ts }],
-            lastUpdatedAt: ts,
-            ...(transactionHash ? { transactionHash, transactionTimestamp } : {}),
-          }
+          ...resource,
+          lineItems: finalLineItems,
+          totalUsd,
+          taxRate: Math.max(0, Math.min(1, taxRate || 0)),
+          status: newStatus,
+          statusHistory: Array.isArray(resource.statusHistory)
+            ? [...resource.statusHistory, { status: newStatus, ts }]
+            : [{ status: newStatus, ts }],
+          lastUpdatedAt: ts,
+          ...(transactionHash ? { transactionHash, transactionTimestamp } : {}),
+        }
         : {
-            id: docId,
-            type: "receipt",
-            wallet,
-            receiptId: id,
-            totalUsd,
-            currency: "USD",
-            lineItems: finalLineItems,
-            createdAt,
-            brandName,
-            taxRate: Math.max(0, Math.min(1, taxRate || 0)),
-            status: newStatus,
-            statusHistory: [{ status: newStatus, ts }],
-            lastUpdatedAt: ts,
-            ...(transactionHash ? { transactionHash, transactionTimestamp } : {}),
-          };
+          id: docId,
+          type: "receipt",
+          wallet,
+          receiptId: id,
+          totalUsd,
+          currency: "USD",
+          lineItems: finalLineItems,
+          createdAt,
+          brandName,
+          taxRate: Math.max(0, Math.min(1, taxRate || 0)),
+          status: newStatus,
+          statusHistory: [{ status: newStatus, ts }],
+          lastUpdatedAt: ts,
+          ...(transactionHash ? { transactionHash, transactionTimestamp } : {}),
+        };
       await container.items.upsert(next as any);
       const receipt: Receipt = {
         receiptId: id,
@@ -574,7 +583,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       // Degraded mode: update in-memory copy
       try {
         updateReceiptContent(id, wallet, { lineItems: finalLineItems, totalUsd, status: "edited" });
-      } catch {}
+      } catch { }
       const receipt: Receipt = {
         receiptId: id,
         totalUsd,
@@ -701,7 +710,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     // Delete from mem store (dev/degraded)
     try {
       deleteReceipt(id, wallet);
-    } catch {}
+    } catch { }
 
     return NextResponse.json({ ok: true }, { headers: { "x-correlation-id": correlationId } });
   } catch (e: any) {

@@ -82,6 +82,7 @@ function isSettled(status?: string): boolean {
     s === "reconciled" ||
     s === "tx_mined" ||
     s === "recipient_validated" ||
+    s === "receipt_claimed" ||
     s.includes("refund")
   );
 }

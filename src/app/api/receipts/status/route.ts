@@ -168,15 +168,42 @@ export async function POST(req: NextRequest) {
     }
 
     // Update Cosmos doc: id = receipt:{receiptId}, partition key = wallet
+    const id = `receipt:${receiptId}`;
+    let resource: any = null;
     try {
       const container = await getContainer();
-      const id = `receipt:${receiptId}`;
-      let resource: any = null;
       try {
         const { resource: existing } = await container.item(id, wallet).read<any>();
         resource = existing || null;
       } catch {
         resource = null;
+      }
+
+      // Prevent overwriting settled/paid status with checkout_initialized or pending
+      // This happens if a user opens the portal page on an already-paid receipt and the frontend fires "checkout_initialized" before realizing it's paid.
+      const currentStatus = String(resource?.status || "").toLowerCase();
+      const isSettled =
+        currentStatus === "paid" ||
+        currentStatus === "checkout_success" ||
+        currentStatus === "confirmed" ||
+        currentStatus === "reconciled" ||
+        currentStatus === "tx_mined" ||
+        currentStatus === "recipient_validated" ||
+        currentStatus === "receipt_claimed" ||
+        currentStatus.includes("refund");
+
+      const isDowngrade =
+        isSettled &&
+        (status === "checkout_initialized" ||
+          status === "pending" ||
+          status === "link_opened" ||
+          status === "buyer_logged_in" ||
+          status === "checkout_ready" ||
+          status === "generated");
+
+      if (isDowngrade) {
+        // Return success but do not update DB
+        return NextResponse.json({ ok: true, ignored: true, reason: "already_settled" }, { headers: { "x-correlation-id": correlationId } });
       }
 
       const ts = Date.now();
