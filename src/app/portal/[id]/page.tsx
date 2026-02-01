@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { CheckoutWidget, darkTheme } from "thirdweb/react";
+import { getAddress } from "thirdweb";
 import dynamic from "next/dynamic";
 const ConnectButton = dynamic(() => import("thirdweb/react").then((m) => m.ConnectButton), { ssr: false });
 import { client, chain, getWallets } from "@/lib/thirdweb/client";
@@ -84,7 +85,7 @@ function getBuildTimeTokens(): TokenDef[] {
 
   const usdc = sanitize(process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS) || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC
   const usdt = sanitize(process.env.NEXT_PUBLIC_BASE_USDT_ADDRESS) || "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"; // Base USDT
-  const cbbtc = sanitize(process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS) || "0xcbB7C0000ab88B473b1f5aFd9ef808440eed33Bf"; // Base cbBTC
+  const cbbtc = sanitize(process.env.NEXT_PUBLIC_BASE_CBBTC_ADDRESS) || "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf"; // Base cbBTC
   const cbxrp = sanitize(process.env.NEXT_PUBLIC_BASE_CBXRP_ADDRESS) || "0xcb585250f852C6c6bf90434AB21A00f02833a4af"; // cbXRP
   const sol = sanitize(process.env.NEXT_PUBLIC_BASE_SOL_ADDRESS) || "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82";
 
@@ -1567,7 +1568,13 @@ export default function PortalReceiptPage() {
     "cbXRP": "0xcb585250f852C6c6bf90434AB21A00f02833a4af",
     "SOL": "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82"
   };
-  const tokenAddr = token === "ETH" ? undefined : (tokenDef?.address || BASE_ADDRS[token] || undefined);
+
+  const tokenAddr = token === "ETH" ? undefined : (() => {
+    // If we have a defined address (from config or fallback), ENFORCE checksum validation
+    const raw = tokenDef?.address || BASE_ADDRS[token] || undefined;
+    if (!raw) return undefined;
+    try { return getAddress(raw); } catch { return raw; } // Ensures EIP-55 compliance even if input is lowercase
+  })();
   const hasTokenAddr = token === "ETH" || (tokenAddr ? isValidHexAddress(tokenAddr) : false);
   // Feature flag: thirdweb Account Abstraction (AA) can cause runtime errors (e.g., "Cannot read properties of undefined (reading 'aa')")
   // in some environments when sponsorGas/client setup is incomplete or mismatched. Gate AA behind NEXT_PUBLIC_THIRDWEB_AA_ENABLED
