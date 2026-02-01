@@ -2703,120 +2703,158 @@ export default function PortalReceiptPage() {
                 <div ref={payRef} className={`mt-4 ${isEmbedded ? "rounded-none border-0 p-0 bg-transparent" : "rounded-2xl border p-3 bg-background/70"}`}>
                   <div ref={widgetRootRef} className={isEmbedded ? "mt-1 flex-1 border-2 rounded-2xl p-3" : "mt-2 rounded-2xl border p-3 flex-1"} style={{ minHeight: isEmbedded ? `${EMBEDDED_WIDGET_HEIGHT}px` : undefined, overflow: isEmbedded ? "hidden" : undefined, borderColor: isEmbedded ? "rgba(255,255,255,0.1)" : undefined }}>
                     {!loadingReceipt && receipt && totalUsd > 0 && amountReady && merchantWallet && tokenDef && hasTokenAddr && widgetSupported ? (
-                      <CheckoutWidget
-                        key={`${token}-${currency}-${ratesUpdatedAt ? ratesUpdatedAt.getTime() : 0}`}
-                        className="w-full"
-                        client={client}
-                        chain={base} // FORCE Base chain to align with hardcoded Base tokens
-                        currency={currency as any} // valid on Base
-                        amount={(isFiatFlow && widgetFiatAmount) ? (widgetFiatAmount as any) : widgetAmount}
-                        seller={sellerAddress || merchantWallet || recipient}
-                        tokenAddress={token === "ETH" ? undefined : (tokenAddr as any)}
-                        showThirdwebBranding={false}
-                        theme={darkTheme({
-                          colors: {
-                            modalBg: "transparent",
-                            borderColor: "transparent",
-                            primaryText: "#ffffff",
-                            secondaryText: "#ffffff",
-                            accentText: "#ffffff",
-                            accentButtonBg: theme.primaryColor,
-                            accentButtonText: "#ffffff",
-                            primaryButtonBg: theme.primaryColor,
-                            primaryButtonText: "#ffffff",
-                            connectedButtonBg: "rgba(255,255,255,0.04)",
-                            connectedButtonBgHover: "rgba(255,255,255,0.08)",
-                          },
-                        })}
-                        style={{
-                          width: "100%",
-                          maxWidth: "100%",
-
-                          background: "transparent",
-                          border: "none",
-                          borderRadius: 0,
-                        }}
-                        connectOptions={{ accountAbstraction: { chain, sponsorGas: true } }}
-
-                        purchaseData={{
-                          productId: `portal:${receiptId}`,
-                          meta: {
-                            token,
-                            currency,
-                            usd: totalUsd,
-                            tipUsd,
-                            itemsSubtotalUsd,
-                            taxUsd,
-                            processingFeeUsd: processingFeeUsd,
-                            feePct: (basePlatformFeePct + Number(processingFeePct || 0)),
-                            employeeId: receipt?.employeeId,
-                            sessionId: receipt?.sessionId,
-                          },
-                        }}
-                        onSuccess={async (data: any) => {
-                          try {
-                            const wallet = (account?.address || "").toLowerCase();
-
-                            // Robust txHash extraction from Thirdweb SDK response
-                            // data: { quote: BridgePrepareResult; statuses: Array<CompletedStatusResult>; }
-                            let txHash = "";
-                            const statuses = Array.isArray(data?.statuses) ? data.statuses : [];
-
-                            // 1. Try to find a transaction hash in statuses
-                            const txStatus = statuses.find((s: any) => s.transactionHash);
-                            if (txStatus) txHash = txStatus.transactionHash;
-
-                            // 2. Fallback to top-level property (older SDK versions)
-                            if (!txHash && data?.transactionHash) txHash = data.transactionHash;
-
-                            // 3. Last resort fallback
-                            if (!txHash) txHash = "";
-
-                            setPaymentConfirmed({
-                              txHash,
-                              amount: totalUsd,
-                              token: currency
-                            });
-
-                            await postStatus("paid", { buyer: wallet, txHash });
-                            await fetch("/api/billing/purchase", {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                                "x-wallet": wallet,
-                                "x-recipient": merchantWallet || recipient,
+                      <>
+                        {(paymentConfirmed || isSettled(receipt.status)) ? (
+                          <div className="w-full flex flex-col items-center justify-center gap-4 py-8 text-center animate-in fade-in zoom-in duration-300">
+                            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 mb-2">
+                              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-xl font-bold text-white">Payment Complete</div>
+                              <div className="text-sm text-foreground/80">
+                                {formatCurrency(totalUsd, "USD")} • {receiptId}
+                              </div>
+                            </div>
+                            <div className="p-4 rounded-xl bg-white/5 border border-white/10 w-full max-w-[280px] mt-2">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">
+                                Proof of Payment
+                              </div>
+                              <div className="text-lg font-bold text-white break-all">
+                                {paymentConfirmed?.txHash ? (
+                                  <span className="font-mono text-xs">{paymentConfirmed.txHash.slice(0, 10)}...{paymentConfirmed.txHash.slice(-8)}</span>
+                                ) : (
+                                  <span className="font-mono text-sm">Validating...</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-emerald-400 font-medium mt-1">
+                                Show this screen to merchant
+                              </div>
+                            </div>
+                            <div className="mt-4 flex gap-2">
+                              <button className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors" onClick={() => window.location.reload()}>
+                                Refresh Receipt
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <CheckoutWidget
+                            key={`${token}-${currency}-${ratesUpdatedAt ? ratesUpdatedAt.getTime() : 0}`}
+                            className="w-full"
+                            client={client}
+                            chain={base} // FORCE Base chain to align with hardcoded Base tokens
+                            currency={currency as any} // valid on Base
+                            amount={(isFiatFlow && widgetFiatAmount) ? (widgetFiatAmount as any) : widgetAmount}
+                            seller={sellerAddress || merchantWallet || recipient}
+                            tokenAddress={token === "ETH" ? undefined : (tokenAddr as any)}
+                            showThirdwebBranding={false}
+                            theme={darkTheme({
+                              colors: {
+                                modalBg: "transparent",
+                                borderColor: "transparent",
+                                primaryText: "#ffffff",
+                                secondaryText: "#ffffff",
+                                accentText: "#ffffff",
+                                accentButtonBg: theme.primaryColor,
+                                accentButtonText: "#ffffff",
+                                primaryButtonBg: theme.primaryColor,
+                                primaryButtonText: "#ffffff",
+                                connectedButtonBg: "rgba(255,255,255,0.04)",
+                                connectedButtonBgHover: "rgba(255,255,255,0.08)",
                               },
-                              body: JSON.stringify({
-                                seconds: 1,
-                                usd: Number(totalUsd.toFixed(2)),
+                            })}
+                            style={{
+                              width: "100%",
+                              maxWidth: "100%",
+
+                              background: "transparent",
+                              border: "none",
+                              borderRadius: 0,
+                            }}
+                            connectOptions={{ accountAbstraction: { chain, sponsorGas: true } }}
+
+                            purchaseData={{
+                              productId: `portal:${receiptId}`,
+                              meta: {
                                 token,
-                                wallet,
-                                receiptId,
-                                recipient: merchantWallet || recipient,
-                                idempotencyKey: `portal:${receiptId}:${wallet}:${Date.now()}`,
-                              }),
-                            });
-                            try {
-                              window.postMessage({ type: "billing:refresh" }, "*");
-                            } catch { }
-                            try {
-                              if (typeof window !== "undefined" && window.parent && window.parent !== window) {
-                                const confirmToken = `ppc_${receiptId}_${Date.now()}`;
-                                // New event name (primary)
-                                window.parent.postMessage({ type: "gateway-card-success", token: confirmToken, correlationId, receiptId, recipient: merchantWallet || recipient, txHash }, targetOrigin);
-                                // DEPRECATED: Remove after 2026-04-30 - kept for backwards compatibility
-                                window.parent.postMessage({ type: "portalpay-card-success", token: confirmToken, correlationId, receiptId, recipient: merchantWallet || recipient }, targetOrigin);
+                                currency,
+                                usd: totalUsd,
+                                tipUsd,
+                                itemsSubtotalUsd,
+                                taxUsd,
+                                processingFeeUsd: processingFeeUsd,
+                                feePct: (basePlatformFeePct + Number(processingFeePct || 0)),
+                                employeeId: receipt?.employeeId,
+                                sessionId: receipt?.sessionId,
+                              },
+                            }}
+                            onSuccess={async (data: any) => {
+                              try {
+                                const wallet = (account?.address || "").toLowerCase();
+
+                                // Robust txHash extraction from Thirdweb SDK response
+                                // data: { quote: BridgePrepareResult; statuses: Array<CompletedStatusResult>; }
+                                let txHash = "";
+                                const statuses = Array.isArray(data?.statuses) ? data.statuses : [];
+
+                                // 1. Try to find a transaction hash in statuses
+                                const txStatus = statuses.find((s: any) => s.transactionHash);
+                                if (txStatus) txHash = txStatus.transactionHash;
+
+                                // 2. Fallback to top-level property (older SDK versions)
+                                if (!txHash && data?.transactionHash) txHash = data.transactionHash;
+
+                                // 3. Last resort fallback
+                                if (!txHash) txHash = "";
+
+                                setPaymentConfirmed({
+                                  txHash,
+                                  amount: totalUsd,
+                                  token: currency
+                                });
+
+                                await postStatus("paid", { buyer: wallet, txHash });
+                                await fetch("/api/billing/purchase", {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                    "x-wallet": wallet,
+                                    "x-recipient": merchantWallet || recipient,
+                                  },
+                                  body: JSON.stringify({
+                                    seconds: 1,
+                                    usd: Number(totalUsd.toFixed(2)),
+                                    token,
+                                    wallet,
+                                    receiptId,
+                                    recipient: merchantWallet || recipient,
+                                    idempotencyKey: `portal:${receiptId}:${wallet}:${Date.now()}`,
+                                  }),
+                                });
+                                try {
+                                  window.postMessage({ type: "billing:refresh" }, "*");
+                                } catch { }
+                                try {
+                                  if (typeof window !== "undefined" && window.parent && window.parent !== window) {
+                                    const confirmToken = `ppc_${receiptId}_${Date.now()}`;
+                                    // New event name (primary)
+                                    window.parent.postMessage({ type: "gateway-card-success", token: confirmToken, correlationId, receiptId, recipient: merchantWallet || recipient, txHash }, targetOrigin);
+                                    // DEPRECATED: Remove after 2026-04-30 - kept for backwards compatibility
+                                    window.parent.postMessage({ type: "portalpay-card-success", token: confirmToken, correlationId, receiptId, recipient: merchantWallet || recipient }, targetOrigin);
+                                  }
+                                } catch { }
+                              } catch (err) {
+                                console.error("Checkout success handler error", err);
                               }
-                            } catch { }
-                          } catch (err) {
-                            console.error("Checkout success handler error", err);
-                          }
-                        }}
-                        onError={(error) => {
-                          console.error("CheckoutWidget Error:", error);
-                          postStatus("checkout_error", { error: error.message });
-                        }}
-                      />
+                            }}
+                            onError={(error) => {
+                              console.error("CheckoutWidget Error:", error);
+                              postStatus("checkout_error", { error: error.message });
+                            }}
+                          />
+                        )}
+                      </>
                     ) : (
                       <div className="w-full flex flex-col items-center justify-center gap-3 py-8 text-center min-h-[240px]">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
