@@ -91,6 +91,24 @@ async function findDocAndPk(container: any, id: string) {
     if (!resources || resources.length === 0) return null;
     const doc = resources[0];
 
+    // Dynamically resolve Partition Key definition to be 100% sure
+    try {
+        const { resource: containerDef } = await container.read();
+        const pkPaths = containerDef?.partitionKey?.paths;
+        if (pkPaths && pkPaths.length > 0) {
+            // Usually "/wallet" or "/brandKey". Strip leading slash.
+            const pkPath = pkPaths[0].substring(1);
+            // Access the property dynamically
+            const pkValue = doc[pkPath];
+            // If the value is undefined in the doc, we must return undefined (for usage in item(id, undefined))
+            // However, verify if 'undefined' is explicitly valid for the SDK or if we need a special handling.
+            // Usually passing undefined as partition key value works for undefined partitions.
+            return { doc, pkValue };
+        }
+    } catch (e) {
+        console.error("Failed to read container PK def", e);
+    }
+
     // Determine PK: Try 'brandKey' (Partner Mode), then 'wallet' (standard), then legacy
     // If we are in a Partner Container, checking 'brandKey' is crucial if that's the partition.
     // However, we don't know the container config.
