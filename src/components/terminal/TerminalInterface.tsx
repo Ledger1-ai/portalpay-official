@@ -147,6 +147,7 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
     // End of Day / Summary Logic
     const [summaryOpen, setSummaryOpen] = useState(false);
     const [reportData, setReportData] = useState<any>(null);
+    const [activeReportTab, setActiveReportTab] = useState<"summary" | "details" | "sessions">("summary");
 
     async function openSummary() {
         setReportLoading(true);
@@ -465,33 +466,29 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
                             </button>
                         </div>
 
-                        {/* Tabs */}
                         <div className="flex border-b border-white/10">
-                            <button
-                                className={`flex-1 py-3 text-sm font-semibold transition-colors`}
-                                style={{
-                                    borderBottom: !reportData.showDetails ? `2px solid ${(theme as any)?.secondaryColor || (theme as any)?.primaryColor || "#fff"}` : "transparent",
-                                    color: !reportData.showDetails ? ((theme as any)?.secondaryColor || (theme as any)?.primaryColor || "#fff") : "#9ca3af"
-                                }}
-                                onClick={() => setReportData({ ...reportData, showDetails: false })}
-                            >
-                                Summary
-                            </button>
-                            <button
-                                className={`flex-1 py-3 text-sm font-semibold transition-colors`}
-                                style={{
-                                    borderBottom: reportData.showDetails ? `2px solid ${(theme as any)?.secondaryColor || (theme as any)?.primaryColor || "#fff"}` : "transparent",
-                                    color: reportData.showDetails ? ((theme as any)?.secondaryColor || (theme as any)?.primaryColor || "#fff") : "#9ca3af"
-                                }}
-                                onClick={() => setReportData({ ...reportData, showDetails: true })}
-                            >
-                                Details & Transactions
-                            </button>
+                            {[
+                                { id: "summary", label: "Summary" },
+                                { id: "details", label: "Details & Transactions" },
+                                { id: "sessions", label: "Sessions" }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    className={`flex-1 py-3 text-sm font-semibold transition-colors`}
+                                    style={{
+                                        borderBottom: activeReportTab === tab.id ? `2px solid ${(theme as any)?.secondaryColor || (theme as any)?.primaryColor || "#fff"}` : "transparent",
+                                        color: activeReportTab === tab.id ? ((theme as any)?.secondaryColor || (theme as any)?.primaryColor || "#fff") : "#9ca3af"
+                                    }}
+                                    onClick={() => setActiveReportTab(tab.id as any)}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
                         </div>
 
                         {/* Content */}
                         <div className="p-6 overflow-y-auto flex-1 text-left">
-                            {!reportData.showDetails ? (
+                            {activeReportTab === "summary" && (
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="bg-white/5 p-4 rounded-xl border border-white/5">
@@ -559,7 +556,9 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
                                         </div>
                                     )}
                                 </div>
-                            ) : (
+                            )}
+
+                            {activeReportTab === "details" && (
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
                                         <h3 className="text-sm font-semibold text-gray-400">Transactions ({reportData.receipts?.length || 0})</h3>
@@ -595,6 +594,50 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
                                     ) : (
                                         <div className="text-center py-10 text-gray-500 bg-white/5 rounded-xl border border-white/10 border-dashed">
                                             No detailed transactions available for this period.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {activeReportTab === "sessions" && (
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-semibold text-gray-400">Sessions ({reportData.sessions?.length || 0})</h3>
+                                    </div>
+
+                                    {reportData.sessions && reportData.sessions.length > 0 ? (
+                                        <div className="border border-white/10 rounded-lg overflow-hidden">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-white/5 text-gray-400 font-medium">
+                                                    <tr>
+                                                        <th className="px-4 py-2">Staff</th>
+                                                        <th className="px-4 py-2">Start</th>
+                                                        <th className="px-4 py-2">End</th>
+                                                        <th className="px-4 py-2 text-right">Sales (Tips)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/5">
+                                                    {reportData.sessions.map((s: any, idx: number) => (
+                                                        <tr key={idx} className="hover:bg-white/5 transition-colors">
+                                                            <td className="px-4 py-3 font-medium text-white">{s.staffName}</td>
+                                                            <td className="px-4 py-3 text-gray-400">
+                                                                {new Date(s.startTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-gray-400">
+                                                                {s.endTime ? new Date(s.endTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="text-green-400 font-bold">Active</span>}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-right">
+                                                                <span className="font-bold text-white">{formatCurrency(s.totalSales, "USD")}</span>
+                                                                {s.totalTips > 0 && <span className="text-xs text-muted-foreground ml-1">({formatCurrency(s.totalTips, "USD")})</span>}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-10 text-gray-500 bg-white/5 rounded-xl border border-white/10 border-dashed">
+                                            No session history available for this period.
                                         </div>
                                     )}
                                 </div>

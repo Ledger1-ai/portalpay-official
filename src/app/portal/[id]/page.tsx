@@ -1165,6 +1165,17 @@ export default function PortalReceiptPage() {
     }
   };
 
+  useEffect(() => {
+    if (tipChoice === "custom") {
+      const timer = setTimeout(() => {
+        handleTipUpdate(tipCustomPct);
+      }, 800);
+      return () => clearTimeout(timer);
+    } else {
+      handleTipUpdate(tipChoice);
+    }
+  }, [tipChoice, tipCustomPct]);
+
   const baseWithoutFeeNoTipUsd = useMemo(
     () => +(itemsSubtotalUsd + taxUsd).toFixed(2),
     [itemsSubtotalUsd, taxUsd]
@@ -1600,6 +1611,30 @@ export default function PortalReceiptPage() {
   const aaEnabled = String(process.env.NEXT_PUBLIC_THIRDWEB_AA_ENABLED || "").toLowerCase() === "true";
 
   const [sellerAddress, setSellerAddress] = useState<`0x${string}` | undefined>(undefined);
+
+  // Claim/Loyalty Logic
+  const [claimStatus, setClaimStatus] = useState<"idle" | "claiming" | "success" | "base_registered" | "error">("idle");
+  useEffect(() => {
+    // If paid and user connected, auto-claim
+    const isPaid = paymentConfirmed || (receipt && isSettled(receipt.status));
+    if (isPaid && account?.address && receiptId && claimStatus === "idle") {
+      setClaimStatus("claiming");
+      fetch(`/api/receipts/${receiptId}/claim`, {
+        method: "POST",
+        body: JSON.stringify({ wallet: account.address })
+      }).then(r => r.json()).then(j => {
+        if (j.ok) {
+          setClaimStatus("success");
+          // "Register" animation
+          setTimeout(() => setClaimStatus("base_registered"), 1500);
+        } else {
+          // If already claimed or error, just show success if it's "receipt_not_paid" (unlikely here) or ignore
+          setClaimStatus(j.error === "receipt_not_paid" ? "error" : "success");
+        }
+      }).catch(() => setClaimStatus("error"));
+    }
+  }, [paymentConfirmed, receipt, receiptId, account?.address, claimStatus]);
+
 
   async function postStatus(status: string, extra?: any) {
     try {
@@ -2321,6 +2356,86 @@ export default function PortalReceiptPage() {
                                 <button className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors" onClick={() => window.location.reload()}>
                                   Refresh Receipt
                                 </button>
+                              </div>
+
+                              {/* Claim / Link Wallet Section */}
+                              <div className="mt-8 pt-6 border-t border-white/10 w-full max-w-[320px] flex flex-col items-center animate-in slide-in-from-bottom-4 duration-500">
+                                {!account ? (
+                                  <>
+                                    <div className="text-sm font-medium text-pink-200 mb-2">Claim Loyalty Points</div>
+                                    <div className="text-xs text-white/60 mb-3 max-w-[240px]">
+                                      Connect your wallet to link this purchase and earn rewards.
+                                    </div>
+                                    <ConnectButton
+                                      client={client}
+                                      chain={chain}
+                                      wallets={wallets}
+                                      theme={darkTheme({ colors: { primaryButtonBg: "#ec4899", primaryButtonText: "#fff" } })}
+                                      connectButton={{ label: "Connect to Claim", className: "!h-9 !px-4 !text-sm !font-semibold !rounded-full" }}
+                                    />
+                                  </>
+                                ) : (
+                                  <div className="text-center">
+                                    {claimStatus === "claiming" && (
+                                      <div className="text-sm text-white/80 animate-pulse">Linking to wallet...</div>
+                                    )}
+                                    {(claimStatus === "success" || claimStatus === "base_registered") && (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-center gap-2 text-green-400 font-bold">
+                                          <span>✓</span> <span>Purchase Claimed</span>
+                                        </div>
+                                        {claimStatus === "base_registered" && (
+                                          <div className="text-xs text-purple-200 animate-in fade-in zoom-in">
+                                            You are now registered at {effectiveBrandName}
+                                          </div>
+                                        )}
+                                        <div className="text-xs text-white/50 pt-1">
+                                          Linked to {account.address.slice(0, 6)}...{account.address.slice(-4)}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Claim / Link Wallet Section */}
+                              <div className="mt-8 pt-6 border-t border-white/10 w-full max-w-[320px] flex flex-col items-center animate-in slide-in-from-bottom-4 duration-500">
+                                {!account ? (
+                                  <>
+                                    <div className="text-sm font-medium text-pink-200 mb-2">Claim Loyalty Points</div>
+                                    <div className="text-xs text-white/60 mb-3 max-w-[240px]">
+                                      Connect your wallet to link this purchase and earn rewards.
+                                    </div>
+                                    <ConnectButton
+                                      client={client}
+                                      chain={chain}
+                                      wallets={wallets}
+                                      theme={darkTheme({ colors: { primaryButtonBg: "#ec4899", primaryButtonText: "#fff" } })}
+                                      connectButton={{ label: "Connect to Claim", className: "!h-9 !px-4 !text-sm !font-semibold !rounded-full" }}
+                                    />
+                                  </>
+                                ) : (
+                                  <div className="text-center">
+                                    {claimStatus === "claiming" && (
+                                      <div className="text-sm text-white/80 animate-pulse">Linking to wallet...</div>
+                                    )}
+                                    {(claimStatus === "success" || claimStatus === "base_registered") && (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-center gap-2 text-green-400 font-bold">
+                                          <span>✓</span> <span>Purchase Claimed</span>
+                                        </div>
+                                        {claimStatus === "base_registered" && (
+                                          <div className="text-xs text-purple-200 animate-in fade-in zoom-in">
+                                            You are now registered at {effectiveBrandName}
+                                          </div>
+                                        )}
+                                        <div className="text-xs text-white/50 pt-1">
+                                          Linked to {account.address.slice(0, 6)}...{account.address.slice(-4)}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ) : (

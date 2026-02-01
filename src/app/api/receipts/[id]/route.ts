@@ -30,6 +30,9 @@ export type Receipt = {
   taxComponents?: string[];
   transactionHash?: string;
   transactionTimestamp?: number;
+  employeeId?: string;
+  tipAmount?: number;
+  buyerWallet?: string;
 };
 
 function toCents(n: number) {
@@ -107,7 +110,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     }
     const spec = {
       query:
-        "SELECT TOP 1 c.receiptId, c.totalUsd, c.currency, c.lineItems, c.createdAt, c.wallet, c.brandName, c.status, c.refunds, c.jurisdictionCode, c.taxRate, c.taxComponents, c.transactionHash, c.transactionTimestamp FROM c WHERE c.type='receipt' AND c.receiptId=@id ORDER BY c.createdAt DESC",
+        "SELECT TOP 1 c.receiptId, c.totalUsd, c.currency, c.lineItems, c.createdAt, c.wallet, c.brandName, c.status, c.refunds, c.jurisdictionCode, c.taxRate, c.taxComponents, c.transactionHash, c.transactionTimestamp, c.employeeId, c.tipAmount, c.buyerWallet FROM c WHERE c.type='receipt' AND c.receiptId=@id ORDER BY c.createdAt DESC",
       parameters: [{ name: "@id", value: id }],
     } as { query: string; parameters: { name: string; value: any }[] };
 
@@ -130,6 +133,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         taxComponents: Array.isArray((row as any)?.taxComponents) ? (row as any).taxComponents : undefined,
         transactionHash: typeof (row as any)?.transactionHash === "string" ? (row as any).transactionHash : undefined,
         transactionTimestamp: Number.isFinite(Number((row as any)?.transactionTimestamp)) ? Number((row as any).transactionTimestamp) : undefined,
+        employeeId: typeof (row as any)?.employeeId === "string" ? (row as any).employeeId : undefined,
+        tipAmount: Number.isFinite(Number((row as any)?.tipAmount)) ? Number((row as any).tipAmount) : undefined,
+        buyerWallet: typeof (row as any)?.buyerWallet === "string" ? (row as any).buyerWallet : undefined,
       };
       if (!(rec.totalUsd > 0)) {
         const candidate = sumLineItems(rec.lineItems || []);
@@ -419,6 +425,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       lineItems?: ReceiptLineItem[];
       status?: string;
       transactionHash?: string;
+      employeeId?: string;
+      tipAmount?: number;
     } | null = null;
 
     // Try Cosmos first (not strictly required to upsert, but helps brand and tax inference)
@@ -432,6 +440,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           lineItems: Array.isArray(resource.lineItems) ? resource.lineItems : [],
           status: typeof resource.status === "string" ? resource.status : undefined,
           transactionHash: typeof resource.transactionHash === "string" ? resource.transactionHash : undefined,
+          employeeId: typeof resource.employeeId === "string" ? resource.employeeId : undefined,
+          tipAmount: typeof resource.tipAmount === "number" ? resource.tipAmount : undefined,
         };
       }
     } catch {
@@ -526,6 +536,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const isSettled = existing && ["paid", "checkout_success", "confirmed", "tx_mined"].includes(String((existing as any)?.status || "").toLowerCase());
     const newStatus = hasHash ? "paid" : (isSettled ? (existing as any)?.status : "edited");
 
+    // Extract employeeId and tipAmount from body if provided, else keep existing
+    const newEmployeeId = typeof body?.employeeId === "string" ? body.employeeId : (existing as any)?.employeeId;
+    const newTipAmount = typeof body?.tipAmount === "number" ? Number(body.tipAmount) : (existing as any)?.tipAmount;
+
     // Upsert to Cosmos with status history update
     try {
       const container = await getContainer();
@@ -549,6 +563,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
             : [{ status: newStatus, ts }],
           lastUpdatedAt: ts,
           ...(transactionHash ? { transactionHash, transactionTimestamp } : {}),
+          ...(typeof newEmployeeId === "string" ? { employeeId: newEmployeeId } : {}),
+          ...(typeof newTipAmount === "number" ? { tipAmount: newTipAmount } : {}),
         }
         : {
           id: docId,
@@ -565,6 +581,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           statusHistory: [{ status: newStatus, ts }],
           lastUpdatedAt: ts,
           ...(transactionHash ? { transactionHash, transactionTimestamp } : {}),
+          ...(typeof newEmployeeId === "string" ? { employeeId: newEmployeeId } : {}),
+          ...(typeof newTipAmount === "number" ? { tipAmount: newTipAmount } : {}),
         };
       await container.items.upsert(next as any);
       const receipt: Receipt = {

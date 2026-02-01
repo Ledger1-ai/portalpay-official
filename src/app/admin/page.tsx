@@ -2142,6 +2142,8 @@ function ReceiptsAdmin() {
     jurisdictionCode?: string;
     taxRate?: number;
     taxComponents?: string[];
+    employeeId?: string;
+    tipAmount?: number;
   }>>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -2159,11 +2161,16 @@ function ReceiptsAdmin() {
     jurisdictionCode?: string;
     taxRate?: number;
     taxComponents?: string[];
+    employeeId?: string;
+    tipAmount?: number;
   } | null>(null);
   const [origin, setOrigin] = React.useState("");
   const [brandLogoUrl, setBrandLogoUrl] = React.useState<string>("");
   const [themeConfig, setThemeConfig] = React.useState<any>({});
+  const [team, setTeam] = React.useState<any[]>([]);
   const [editOpen, setEditOpen] = React.useState(false);
+  const [editEmployeeId, setEditEmployeeId] = React.useState("");
+  const [editTipAmount, setEditTipAmount] = React.useState(0);
   const [refundOpen, setRefundOpen] = React.useState(false);
   const [editDraft, setEditDraft] = React.useState<{ items: { label: string; priceUsd: number; qty?: number; thumb?: string }[]; taxRate?: number } | null>(null);
   const [editLoading, setEditLoading] = React.useState(false);
@@ -2219,6 +2226,16 @@ function ReceiptsAdmin() {
         setThemeConfig(t);
         const url = typeof t?.brandLogoUrl === "string" ? t.brandLogoUrl : "";
         setBrandLogoUrl(url);
+      } catch { }
+    })();
+  }, [account?.address]);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/merchant/team", { headers: { "x-wallet": account?.address || "" } });
+        const j = await r.json().catch(() => ({}));
+        setTeam(Array.isArray(j?.items) ? j.items : []);
       } catch { }
     })();
   }, [account?.address]);
@@ -2330,6 +2347,8 @@ function ReceiptsAdmin() {
       setEditDraft({ items: baseItems, taxRate: undefined });
       setEditError("");
       // Reset tax selection state
+      setEditEmployeeId((rec as any)?.employeeId || "");
+      setEditTipAmount(Number((rec as any)?.tipAmount || 0));
       setEditTaxOverridePct("");
       setEditJurisdictions([]);
       setEditJurisdictionCode("");
@@ -2401,7 +2420,9 @@ function ReceiptsAdmin() {
       if (!selected?.receiptId || !editDraft) return;
       setEditLoading(true);
       setEditError("");
-      const body: any = { items: editDraft.items };
+      setEditLoading(true);
+      setEditError("");
+      const body: any = { items: editDraft.items, employeeId: editEmployeeId, tipAmount: editTipAmount };
 
       // Decide taxRate to send:
       // 1) If override percent provided -> convert to fraction
@@ -2773,6 +2794,7 @@ function ReceiptsAdmin() {
               <th className="text-left px-3 py-2 font-medium">Total (USD)</th>
               <th className="text-left px-3 py-2 font-medium">Created</th>
               <th className="text-left px-3 py-2 font-medium">Status</th>
+              <th className="text-left px-3 py-2 font-medium">Staff</th>
               <th className="text-left px-3 py-2 font-medium">Jurisdiction</th>
               <th className="text-left px-3 py-2 font-medium">Actions</th>
             </tr>
@@ -2788,6 +2810,13 @@ function ReceiptsAdmin() {
                   <td className="px-3 py-2">{new Date(Number(rec.createdAt || 0)).toLocaleString()}</td>
                   <td className="px-3 py-2">
                     <span className={statusClass(rec.status)}>{statusLabel(rec.status)}</span>
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {(() => {
+                      if (!rec.employeeId) return "—";
+                      const mem = team.find((t: any) => t.id === rec.employeeId);
+                      return mem ? mem.name : (rec.employeeId === "admin" ? "Admin" : rec.employeeId.slice(0, 8));
+                    })()}
                   </td>
                   <td className="px-3 py-2">
                     {rec.jurisdictionCode ? (
@@ -3263,6 +3292,32 @@ function ReceiptsAdmin() {
                         ? "No transactions found in split contract."
                         : "Split address not configured."}
                   </div>
+                </div>
+
+                <div>
+                  <label className="microtext text-muted-foreground">Assigned Employee</label>
+                  <select
+                    className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
+                    value={editEmployeeId}
+                    onChange={(e) => setEditEmployeeId(e.target.value)}
+                  >
+                    <option value="">(None)</option>
+                    {(team || []).map((mem) => (
+                      <option key={mem.id} value={mem.id}>{mem.name} ({mem.role})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="microtext text-muted-foreground">Tip Amount (USD)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="mt-1 w-full h-9 px-3 py-1 border rounded-md bg-background"
+                    value={editTipAmount}
+                    onChange={(e) => setEditTipAmount(Math.max(0, Number(e.target.value)))}
+                  />
                 </div>
               </div>
               {editError && <div className="microtext text-red-500 mt-2">{editError}</div>}

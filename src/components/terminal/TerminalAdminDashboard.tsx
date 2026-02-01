@@ -147,14 +147,15 @@ function ActivityPanel({ merchantWallet, theme }: PanelProps) {
                 { headers: { "x-wallet": merchantWallet } }
             );
             const data = await res.json();
-            // Map receipts to orders format for display
-            setOrders((data.receipts || []).map((r: any) => ({
+            // Map receipts to orders format
+            const allOrders = (data.receipts || []).map((r: any) => ({
                 id: r.receiptId,
                 createdAt: r.createdAt,
                 items: r.lineItems,
                 status: r.status,
                 totalUsd: r.totalUsd
-            })));
+            }));
+            setOrders(allOrders);
         } catch (e) {
             console.error("Failed to load orders", e);
         } finally {
@@ -163,11 +164,31 @@ function ActivityPanel({ merchantWallet, theme }: PanelProps) {
     }
 
     const stats = useMemo(() => {
-        const total = orders.reduce((sum, o) => sum + (o.totalUsd || 0), 0);
-        const count = orders.length;
+        // Stats only reflect valid/paid transactions
+        const valid = orders.filter(o => ["paid", "completed", "reconciled", "settled", "checkout_success", "confirmed", "tx_mined"].includes(o.status || ""));
+        const total = valid.reduce((sum, o) => sum + (o.totalUsd || 0), 0);
+        const count = valid.length;
         const avg = count > 0 ? total / count : 0;
         return { total, count, avg };
     }, [orders]);
+
+    async function deleteOrder(id: string) {
+        if (!confirm("Delete this receipt? This action cannot be undone.")) return;
+        try {
+            const res = await fetch(`/api/receipts/${id}`, {
+                method: "DELETE",
+                headers: { "x-wallet": merchantWallet }
+            });
+            const j = await res.json();
+            if (!res.ok || !j.ok) {
+                alert(j.error || "Failed to delete");
+                return;
+            }
+            loadOrders();
+        } catch (e: any) {
+            alert(e.message || "Failed to delete");
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -229,40 +250,55 @@ function ActivityPanel({ merchantWallet, theme }: PanelProps) {
                                     <th className="px-4 py-3 text-left font-medium">Items</th>
                                     <th className="px-4 py-3 text-left font-medium">Status</th>
                                     <th className="px-4 py-3 text-right font-medium">Amount</th>
+                                    <th className="px-4 py-3 text-right font-medium">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {orders.map((order) => (
-                                    <tr key={order.id} className="hover:bg-muted/30">
-                                        <td className="px-4 py-3 text-muted-foreground">
-                                            {new Date(order.createdAt).toLocaleString([], {
-                                                month: "short",
-                                                day: "numeric",
-                                                hour: "2-digit",
-                                                minute: "2-digit"
-                                            })}
-                                        </td>
-                                        <td className="px-4 py-3 font-mono text-xs">
-                                            {order.id?.slice(0, 8)}...
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {order.items?.length || 0} item(s)
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${order.status === "paid" || order.status === "completed"
-                                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                                : order.status === "pending"
-                                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                                    : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                                                }`}>
-                                                {order.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-semibold">
-                                            {formatCurrency(order.totalUsd || 0, "USD")}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {orders.map((order) => {
+                                    const isPaid = ["paid", "completed", "reconciled", "settled", "checkout_success", "confirmed", "tx_mined"].includes(order.status || "");
+                                    return (
+                                        <tr key={order.id} className="hover:bg-muted/30">
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {new Date(order.createdAt).toLocaleString([], {
+                                                    month: "short",
+                                                    day: "numeric",
+                                                    hour: "2-digit",
+                                                    minute: "2-digit"
+                                                })}
+                                            </td>
+                                            <td className="px-4 py-3 font-mono text-xs">
+                                                {order.id?.slice(0, 8)}...
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {order.items?.length || 0} item(s)
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${isPaid
+                                                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                                    : order.status === "pending"
+                                                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                                        : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                                                    }`}>
+                                                    {order.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-semibold">
+                                                {formatCurrency(order.totalUsd || 0, "USD")}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                {!isPaid && (
+                                                    <button
+                                                        onClick={() => deleteOrder(order.id)}
+                                                        className="text-red-600 hover:text-red-800 text-xs px-2 py-1 border border-red-200 rounded hover:bg-red-50"
+                                                        title="Delete pending receipt"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     )}
@@ -1085,7 +1121,11 @@ function ReserveSettings({ merchantWallet, theme, reserveRatios, accumulationMod
                     ) : (
                         <div className="flex gap-2">
                             <button
-                                onClick={() => { setIsEditing(false); setRatios(reserveRatios || {}); }}
+                                onClick={() => {
+                                    setIsEditing(false);
+                                    setRatios(reserveRatios || {});
+                                    setMode(accumulationMode || "fixed");
+                                }}
                                 className="text-sm px-3 py-1.5 hover:underline text-muted-foreground"
                                 disabled={saving}
                             >
@@ -1195,15 +1235,17 @@ function ReserveSettings({ merchantWallet, theme, reserveRatios, accumulationMod
 
                             <div className="space-y-4">
                                 {/* FIXED MODE: Single Token Selection */}
-                                {isEditing && mode === "fixed" ? (
+                                {mode === "fixed" ? (
                                     <div className="p-4 bg-muted/20 border border-muted rounded-xl space-y-3">
                                         <label className="text-sm font-medium">Default Payment Token</label>
                                         <div className="grid grid-cols-2 gap-2">
                                             {["USDC", "USDT", "cbBTC", "cbXRP", "ETH", "SOL"].map((token) => {
-                                                const isSelected = ratios[token] === 1;
+                                                const val = isEditing ? (ratios[token] || 0) : (reserveRatios?.[token] || 0);
+                                                const isSelected = val >= 0.99;
                                                 return (
                                                     <button
                                                         key={token}
+                                                        disabled={!isEditing}
                                                         onClick={() => {
                                                             const newRatios: Record<string, number> = {
                                                                 USDC: 0, USDT: 0, cbBTC: 0, cbXRP: 0, ETH: 0, SOL: 0
@@ -1213,7 +1255,7 @@ function ReserveSettings({ merchantWallet, theme, reserveRatios, accumulationMod
                                                         }}
                                                         className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${isSelected
                                                             ? "bg-primary text-primary-foreground border-primary"
-                                                            : "bg-background hover:bg-muted"
+                                                            : "bg-background " + (isEditing ? "hover:bg-muted" : "opacity-60")
                                                             }`}
                                                         style={isSelected ? { backgroundColor: theme?.primaryColor } : {}}
                                                     >

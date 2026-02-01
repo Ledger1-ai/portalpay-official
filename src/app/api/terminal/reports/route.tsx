@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
                 AND c.merchantWallet = @w 
                 AND c._ts >= @start 
                 AND c._ts <= @end
-                AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled')
+                AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled', 'settled', 'completed')
             `,
             parameters: [
                 { name: "@w", value: w },
@@ -216,6 +216,27 @@ export async function GET(req: NextRequest) {
                 hourMap[h] += (r.totalUsd || 0);
             }
             detailedData.hourly = hourMap.map((amount, hour) => ({ hour, amount }));
+        }
+
+        // Include Sessions for End of Day Reports
+        if (type === "z-report" || type === "x-report") {
+            const sessionsQuery = {
+                query: `SELECT * FROM c WHERE c.type = 'terminal_session' AND c.merchantWallet = @w AND c.startTime >= @start AND c.startTime <= @end ORDER BY c.startTime DESC`,
+                parameters: [
+                    { name: "@w", value: w },
+                    { name: "@start", value: startTs },
+                    { name: "@end", value: endTs }
+                ]
+            };
+            const { resources: sess } = await container.items.query(sessionsQuery).fetchAll();
+            detailedData.sessions = sess.map((s: any) => ({
+                id: s.id,
+                staffName: s.staffName,
+                startTime: s.startTime,
+                endTime: s.endTime,
+                totalSales: s.totalSales,
+                totalTips: s.totalTips
+            }));
         }
 
         // Enrich Employee Names

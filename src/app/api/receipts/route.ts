@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
       brandName,
       status: "pending",
       statusHistory: [{ status: "pending", ts: now }],
-      ttl: 86400, // Auto-expire in 24h if not paid (User Request)
+      ttl: 3600, // Auto-expire in 1h if not paid (User Request)
       // Split breakdown fields (minor units in cents)
       grossMinor,
       platformFeeBps: splits.platformFeeBps,

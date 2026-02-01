@@ -35,13 +35,13 @@ export async function GET(req: NextRequest) {
         // Aggregate stats from receipts for this session
         // FIXED: Include c.wallet in retrieval to ensure single-partition query if possible
         const statsQuery = merchantWallet ? {
-            query: "SELECT VALUE { totalSales: SUM(c.totalUsd), totalTips: SUM(c.tipAmount), count: COUNT(1) } FROM c WHERE c.type = 'receipt' AND c.sessionId = @sid AND c.wallet = @wallet",
+            query: "SELECT VALUE { totalSales: SUM(c.totalUsd), totalTips: SUM(c.tipAmount), count: COUNT(1) } FROM c WHERE c.type = 'receipt' AND c.sessionId = @sid AND c.wallet = @wallet AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled', 'settled', 'completed')",
             parameters: [
                 { name: "@sid", value: sessionId },
                 { name: "@wallet", value: merchantWallet.toLowerCase() }
             ]
         } : {
-            query: "SELECT VALUE { totalSales: SUM(c.totalUsd), totalTips: SUM(c.tipAmount), count: COUNT(1) } FROM c WHERE c.type = 'receipt' AND c.sessionId = @sid",
+            query: "SELECT VALUE { totalSales: SUM(c.totalUsd), totalTips: SUM(c.tipAmount), count: COUNT(1) } FROM c WHERE c.type = 'receipt' AND c.sessionId = @sid AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled', 'settled', 'completed')",
             parameters: [{ name: "@sid", value: sessionId }]
         };
 
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
         // Aggregate stats before closing
         const statsQuery = {
-            query: "SELECT VALUE { totalSales: SUM(c.totalUsd), totalTips: SUM(c.tipAmount) } FROM c WHERE c.type = 'receipt' AND c.sessionId = @sid",
+            query: "SELECT VALUE { totalSales: SUM(c.totalUsd), totalTips: SUM(c.tipAmount) } FROM c WHERE c.type = 'receipt' AND c.sessionId = @sid AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled', 'settled', 'completed')",
             parameters: [{ name: "@sid", value: sessionId }]
         };
         const { resources: stats } = await container.items.query(statsQuery).fetchAll();
