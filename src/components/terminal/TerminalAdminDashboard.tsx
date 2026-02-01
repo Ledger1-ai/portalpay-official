@@ -143,11 +143,18 @@ function ActivityPanel({ merchantWallet, theme }: PanelProps) {
             const endTs = Math.floor(now.getTime() / 1000);
 
             const res = await fetch(
-                `/api/orders/me?start=${startTs}&end=${endTs}&limit=100`,
+                `/api/receipts?start=${startTs}&end=${endTs}&limit=100`,
                 { headers: { "x-wallet": merchantWallet } }
             );
             const data = await res.json();
-            setOrders(data.orders || []);
+            // Map receipts to orders format for display
+            setOrders((data.receipts || []).map((r: any) => ({
+                id: r.receiptId,
+                createdAt: r.createdAt,
+                items: r.lineItems,
+                status: r.status,
+                totalUsd: r.totalUsd
+            })));
         } catch (e) {
             console.error("Failed to load orders", e);
         } finally {
@@ -649,12 +656,20 @@ function ReserveSettings({ merchantWallet, theme, reserveRatios, accumulationMod
                 return;
             }
 
+            // Derive defaultPaymentToken from ratios if in fixed mode
+            let defaultPaymentToken;
+            if (mode === "fixed") {
+                const found = Object.entries(ratios).find(([k, v]) => v >= 0.999);
+                if (found) defaultPaymentToken = found[0];
+            }
+
             const res = await fetch("/api/site/config", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-wallet": merchantWallet },
                 body: JSON.stringify({
                     reserveRatios: ratios,
-                    accumulationMode: mode
+                    accumulationMode: mode,
+                    defaultPaymentToken
                 })
             });
 

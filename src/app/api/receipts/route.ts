@@ -5,7 +5,7 @@ import { getSiteConfig } from "@/lib/site-config";
 import { getReceipts, pushReceipts } from "@/lib/receipts-mem";
 import { requireApimOrJwt } from "@/lib/gateway-auth";
 import { requireCsrf, rateLimitOrThrow, rateKey } from "@/lib/security";
-import { assertOwnershipOrAdmin } from "@/lib/auth";
+import { requireThirdwebAuth, assertOwnershipOrAdmin } from "@/lib/auth";
 import { getBrandConfig, computeSplitAmounts, getEffectiveProcessingFeeBps } from "@/config/brands";
 
 export const dynamic = 'force-dynamic';
@@ -27,28 +27,62 @@ export type Receipt = {
   status?: string;
 };
 
+// ... existing imports
+
 export async function GET(req: NextRequest) {
   const correlationId = crypto.randomUUID();
   const url = new URL(req.url);
   const limit = Math.max(1, Math.min(200, Number(url.searchParams.get("limit") || 100)));
+  const startParam = Number(url.searchParams.get("start") || 0);
+  const endParam = Number(url.searchParams.get("end") || 0);
+
+  // Auto-detect seconds vs ms
+  const startTs = startParam < 10000000000 ? startParam * 1000 : startParam;
+  const endTs = endParam < 10000000000 ? endParam * 1000 : endParam;
+
   let caller: any;
   try {
     caller = await requireApimOrJwt(req, ["receipts:read"]);
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "unauthorized" },
-      { status: e?.status || 401, headers: { "x-correlation-id": correlationId } }
-    );
+    // Fallback: Thirdweb Auth (Merchant Dashboard)
+    try {
+      const twCaller = await requireThirdwebAuth(req);
+      // Determine target wallet from header or assume caller is checking their own
+      const target = req.headers.get("x-wallet");
+      if (target && /^0x[a-f0-9]{40}$/i.test(target)) {
+        // Assert ownership/admin
+        assertOwnershipOrAdmin(twCaller.wallet, target, (twCaller.roles || []).includes("admin"));
+        caller = { wallet: target };
+      } else {
+        caller = twCaller;
+      }
+    } catch {
+      return NextResponse.json(
+        { error: e?.message || "unauthorized" },
+        { status: e?.status || 401, headers: { "x-correlation-id": correlationId } }
+      );
+    }
   }
   const wallet = caller.wallet;
 
   try {
     const container = await getContainer();
-    const spec = {
-      query:
-        `SELECT TOP ${limit} c.receiptId, c.totalUsd, c.currency, c.lineItems, c.createdAt, c.brandName, c.status FROM c WHERE c.type='receipt' AND c.wallet=@wallet ORDER BY c.createdAt DESC`,
-      parameters: [{ name: "@wallet", value: wallet }],
-    } as { query: string; parameters: { name: string; value: any }[] };
+
+    let query = `SELECT TOP ${limit} c.receiptId, c.totalUsd, c.currency, c.lineItems, c.createdAt, c.brandName, c.status FROM c WHERE c.type='receipt' AND c.wallet=@wallet`;
+    const parameters = [{ name: "@wallet", value: wallet }];
+
+    if (startTs > 0) {
+      query += ` AND c.createdAt >= @start`;
+      parameters.push({ name: "@start", value: startTs });
+    }
+    if (endTs > 0) {
+      query += ` AND c.createdAt <= @end`;
+      parameters.push({ name: "@end", value: endTs });
+    }
+
+    query += ` ORDER BY c.createdAt DESC`;
+
+    const spec = { query, parameters };
 
     const { resources } = await container.items.query(spec).fetchAll();
     const receipts: Receipt[] = Array.isArray(resources)
@@ -189,6 +223,7 @@ export async function POST(req: NextRequest) {
       brandName,
       status: "pending",
       statusHistory: [{ status: "pending", ts: now }],
+      ttl: 86400, // Auto-expire in 24h if not paid (User Request)
       // Split breakdown fields (minor units in cents)
       grossMinor,
       platformFeeBps: splits.platformFeeBps,

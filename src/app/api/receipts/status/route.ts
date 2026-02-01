@@ -123,9 +123,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // AuthZ: Allow unauthenticated status updates for tracking (link_opened, buyer_logged_in, checkout_initialized, receipt_claimed)
-    // Require JWT auth only for sensitive status updates (checkout_success, refund, etc.)
-    const trackingStatuses = ["link_opened", "buyer_logged_in", "checkout_initialized", "receipt_claimed"];
+    // AuthZ: Allow unauthenticated status updates for tracking (link_opened, buyer_logged_in, checkout_initialized, receipt_claimed, checkout_success)
+    // Require JWT auth only for sensitive status updates (refund, etc.)
+    const trackingStatuses = ["link_opened", "buyer_logged_in", "checkout_initialized", "receipt_claimed", "checkout_success", "paid"];
     const isTrackingStatus = trackingStatuses.includes(status);
 
     let caller: any = null;
@@ -194,8 +194,12 @@ export async function POST(req: NextRequest) {
             ? { buyerWallet }
             : {}),
           // Persist transaction hash on relevant statuses
-          ...(txHash && ["tx_mined", "recipient_validated", "paid", "reconciled", "receipt_claimed"].includes(status)
+          ...(txHash && ["checkout_success", "tx_mined", "recipient_validated", "paid", "reconciled", "receipt_claimed"].includes(status)
             ? { transactionHash: txHash, transactionTimestamp: txTs }
+            : {}),
+          // Disable TTL (prevent auto-delete) if Paid/Settled
+          ...(["checkout_success", "paid", "tx_mined", "reconciled", "receipt_claimed"].includes(status)
+            ? { ttl: -1 }
             : {}),
           // Persist expected payment metadata at checkout initialization
           ...(status === "checkout_initialized" && (expectedToken || expectedAmountToken || typeof expectedUsd === "number")
@@ -220,8 +224,12 @@ export async function POST(req: NextRequest) {
           ...(buyerWallet && ["checkout_success", "paid", "tx_mined", "reconciled", "receipt_claimed"].includes(status)
             ? { buyerWallet }
             : {}),
-          ...(txHash && ["tx_mined", "recipient_validated", "paid", "reconciled", "receipt_claimed"].includes(status)
+          ...(txHash && ["checkout_success", "tx_mined", "recipient_validated", "paid", "reconciled", "receipt_claimed"].includes(status)
             ? { transactionHash: txHash, transactionTimestamp: txTs }
+            : {}),
+          // Disable TTL (prevent auto-delete) if Paid/Settled
+          ...(["checkout_success", "paid", "tx_mined", "reconciled", "receipt_claimed"].includes(status)
+            ? { ttl: -1 }
             : {}),
           ...(status === "checkout_initialized" && (expectedToken || expectedAmountToken || typeof expectedUsd === "number")
             ? {

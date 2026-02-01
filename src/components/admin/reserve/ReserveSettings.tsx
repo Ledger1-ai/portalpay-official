@@ -17,8 +17,14 @@ type SiteConfig = {
   theme?: { brandName?: string };
 };
 
-export function ReserveSettings() {
+type ReserveSettingsProps = {
+  walletOverride?: string;
+  brandKey?: string;
+};
+
+export function ReserveSettings({ walletOverride, brandKey }: ReserveSettingsProps) {
   const account = useActiveAccount();
+  const effectiveWallet = walletOverride || account?.address || "";
   const [processingFeePct, setProcessingFeePct] = useState<number>(0);
   const [storeCurrency, setStoreCurrency] = useState<string>("USD");
   const [ratios, setRatios] = useState<Record<string, number>>({
@@ -63,7 +69,7 @@ export function ReserveSettings() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-wallet": account?.address || "",
+          "x-wallet": effectiveWallet,
         },
         body: JSON.stringify({ reserveRatios: newRatios }),
       });
@@ -95,7 +101,7 @@ export function ReserveSettings() {
     setLoading(true);
     fetch("/api/site/config", {
       headers: {
-        "x-wallet": account?.address || "",
+        "x-wallet": effectiveWallet,
       },
     })
       .then((r) => r.json())
@@ -132,7 +138,7 @@ export function ReserveSettings() {
       })
       .catch(() => { })
       .finally(() => setLoading(false));
-  }, [account?.address]);
+  }, [effectiveWallet]);
 
   useEffect(() => {
     const onUpdated = (e: any) => {
@@ -147,7 +153,7 @@ export function ReserveSettings() {
     return () => {
       try { window.removeEventListener("pp:reserveRatiosUpdated", onUpdated as any); } catch { }
     };
-  }, [account?.address]);
+  }, [effectiveWallet]);
 
   useEffect(() => {
     const onSave = () => {
@@ -157,7 +163,7 @@ export function ReserveSettings() {
     return () => {
       try { window.removeEventListener("pp:saveReserveSettings", onSave as any); } catch { }
     };
-  }, [account?.address, processingFeePct, defaultPaymentToken, accumulationMode, ratios]);
+  }, [effectiveWallet, processingFeePct, defaultPaymentToken, accumulationMode, ratios]);
 
   function handleSliderChange(changedSymbol: string, newValue: number) {
     const tokens = ["USDC", "USDT", "cbBTC", "cbXRP", "ETH", "SOL"];
@@ -195,7 +201,7 @@ export function ReserveSettings() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-wallet": account?.address || "",
+          "x-wallet": effectiveWallet,
         },
         body: JSON.stringify({
           processingFeePct: Math.max(0, Number(processingFeePct)),
@@ -294,7 +300,7 @@ export function ReserveSettings() {
               try {
                 const r = await fetch("/api/site/config", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json", "x-wallet": account?.address || "" },
+                  headers: { "Content-Type": "application/json", "x-wallet": effectiveWallet },
                   body: JSON.stringify({ accumulationMode: mode }),
                 });
                 if (r.ok) {

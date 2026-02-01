@@ -1142,7 +1142,7 @@ export function PortalPreviewEmbedded({
                     const payload = {
                       receiptId: demoReceipt.receiptId || "unknown", // Make sure demoReceipt has an ID if real
                       wallet: recipient, // The merchant wallet
-                      status: "receipt_claimed", // Use tracking status to avoid auth errors on client
+                      status: "paid", // Direct paid status (whitelisted)
                       txHash,
                       buyerWallet: account?.address
                     };

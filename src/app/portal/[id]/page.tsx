@@ -2778,7 +2778,7 @@ export default function PortalReceiptPage() {
                               token: currency
                             });
 
-                            await postStatus("checkout_success", { buyer: wallet, txHash });
+                            await postStatus("paid", { buyer: wallet, txHash });
                             await fetch("/api/billing/purchase", {
                               method: "POST",
                               headers: {

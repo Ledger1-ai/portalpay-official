@@ -162,6 +162,7 @@ export async function GET(req: NextRequest) {
                 AND c.merchantWallet = @w 
                 AND c._ts >= @start 
                 AND c._ts <= @end
+                AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled')
             `,
             parameters: [
                 { name: "@w", value: w },

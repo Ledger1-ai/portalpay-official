@@ -118,15 +118,13 @@ export async function GET(req: NextRequest) {
           const trackingSet = new Set(["checkout_initialized", "buyer_logged_in", "link_opened"]);
           const now = Date.now();
 
-          // Drop tracking-only receipts and any archived/recovered recovery docs; only show canonical (paid/reconciled/tx-backed)
+          // Strict filtering: Only show Paid/Settled receipts (User Request: "only reciepts that got to the paid status should be counted")
+          // We also include receipts with a transactionHash as proof of payment.
+          const validStatuses = new Set(["paid", "checkout_success", "confirmed", "tx_mined", "reconciled"]);
           resources = resources.filter((r: any) => {
             const st = String(r?.status || "").toLowerCase();
-            const isTracking = trackingSet.has(st);
-            const isArchived = !!(r?.metadata?.archived);
-            const isRecovered = typeof r?.receiptId === "string" && r.receiptId.startsWith("R-RECOVERED-");
-            if (isTracking) return false;
-            if (isArchived || isRecovered) return false;
-            return true;
+            const hasTx = typeof r?.transactionHash === "string" && !!r.transactionHash;
+            return validStatuses.has(st) || hasTx;
           });
 
           const byMerchant2 = new Map<string, any[]>();
