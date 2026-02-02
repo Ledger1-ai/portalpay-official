@@ -99,7 +99,7 @@ function normalize(raw?: any): SiteConfig {
   // Default payment token validation
   const validTokens = ["ETH", "USDC", "USDT", "cbBTC", "cbXRP", "SOL"];
   if (!validTokens.includes(base.defaultPaymentToken)) {
-    base.defaultPaymentToken = "ETH"; // default to ETH if not set or invalid
+    base.defaultPaymentToken = "USDC"; // default to USDC if not set or invalid
   }
 
   // Split config normalization (supports top-level and nested under config.*)

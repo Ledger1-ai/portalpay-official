@@ -37,7 +37,7 @@ export function ReserveSettings({ walletOverride, brandKey }: ReserveSettingsPro
   });
   const [defaultPaymentToken, setDefaultPaymentToken] = useState<
     "ETH" | "USDC" | "USDT" | "cbBTC" | "cbXRP" | "SOL"
-  >("ETH");
+  >("USDC");
   const [accumulationMode, setAccumulationMode] = useState<"fixed" | "dynamic">("fixed");
   const accModeUserChangedRef = useRef<boolean>(false);
   // Baselines to highlight unsaved changes
@@ -53,7 +53,7 @@ export function ReserveSettings({ walletOverride, brandKey }: ReserveSettingsPro
   });
   const [lastSavedDefaultPaymentToken, setLastSavedDefaultPaymentToken] = useState<
     "ETH" | "USDC" | "USDT" | "cbBTC" | "cbXRP" | "SOL"
-  >("ETH");
+  >("USDC");
   const [lastSavedAccumulationMode, setLastSavedAccumulationMode] = useState<"fixed" | "dynamic">("fixed");
 
   const [saving, setSaving] = useState(false);
@@ -384,6 +384,17 @@ export function ReserveSettings({ walletOverride, brandKey }: ReserveSettingsPro
       )}
 
       {error && <div className="microtext text-red-500">{error}</div>}
+
+      {/* Save Button */}
+      <div className="flex justify-end pt-4 border-t border-white/5">
+        <button
+          onClick={saveSettings}
+          disabled={saving}
+          className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save Configuration"}
+        </button>
+      </div>
 
     </div>
   );
