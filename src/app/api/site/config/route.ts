@@ -17,8 +17,8 @@ const DOC_ID = "site:config";
 function getDocIdForBrand(brandKey?: string): string {
   try {
     const key = String(brandKey || "").toLowerCase();
-    // Legacy mapping: portalpay uses 'site:config:portalpay'
-    if (!key || key === "portalpay") return "site:config:portalpay";
+    // Each brand now uses its own document ID, no legacy sharing
+    if (!key) return `${DOC_ID}:basaltsurge`; // Default to basaltsurge if no key
     return `${DOC_ID}:${key}`;
   } catch {
     return DOC_ID;
@@ -41,10 +41,7 @@ async function applyPartnerOverrides(req: NextRequest, cfg: any): Promise<any> {
     if (!brandKeyForFees) {
       try { brandKeyForFees = getBrandKey(); } catch { brandKeyForFees = ""; }
     }
-    // Normalize basaltsurge to portalpay - they are the same platform
-    if (brandKeyForFees && String(brandKeyForFees).toLowerCase() === "basaltsurge") {
-      brandKeyForFees = "portalpay";
-    }
+    // NOTE: basaltsurge is now its own platform brand, no longer aliased to portalpay
 
     // Pre-fetch brand config for fees (will be used at the end regardless of merchant vs global config)
     let brandFeesConfig: { platformFeeBps?: number; partnerFeeBps?: number } = {};
@@ -603,8 +600,8 @@ function normalizeSiteConfig(raw?: any) {
 
     // Determine default symbol based on brand key
     let currentBrandKey = (process.env.BRAND_KEY || "").toLowerCase();
-    if (currentBrandKey === "basaltsurge") currentBrandKey = "portalpay";
-    const defaultSymbol = "/ppsymbol.png";
+    // NOTE: basaltsurge is its own brand now, no longer aliased to portalpay
+    const defaultSymbol = currentBrandKey === "basaltsurge" ? "/bssymbol.png" : "/ppsymbol.png";
 
     // Unconditionally migrate legacy PortalPay assets to BasaltSurge if it's the active platform brand
     // UNLESS the merchant has explicitly saved brandKey: 'portalpay' (they want PortalPay branding)
