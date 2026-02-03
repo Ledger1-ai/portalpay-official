@@ -60,38 +60,42 @@ export async function GET(req: NextRequest) {
         const brandKey = (headerBrandKey || process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "basaltsurge").toLowerCase();
         const container = await getContainer();
 
-        // Check shop_config status
-        // Check shop_config OR site_config status
-        const shopQuery = "SELECT top 1 c.status, c.brandKey, c.id FROM c WHERE (c.type = 'shop_config' OR c.type = 'site_config') AND c.wallet = @w AND c.brandKey = @b";
+        // AUTHORITATIVE: Check client_request status FIRST
+        // This is the source of truth for approval/pending/blocked/rejected status
+        const clientRequestQuery = "SELECT top 1 c.status FROM c WHERE c.type = 'client_request' AND c.wallet = @w AND c.brandKey = @b";
         console.log("[AuthMe] Checking Access:", { wallet, brandKey, isPlatformAdmin });
-        const { resources: shopResources } = await container.items.query({
-          query: shopQuery,
-          parameters: [{ name: "@w", value: wallet }, { name: "@b", value: brandKey }]
-        }).fetchAll();
-        console.log("[AuthMe] DB Result:", shopResources);
-        if (shopResources.length > 0) {
-          shopStatus = shopResources[0].status || "approved";
-        }
-
-        // Check if wallet is blocked via client_request
-        const blockQuery = "SELECT top 1 c.status FROM c WHERE c.type = 'client_request' AND c.wallet = @w AND c.brandKey = @b AND c.status = 'blocked'";
-        const { resources: blockResources } = await container.items.query({
-          query: blockQuery,
+        const { resources: clientRequestResources } = await container.items.query({
+          query: clientRequestQuery,
           parameters: [{ name: "@w", value: wallet.toLowerCase() }, { name: "@b", value: brandKey }]
         }).fetchAll();
-        if (blockResources.length > 0) {
-          blocked = true;
+        console.log("[AuthMe] ClientRequest Result:", clientRequestResources);
+
+        if (clientRequestResources.length > 0) {
+          const requestStatus = clientRequestResources[0].status;
+          if (requestStatus === "approved") {
+            shopStatus = "approved";
+          } else if (requestStatus === "pending") {
+            shopStatus = "pending";
+          } else if (requestStatus === "blocked") {
+            blocked = true;
+          } else if (requestStatus === "rejected") {
+            shopStatus = "rejected";
+          }
         }
 
-        // Check if wallet has a pending client_request (application awaiting approval)
-        if (shopStatus === "none") {
-          const pendingQuery = "SELECT top 1 c.status FROM c WHERE c.type = 'client_request' AND c.wallet = @w AND c.brandKey = @b AND c.status = 'pending'";
-          const { resources: pendingResources } = await container.items.query({
-            query: pendingQuery,
-            parameters: [{ name: "@w", value: wallet.toLowerCase() }, { name: "@b", value: brandKey }]
+        // LEGACY FALLBACK: If no client_request exists, check if shop_config exists with setupComplete=true
+        // This supports merchants who were approved before the client_request system existed
+        if (shopStatus === "none" && !blocked) {
+          const legacyShopQuery = "SELECT top 1 c.setupComplete FROM c WHERE (c.type = 'shop_config' OR c.type = 'site_config') AND c.wallet = @w AND c.brandKey = @b AND c.setupComplete = true";
+          const { resources: legacyResources } = await container.items.query({
+            query: legacyShopQuery,
+            parameters: [{ name: "@w", value: wallet }, { name: "@b", value: brandKey }]
           }).fetchAll();
-          if (pendingResources.length > 0) {
-            shopStatus = "pending";
+          console.log("[AuthMe] Legacy Shop Result:", legacyResources);
+
+          if (legacyResources.length > 0) {
+            // Legacy approved merchant - has a completed shop config but no client_request
+            shopStatus = "approved";
           }
         }
       } catch (e) {
