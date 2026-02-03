@@ -275,17 +275,17 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
                         <div>
                             <label className="text-xs font-semibold uppercase text-muted-foreground">Currency</label>
                             <select
-                                className="w-full mt-1 p-2 border rounded-md"
+                                className="w-full mt-1 p-2 border rounded-md bg-background text-foreground"
                                 value={terminalCurrency}
                                 onChange={e => setTerminalCurrency(e.target.value)}
                             >
-                                {SUPPORTED_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} - {c.name}</option>)}
+                                {SUPPORTED_CURRENCIES.map(c => <option key={c.code} value={c.code} className="bg-background text-foreground">{c.code} - {c.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="text-xs font-semibold uppercase text-muted-foreground">Note / Label</label>
                             <input
-                                className="w-full mt-1 p-2 border rounded-md"
+                                className="w-full mt-1 p-2 border rounded-md bg-background text-foreground placeholder:text-muted-foreground"
                                 placeholder="Optional description"
                                 value={itemLabel}
                                 onChange={e => setItemLabel(e.target.value)}
