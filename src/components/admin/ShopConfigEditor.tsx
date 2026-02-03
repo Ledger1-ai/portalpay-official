@@ -38,13 +38,13 @@ export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave
             primaryColor: initialData.primaryColor || "#0ea5e9",
             secondaryColor: initialData.secondaryColor || "#22c55e",
             layoutMode: initialData.layoutMode || "balanced",
-            brandLogoUrl: initialData.logoUrl || brand?.logos?.symbol || "",
+            brandLogoUrl: initialData.logoUrl || "",
             brandFaviconUrl: initialData.faviconUrl || "",
         }
     });
 
     useEffect(() => {
-        // Fetch live config to sync
+        // Fetch live config to sync, but ONLY use fetched values if initialData doesn't have them
         (async () => {
             if (!wallet) return;
             setLoading(true);
@@ -54,17 +54,22 @@ export default function ShopConfigEditor({ wallet, brandKey, initialData, onSave
                 const j = await r.json().catch(() => ({}));
                 if (j?.config) {
                     const c = j.config;
-                    setConfig((prev: any) => ({
-                        ...prev,
-                        name: c.name || prev.name,
-                        slug: c.slug || "",
-                        theme: {
-                            ...prev.theme,
-                            ...(c.theme || {}),
-                            // Ensure we don't lose initial data if API returns empty
-                            brandLogoUrl: c.theme?.brandLogoUrl || prev.theme.brandLogoUrl,
-                        }
-                    }));
+                    setConfig((prev: any) => {
+                        // Only use API values if initialData/prev doesn't have them
+                        return {
+                            ...prev,
+                            name: prev.name || c.name || "",
+                            slug: prev.slug || c.slug || "",
+                            description: prev.description || c.description || "",
+                            theme: {
+                                primaryColor: prev.theme.primaryColor !== "#0ea5e9" ? prev.theme.primaryColor : (c.theme?.primaryColor || "#0ea5e9"),
+                                secondaryColor: prev.theme.secondaryColor !== "#22c55e" ? prev.theme.secondaryColor : (c.theme?.secondaryColor || "#22c55e"),
+                                layoutMode: prev.theme.layoutMode !== "balanced" ? prev.theme.layoutMode : (c.theme?.layoutMode || "balanced"),
+                                brandLogoUrl: prev.theme.brandLogoUrl || c.theme?.brandLogoUrl || "",
+                                brandFaviconUrl: prev.theme.brandFaviconUrl || c.theme?.brandFaviconUrl || "",
+                            }
+                        };
+                    });
                 }
             } catch (e) {
                 console.error("Failed to load shop config", e);

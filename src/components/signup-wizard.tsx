@@ -457,6 +457,33 @@ export function SignupWizard({ isOpen, onClose, onComplete, inline = false }: Si
                 }
                 throw new Error(data.error || "Submission failed");
             }
+
+            // Also save the shop_config so it exists when admin views the application
+            try {
+                await fetch("/api/shop/config/apply", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-wallet": connectedWallet
+                    },
+                    body: JSON.stringify({
+                        name: shopName,
+                        description: shopDescription || "",
+                        slug: shopSlug || undefined,
+                        theme: {
+                            primaryColor: shopPrimaryColor,
+                            secondaryColor: shopSecondaryColor,
+                            brandLogoUrl: shopLogoUrl || "",
+                            brandFaviconUrl: shopFaviconUrl || "",
+                            layoutMode: shopLayoutMode || "balanced"
+                        }
+                    })
+                });
+            } catch (shopConfigError) {
+                // Non-fatal - the application was still submitted, shop config can be set later
+                console.warn("Failed to save shop config during application:", shopConfigError);
+            }
+
             setApplicationStatus("success");
         } catch (e: any) {
             setSubmitError(e.message || "Failed to submit application");
@@ -830,8 +857,8 @@ export function SignupWizard({ isOpen, onClose, onComplete, inline = false }: Si
                                                                     setSlugMessage("");
                                                                 }}
                                                                 className={`flex-1 px-3 py-2 bg-black/20 rounded-r-lg border text-sm text-white focus:border-emerald-500 outline-none transition-colors ${slugStatus === "available" ? "border-emerald-500" :
-                                                                        slugStatus === "taken" ? "border-red-500" :
-                                                                            slugStatus === "error" ? "border-amber-500" : "border-white/10"
+                                                                    slugStatus === "taken" ? "border-red-500" :
+                                                                        slugStatus === "error" ? "border-amber-500" : "border-white/10"
                                                                     }`}
                                                                 placeholder="my-shop"
                                                             />
