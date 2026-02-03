@@ -1730,8 +1730,8 @@ export default function PortalReceiptPage() {
             amount: totalUsd, // Display USD amount 
             token: token
           });
-          // Also trigger postStatus
-          await postStatus("checkout_success_poll", { txHash: data.txHash });
+          // Also trigger postStatus with paid - this is a confirmed on-chain payment
+          await postStatus("paid", { txHash: data.txHash, paymentMethod: "crypto_fallback_poll" });
         }
       } catch (e) {
         console.error("Poll error", e);

@@ -408,8 +408,9 @@ export async function PATCH(req: NextRequest) {
 
                 if (splitConfig) {
                     newConfig.splitConfig = {
-                        partnerBps: Number(splitConfig.partnerBps),
                         merchantBps: Number(splitConfig.merchantBps),
+                        partnerBps: Number(splitConfig.partnerBps),
+                        platformBps: typeof splitConfig.platformBps === "number" ? Number(splitConfig.platformBps) : (10000 - Number(splitConfig.partnerBps) - Number(splitConfig.merchantBps) - (Array.isArray(splitConfig.agents) ? splitConfig.agents.reduce((s: number, a: any) => s + (Number(a.bps) || 0), 0) : 0)),
                         agents: Array.isArray(splitConfig.agents) ? splitConfig.agents : []
                     };
                 }
@@ -449,8 +450,9 @@ export async function PATCH(req: NextRequest) {
 
                 if (splitConfig) {
                     shopConfig.splitConfig = {
-                        partnerBps: Number(splitConfig.partnerBps),
                         merchantBps: Number(splitConfig.merchantBps),
+                        partnerBps: Number(splitConfig.partnerBps),
+                        platformBps: typeof splitConfig.platformBps === "number" ? Number(splitConfig.platformBps) : (10000 - Number(splitConfig.partnerBps) - Number(splitConfig.merchantBps) - (Array.isArray(splitConfig.agents) ? splitConfig.agents.reduce((s: number, a: any) => s + (Number(a.bps) || 0), 0) : 0)),
                         agents: Array.isArray(splitConfig.agents) ? splitConfig.agents : []
                     };
                 }

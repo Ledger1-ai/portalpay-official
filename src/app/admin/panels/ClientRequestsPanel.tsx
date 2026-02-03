@@ -203,7 +203,7 @@ export default function ClientRequestsPanel() {
         load();
     }, [account?.address, brandKey]);
 
-    async function updateStatus(id: string, status: "pending" | "approved" | "rejected" | "blocked" | "orphaned", splitConfig?: { partnerBps: number, merchantBps: number; agents?: { wallet: string; bps: number }[] }, shouldClose = true, shopConfigUpdate?: any) {
+    async function updateStatus(id: string, status: "pending" | "approved" | "rejected" | "blocked" | "orphaned", splitConfig?: { partnerBps: number, merchantBps: number; platformBps?: number; agents?: { wallet: string; bps: number }[] }, shouldClose = true, shopConfigUpdate?: any) {
         try {
             setError("");
             setInfo("");
@@ -335,6 +335,24 @@ export default function ClientRequestsPanel() {
                 setPartnerBps(foundPartnerBps);
                 setAgents(foundAgents);
                 setLastVerifiedConfig({ partnerBps: foundPartnerBps, agents: foundAgents });
+
+                // Calculate merchantBps based on verified values
+                const verifiedAgentsBps = foundAgents.reduce((sum, a) => sum + (Number(a.bps) || 0), 0);
+                const verifiedMerchantBps = 10000 - platformBps - foundPartnerBps - verifiedAgentsBps;
+
+                // Persist to merchant's site:config in database
+                await updateStatus(
+                    req.id,
+                    req.status as any,
+                    {
+                        partnerBps: foundPartnerBps,
+                        merchantBps: verifiedMerchantBps,
+                        platformBps: platformBps,
+                        agents: foundAgents
+                    },
+                    false // Don't close modal
+                );
+
                 setDeployResult(`Verified & Synced: ${addr}`);
             } else {
                 setDeployResult("Verification failed: Could not read contract.");
@@ -354,7 +372,7 @@ export default function ClientRequestsPanel() {
         if (!req) return;
 
         // Auto-save config before deploying
-        await updateStatus(req.id, req.status as any, { partnerBps, merchantBps, agents }, false);
+        await updateStatus(req.id, req.status as any, { partnerBps, merchantBps, platformBps, agents }, false);
 
         try {
             setDeploying(true);
@@ -390,7 +408,7 @@ export default function ClientRequestsPanel() {
 
     const confirmApproval = () => {
         if (!approvingId) return;
-        updateStatus(approvingId, "approved", { partnerBps, merchantBps, agents });
+        updateStatus(approvingId, "approved", { partnerBps, merchantBps, platformBps, agents });
     };
 
     async function deleteRequest(id: string) {

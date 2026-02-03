@@ -63,8 +63,20 @@ const nextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value:
-              "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: https://explorer-api.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.com https://auth.privy.io https://*.rpc.privy.systems; frame-src 'self' http: https:; child-src 'self' http: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https: https://use.typekit.net https://p.typekit.net; font-src 'self' https: data: https://use.typekit.net https://p.typekit.net; frame-ancestors *;",
+            value: [
+              "default-src 'self'",
+              "img-src 'self' data: blob: https:",
+              "media-src 'self' data: blob: https:",
+              // connect-src: Allow API calls to wallets, onramps, and payment providers
+              "connect-src 'self' https: wss: https://explorer-api.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.com https://auth.privy.io https://*.rpc.privy.systems https://*.thirdweb.com https://*.coinbase.com https://*.stripe.com https://*.ramp.network https://*.transak.com https://*.moonpay.com",
+              // frame-src: Allow checkout widget iframes from onramp providers
+              "frame-src 'self' http: https: https://*.thirdweb.com https://*.coinbase.com https://*.stripe.com https://*.ramp.network https://*.transak.com https://*.moonpay.com",
+              "child-src 'self' http: https:",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+              "style-src 'self' 'unsafe-inline' https: https://use.typekit.net https://p.typekit.net",
+              "font-src 'self' https: data: https://use.typekit.net https://p.typekit.net",
+              "frame-ancestors *",
+            ].join("; "),
           },
           {
             key: "Cross-Origin-Opener-Policy",
