@@ -94,23 +94,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Determine brandKey using same logic as receipt document creation (body > env > fallback)
+    const effectiveBrandKey = (
+      typeof body?.brandKey === "string" ? body.brandKey.toLowerCase() :
+        (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase()
+    ) || undefined;
+
     // Fetch site config (processingFeePct, taxConfig, brandName, storeCurrency), and ensure split configured
-    // Pass brandKey from body if available to fetch correct brand-scoped config with splitConfig
-    const bodyBrandKey = typeof body?.brandKey === "string" ? body.brandKey.toLowerCase() : undefined;
-    let cfg = await getSiteConfigForWallet(wallet, bodyBrandKey).catch(() => null as any);
+    let cfg = await getSiteConfigForWallet(wallet, effectiveBrandKey).catch(() => null as any);
 
     // Direct fetch of brand-scoped site config to ensure we get splitConfig
-    // The getSiteConfigForWallet may not preserve splitConfig properly
+    // Use cross-partition query because brand-scoped docs may be partitioned by admin wallet, not merchant wallet
     let directSplitConfig: any = null;
-    if (bodyBrandKey) {
+    if (effectiveBrandKey) {
       try {
         const container = await getContainer();
-        const docId = `site:config:${bodyBrandKey}`;
-        const { resource } = await container.item(docId, wallet).read<any>();
+        const docId = `site:config:${effectiveBrandKey}`;
+        // Cross-partition query to find the document regardless of which wallet partitioned it
+        const spec = {
+          query: "SELECT * FROM c WHERE c.id = @docId",
+          parameters: [{ name: "@docId", value: docId }]
+        };
+        const { resources } = await container.items.query(spec).fetchAll();
+        const resource = Array.isArray(resources) && resources[0] ? resources[0] : null;
         if (resource?.splitConfig) {
           directSplitConfig = resource.splitConfig;
+          console.log("[Terminal Receipt] Direct splitConfig fetch success:", { docId, splitConfig: directSplitConfig });
+        } else {
+          console.log("[Terminal Receipt] Direct splitConfig fetch - doc found but no splitConfig:", { docId, hasResource: !!resource });
         }
-      } catch { }
+      } catch (e: any) {
+        console.log("[Terminal Receipt] Direct splitConfig fetch failed:", { docId: `site:config:${effectiveBrandKey}`, error: e.message });
+      }
     }
 
     // Fetch shop config for merchant's actual brand name (stored in type: "shop_config")
@@ -245,7 +260,7 @@ export async function POST(req: NextRequest) {
       hasDirectSplitConfig: !!directSplitConfig,
       hasSplitConfig: !!splitCfg,
       splitCfg,
-      bodyBrandKey,
+      effectiveBrandKey,
       envBrandKey: process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY
     });
     if (splitCfg && typeof splitCfg === "object") {

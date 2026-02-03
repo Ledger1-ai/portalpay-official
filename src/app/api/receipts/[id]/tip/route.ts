@@ -53,30 +53,69 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // 3. Tip
         const tipCents = toCents(tipAmount);
 
-        // 4. Processing Fee
-        // We need the fee percentage. It might be stored implicitly or we fetch.
-        // If we can't find it, we might preserve existing fee ratio?
-        // Simpler: Fetch config for wallet.
+        // 4. Processing Fee - fetch from brand-scoped splitConfig
         const wallet = receipt.wallet;
-        let feePct = 0.005; // 0.5% default
+        let feePct = 0.005; // 0.5% default fallback
         try {
-            const cfg = await getSiteConfigForWallet(wallet);
-            // Re-derive fee logic (base + processing)
-            // This is complex to duplicate.
-            // Alternative: Derive from existing receipt if fee exists?
-            const oldFeeItem = receipt.lineItems.find((i: any) => i.label === "Processing Fee");
-            const oldTotalPreFee = (receipt.totalUsd || 0) - (oldFeeItem?.priceUsd || 0);
-            if (oldFeeItem && oldTotalPreFee > 0) {
-                // fee / preFee
-                // This is imprecise.
+            // Get brandKey from receipt, env, or fallback
+            const effectiveBrandKey = (
+                typeof receipt?.brandKey === "string" ? receipt.brandKey.toLowerCase() :
+                    (process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY || "").toLowerCase()
+            ) || undefined;
+
+            let basePlatformFeePct: number | undefined = undefined;
+
+            // Priority 1: Fetch splitConfig from brand-scoped site config (cross-partition query)
+            if (effectiveBrandKey) {
+                try {
+                    const docId = `site:config:${effectiveBrandKey}`;
+                    const spec = {
+                        query: "SELECT * FROM c WHERE c.id = @docId",
+                        parameters: [{ name: "@docId", value: docId }]
+                    };
+                    const { resources: cfgResources } = await container.items.query(spec).fetchAll();
+                    const cfgResource = Array.isArray(cfgResources) && cfgResources[0] ? cfgResources[0] : null;
+                    if (cfgResource?.splitConfig && typeof cfgResource.splitConfig === "object") {
+                        const splitCfg = cfgResource.splitConfig;
+                        const partnerBps = typeof splitCfg.partnerBps === "number" ? splitCfg.partnerBps : 0;
+                        const platformBps = typeof splitCfg.platformBps === "number" ? splitCfg.platformBps : 0;
+                        const agentBps = Array.isArray(splitCfg.agents)
+                            ? splitCfg.agents.reduce((s: number, a: any) => s + (Number(a.bps) || 0), 0)
+                            : 0;
+                        basePlatformFeePct = (partnerBps + platformBps + agentBps) / 100;
+                        console.log("[Tip Route] Using splitConfig fees:", { partnerBps, platformBps, agentBps, basePlatformFeePct });
+                    }
+                } catch (e: any) {
+                    console.log("[Tip Route] splitConfig fetch failed:", e.message);
+                }
             }
-            const procFee = Number(cfg?.processingFeePct || 0);
-            /* We'll use a simplified fetch here or just use default 0.5% + stored processingFeePct if available in site config? 
-               Actually, let's just use 0.5% + (cfg.processingFeePct || 0).
-            */
-            const basePlatformFee = 0.5; // We assume 0.5% unless brand overridden, which is hard to check here.
-            // Let's stick to 0.5% + cfg.processingFeePct for consistency with Terminal.
-            feePct = (basePlatformFee + procFee) / 100;
+
+            // Priority 2: Fallback to getSiteConfigForWallet
+            if (typeof basePlatformFeePct !== "number") {
+                const cfg = await getSiteConfigForWallet(wallet, effectiveBrandKey);
+                const splitCfg = (cfg as any)?.splitConfig;
+                if (splitCfg && typeof splitCfg === "object") {
+                    const partnerBps = typeof splitCfg.partnerBps === "number" ? splitCfg.partnerBps : 0;
+                    const platformBps = typeof splitCfg.platformBps === "number" ? splitCfg.platformBps : 0;
+                    const agentBps = Array.isArray(splitCfg.agents)
+                        ? splitCfg.agents.reduce((s: number, a: any) => s + (Number(a.bps) || 0), 0)
+                        : 0;
+                    basePlatformFeePct = (partnerBps + platformBps + agentBps) / 100;
+                } else if (typeof (cfg as any)?.basePlatformFeePct === "number") {
+                    basePlatformFeePct = (cfg as any).basePlatformFeePct;
+                }
+                const procFee = Number(cfg?.processingFeePct || 0);
+                if (typeof basePlatformFeePct === "number") {
+                    basePlatformFeePct += procFee;
+                }
+            }
+
+            // Priority 3: Default 0.5%
+            if (typeof basePlatformFeePct !== "number") {
+                basePlatformFeePct = 0.5;
+            }
+
+            feePct = basePlatformFeePct / 100;
         } catch { }
 
         // Calculate Fee on (Base + Tax + Tip)
