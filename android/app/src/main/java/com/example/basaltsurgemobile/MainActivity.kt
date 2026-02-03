@@ -166,51 +166,69 @@ class MainActivity : ComponentActivity() {
     
     private fun pollLockdownConfig(session: GeckoSession) {
         // Poll every 2 seconds to check for config from JS bridge
+        // GeckoView doesn't have evaluateJavascript, so we use loadUri with JavaScript protocol
         val handler = android.os.Handler(mainLooper)
         val runnable = object : Runnable {
             override fun run() {
-                session.evaluateJavascript(
-                    """
+                // Inject JS that will store the config in a global variable we can access via URL scheme
+                val jsCode = """
                     (function() {
                         if (window.TOUCHPOINT_CONFIG) {
-                            return JSON.stringify({
-                                lockdownMode: window.TOUCHPOINT_CONFIG.lockdownMode || 'none',
-                                unlockCodeHash: window.TOUCHPOINT_CONFIG.unlockCodeHash || null
-                            });
+                            var cfg = window.TOUCHPOINT_CONFIG;
+                            var lockdownMode = cfg.lockdownMode || 'none';
+                            var unlockCodeHash = cfg.unlockCodeHash || '';
+                            // Post message to Android - we'll detect this via NavigationDelegate
+                            window.location.hash = 'android-config:' + lockdownMode + ':' + (unlockCodeHash || 'null');
+                            // Reset hash after a short delay
+                            setTimeout(function() { 
+                                if (window.location.hash.indexOf('android-config') === 1) {
+                                    window.location.hash = '';
+                                }
+                            }, 100);
                         }
-                        return null;
-                    })()
-                    """.trimIndent()
-                ).then { result ->
-                    result?.let { jsonStr ->
+                    })();
+                """.trimIndent().replace("\n", " ")
+                
+                try {
+                    session.loadUri("javascript:$jsCode")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error executing JS bridge: ${e.message}")
+                }
+                
+                handler.postDelayed(this, 2000)
+            }
+        }
+        handler.postDelayed(runnable, 1000)
+        
+        // Set up URL change listener to capture config from hash
+        session.navigationDelegate = object : GeckoSession.NavigationDelegate {
+            override fun onLocationChange(session: GeckoSession, url: String?, perms: MutableList<GeckoSession.PermissionDelegate.ContentPermission>, hasUserGesture: Boolean) {
+                url?.let { currentUrl ->
+                    if (currentUrl.contains("#android-config:")) {
                         try {
-                            val sanitized = jsonStr.toString().trim().removeSurrounding("\"")
-                            if (sanitized != "null" && sanitized.isNotEmpty()) {
-                                // Parse the JSON manually (avoiding external dependencies)
-                                val mode = extractJsonField(sanitized, "lockdownMode") ?: "none"
-                                val hash = extractJsonField(sanitized, "unlockCodeHash")
+                            val hash = currentUrl.substringAfter("#android-config:")
+                            val parts = hash.split(":")
+                            if (parts.size >= 2) {
+                                val mode = parts[0]
+                                val hashValue = if (parts[1] == "null") null else parts[1]
                                 
-                                val newConfig = LockdownConfig(mode, hash)
+                                val newConfig = LockdownConfig(mode, hashValue)
                                 if (newConfig != lockdownConfig.value) {
-                                    Log.d(TAG, "Lockdown config updated: $newConfig")
+                                    Log.d(TAG, "Lockdown config updated via URL: $newConfig")
                                     lockdownConfig.value = newConfig
                                     
-                                    // Enable Lock Task Mode if configured
                                     if (mode == "standard" || mode == "device_owner") {
                                         enableLockTaskMode()
                                     }
                                 }
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error parsing lockdown config: ${e.message}")
+                            Log.e(TAG, "Error parsing lockdown config from URL: ${e.message}")
                         }
                     }
-                    null
                 }
-                handler.postDelayed(this, 2000)
             }
         }
-        handler.postDelayed(runnable, 1000)
     }
     
     private fun extractJsonField(json: String, field: String): String? {
