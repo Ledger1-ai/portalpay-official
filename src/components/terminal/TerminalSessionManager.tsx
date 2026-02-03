@@ -154,10 +154,12 @@ export default function TerminalSessionManager({ config, merchantWallet }: { con
     }, [activeSession, merchantWallet]);
 
     const handleAdminLogout = () => {
+        // Disconnect the wallet to ensure no unauthorized access after logout
+        if (activeWallet) {
+            disconnect(activeWallet);
+        }
         setView("pin");
         setIsLoggedOut(true);
-        // Optionally disconnect wallet logic here via ThirdWeb hook if needed, 
-        // but typically user just switches back.
     };
 
     const appendPin = (d: string) => {
