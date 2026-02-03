@@ -1348,7 +1348,20 @@ export async function POST(req: NextRequest) {
     } as any;
     try {
       const c = await getContainer();
+      // Dual-upsert: write brand-scoped doc AND legacy mirror to keep split config in sync
       await c.items.upsert(doc);
+
+      // Also write legacy mirror (site:config) to prevent stale data mismatches
+      // This mirrors the dual-upsert pattern used in split/deploy route
+      const legacyMirror = {
+        ...doc,
+        id: DOC_ID, // "site:config"
+        brandKey: normalizedBrand,
+        type: "site_config",
+        updatedAt: doc.updatedAt,
+      };
+      await c.items.upsert(legacyMirror);
+
       try {
         await auditEvent(req, {
           who: caller.wallet,

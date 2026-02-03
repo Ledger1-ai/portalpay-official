@@ -407,11 +407,43 @@ export async function PATCH(req: NextRequest) {
                 console.log("[client-requests] Updating Shop Config (Auto-Heal):", JSON.stringify(newConfig));
 
                 if (splitConfig) {
+                    const merchantBps = Number(splitConfig.merchantBps);
+                    const partnerBps = Number(splitConfig.partnerBps);
+                    const agentBps = Array.isArray(splitConfig.agents) ? splitConfig.agents.reduce((s: number, a: any) => s + (Number(a.bps) || 0), 0) : 0;
+                    const platformBps = typeof splitConfig.platformBps === "number" ? Number(splitConfig.platformBps) : (10000 - partnerBps - merchantBps - agentBps);
+
                     newConfig.splitConfig = {
-                        merchantBps: Number(splitConfig.merchantBps),
-                        partnerBps: Number(splitConfig.partnerBps),
-                        platformBps: typeof splitConfig.platformBps === "number" ? Number(splitConfig.platformBps) : (10000 - Number(splitConfig.partnerBps) - Number(splitConfig.merchantBps) - (Array.isArray(splitConfig.agents) ? splitConfig.agents.reduce((s: number, a: any) => s + (Number(a.bps) || 0), 0) : 0)),
+                        merchantBps,
+                        partnerBps,
+                        platformBps,
                         agents: Array.isArray(splitConfig.agents) ? splitConfig.agents : []
+                    };
+
+                    // Also regenerate split.recipients to match the new BPS values
+                    // Get the existing addresses or use the ones from the config
+                    const merchantWallet = newConfig.wallet || activeConfig.wallet;
+                    const partnerWallet = newConfig.partnerWallet || activeConfig.partnerWallet || "";
+                    const platformWallet = process.env.PLATFORM_WALLET || "0x00fe4f0104a989ca65df6b825a6c1682413bca56";
+
+                    const newRecipients = [
+                        { address: merchantWallet.toLowerCase(), sharesBps: merchantBps },
+                        ...(partnerBps > 0 && partnerWallet ? [{ address: partnerWallet.toLowerCase(), sharesBps: partnerBps }] : []),
+                        { address: platformWallet.toLowerCase(), sharesBps: platformBps },
+                        ...(Array.isArray(splitConfig.agents) ? splitConfig.agents.map((a: any) => ({ address: String(a.wallet || "").toLowerCase(), sharesBps: Number(a.bps) || 0 })).filter((r: any) => r.address && r.sharesBps > 0) : [])
+                    ].filter((r: any) => r.address && r.sharesBps > 0);
+
+                    // Update split.recipients and config.recipients
+                    const splitAddress = newConfig.splitAddress || activeConfig.splitAddress || "";
+                    newConfig.split = {
+                        address: splitAddress,
+                        recipients: newRecipients,
+                        brandKey: brandKey.toLowerCase()
+                    };
+                    newConfig.config = {
+                        ...(newConfig.config || {}),
+                        splitAddress,
+                        split: { address: splitAddress, recipients: newRecipients },
+                        recipients: newRecipients
                     };
                 }
 
@@ -426,7 +458,48 @@ export async function PATCH(req: NextRequest) {
                     // Additional fields as needed
                 }
 
+                newConfig.updatedAt = Date.now();
                 await container.item(activeConfig.id, activeConfig.wallet).replace(newConfig);
+
+                // Also update site:config and shop:config documents to keep data in sync
+                // Sync when EITHER splitConfig OR shopConfigUpdate is provided
+                if (splitConfig || shopConfigUpdate) {
+                    const siteConfigIdBrand = `site:config:${brandKey.toLowerCase()}`;
+                    const siteConfigIdLegacy = "site:config";
+                    const shopConfigIdBrand = `shop:config:${brandKey.toLowerCase()}`;
+                    const wallet = request.wallet.toLowerCase();
+
+                    // Helper to update a config document
+                    const updateConfigDoc = async (docId: string) => {
+                        try {
+                            const { resource: existing } = await container.item(docId, wallet).read<any>();
+                            if (existing) {
+                                const updated = {
+                                    ...existing,
+                                    // Sync split data if splitConfig was provided
+                                    ...(splitConfig ? {
+                                        splitConfig: newConfig.splitConfig,
+                                        split: newConfig.split,
+                                        config: newConfig.config,
+                                    } : {}),
+                                    // Sync shop config data if shopConfigUpdate was provided
+                                    ...(shopConfigUpdate ? {
+                                        name: newConfig.name,
+                                        theme: newConfig.theme,
+                                        slug: newConfig.slug,
+                                    } : {}),
+                                    updatedAt: Date.now()
+                                };
+                                await container.items.upsert(updated);
+                            }
+                        } catch { /* Doc may not exist */ }
+                    };
+
+                    // Sync to all relevant documents
+                    await updateConfigDoc(siteConfigIdBrand);
+                    await updateConfigDoc(siteConfigIdLegacy);
+                    await updateConfigDoc(shopConfigIdBrand);
+                }
 
             } else {
                 // CREATE new shop_config

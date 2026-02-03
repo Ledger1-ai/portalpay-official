@@ -96,6 +96,20 @@ export async function POST(req: NextRequest) {
 
     // Fetch site config (processingFeePct, taxConfig, brandName, storeCurrency), and ensure split configured
     const cfg = await getSiteConfigForWallet(wallet).catch(() => null as any);
+
+    // Fetch shop config for merchant's actual brand name (stored in type: "shop_config")
+    let shopConfig: any = null;
+    try {
+      const container = await getContainer();
+      // Derive brandKey from env or hostname
+      let bk: string | undefined;
+      try { bk = getBrandKey(); } catch { bk = undefined; }
+      const isPlatform = !bk || bk.toLowerCase() === "portalpay" || bk.toLowerCase() === "basaltsurge";
+      const shopConfigId = isPlatform ? "shop:config" : `shop:config:${bk}`;
+      const { resource } = await container.item(shopConfigId, wallet).read<any>();
+      shopConfig = resource || null;
+    } catch { shopConfig = null; }
+
     const baseLabel = (String(body?.label || "").trim() || "Terminal Payment").slice(0, 120);
     const currencyInput = typeof body?.currency === "string" ? body.currency.toUpperCase() : (cfg?.storeCurrency || "USD");
     const currency = isSupportedCurrency(currencyInput) ? currencyInput : "USD";
@@ -103,9 +117,11 @@ export async function POST(req: NextRequest) {
     const taxRateOverride = typeof body?.taxRate === "number" ? Number(body.taxRate) : undefined;
     const taxComponents: string[] = Array.isArray(body?.taxComponents) ? body.taxComponents : [];
 
+    // Brand name precedence: request body > shop config name > site config theme.brandName > fallback
+    // Shop config (type: "shop_config") stores merchant brand in `name` field (e.g., "Testing Co")
     const brandName = (typeof body?.brandName === "string" && body.brandName.trim())
       ? body.brandName.trim()
-      : (cfg?.theme?.brandName || "PortalPay");
+      : (shopConfig?.name || cfg?.name || cfg?.theme?.brandName || "PortalPay");
     try {
       let splitAddr = (cfg as any)?.splitAddress || (cfg as any)?.split?.address || "";
       if (!/^0x[a-f0-9]{40}$/i.test(String(splitAddr))) {

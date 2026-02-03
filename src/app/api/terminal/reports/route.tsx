@@ -156,12 +156,13 @@ export async function GET(req: NextRequest) {
         // --- DATA AGGREGATION ---
 
         // Base Receipt Query
+        // NOTE: Receipts use `wallet` field, NOT `merchantWallet`
         let receiptsQueryString = `
             SELECT c.id, c.totalUsd, c.tipAmount, c.currency, c.paymentMethod, c.createdAt, 
                    c.employeeId, c.staffId, c.employeeName, c.servedBy, c.sessionId, c.sessionStartTime
             FROM c 
             WHERE c.type = 'receipt' 
-            AND c.merchantWallet = @w 
+            AND c.wallet = @w 
             AND c._ts >= @start 
             AND c._ts <= @end
             AND LOWER(c.status) IN ('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled', 'settled', 'completed')

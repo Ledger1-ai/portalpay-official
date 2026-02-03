@@ -1155,30 +1155,18 @@ export default function ClientRequestsPanel() {
                                                         {deploying && !deployResult ? "Loading..." : "Verify On-Chain"}
                                                     </button>
 
-                                                    {/* Deploy Button: Enabled only if changes detected */}
-                                                    <button
-                                                        onClick={() => handleDeploy(false)}
-                                                        disabled={deploying || !hasChanges}
-                                                        className={`flex-1 py-2 rounded-lg text-xs font-mono transition-colors flex items-center justify-center gap-2 border ${hasChanges
-                                                            ? "bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border-emerald-600/40"
-                                                            : "bg-zinc-800/50 text-zinc-500 border-zinc-700 cursor-not-allowed"
-                                                            }`}
-                                                        title={hasChanges ? "Deploy updated configuration" : "No changes detected"}
-                                                    >
-                                                        Deploy
-                                                    </button>
-
+                                                    {/* Deploy New Version Button (merged Deploy + Force) */}
                                                     <button
                                                         onClick={() => {
-                                                            if (confirm("Force redeployment? This will archive the current split and deploy a new one.")) {
+                                                            if (confirm("Deploy new version? This will archive the current split and deploy a new one with the updated configuration.")) {
                                                                 handleDeploy(true);
                                                             }
                                                         }}
                                                         disabled={deploying}
-                                                        className="px-3 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-600/40 rounded-lg text-xs font-mono transition-colors"
-                                                        title="Force Redeploy (Archive current)"
+                                                        className="flex-1 py-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-600/40 rounded-lg text-xs font-mono transition-colors flex items-center justify-center gap-2"
+                                                        title="Deploy new version (archive current and deploy updated split)"
                                                     >
-                                                        ↻
+                                                        {deploying ? "Deploying..." : "Deploy New Version"}
                                                     </button>
                                                 </div>
                                             )}
