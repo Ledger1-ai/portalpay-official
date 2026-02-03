@@ -289,14 +289,55 @@ export async function GET(req: NextRequest) {
                 parameters: sessionsParams
             }).fetchAll();
 
+            // Backfill orphaned sessions: sessions without endTime get endTime = next session's startTime - 1
+            // Group sessions by staffId, sort by startTime ascending, then backfill
+            const sessionsByStaff = new Map<string, any[]>();
+            for (const s of sess) {
+                const staffId = s.staffId || "unknown";
+                if (!sessionsByStaff.has(staffId)) sessionsByStaff.set(staffId, []);
+                sessionsByStaff.get(staffId)!.push(s);
+            }
+
+            // Process each staff's sessions
+            const backfillOps: Promise<any>[] = [];
+            for (const [staffId, staffSessions] of sessionsByStaff) {
+                // Sort by startTime ascending (oldest first)
+                staffSessions.sort((a, b) => a.startTime - b.startTime);
+
+                for (let i = 0; i < staffSessions.length - 1; i++) {
+                    const current = staffSessions[i];
+                    const next = staffSessions[i + 1];
+
+                    // If current session has no endTime and there's a subsequent session
+                    if (!current.endTime && next.startTime) {
+                        const inferredEndTime = next.startTime - 1;
+                        current.endTime = inferredEndTime; // Update in-memory for response
+
+                        // Persist to database (fire and forget for performance)
+                        backfillOps.push(
+                            container.item(current.id, w).patch([
+                                { op: "set", path: "/endTime", value: inferredEndTime }
+                            ]).catch((e: any) => console.warn(`[Reports] Failed to backfill session ${current.id}:`, e.message))
+                        );
+                    }
+                }
+            }
+
+            // Wait for backfill operations to complete (optional, can be fire-and-forget)
+            if (backfillOps.length > 0) {
+                await Promise.allSettled(backfillOps);
+            }
+
             // Build a map of sessionId -> { totalSales, totalTips } from receipts
+            // Normalize to lowercase for consistent matching
             const sessionSalesMap = new Map<string, { sales: number; tips: number }>();
             for (const r of receipts) {
                 if (r.sessionId) {
-                    const current = sessionSalesMap.get(r.sessionId) || { sales: 0, tips: 0 };
+                    const normalizedId = String(r.sessionId).toLowerCase();
+                    const current = sessionSalesMap.get(normalizedId) || { sales: 0, tips: 0 };
                     current.sales += (r.totalUsd || 0);
                     current.tips += (r.tipAmount || 0);
-                    sessionSalesMap.set(r.sessionId, current);
+                    sessionSalesMap.set(normalizedId, current);
                 }
             }
 
@@ -306,8 +347,9 @@ export async function GET(req: NextRequest) {
                     ? Math.round((s.endTime - s.startTime) / 60)
                     : Math.round((Math.floor(Date.now() / 1000) - s.startTime) / 60);
 
-                // Get aggregated sales from receipts with this sessionId
-                const sessionStats = sessionSalesMap.get(s.id) || { sales: 0, tips: 0 };
+                // Get aggregated sales from receipts with this sessionId (normalized to lowercase)
+                const normalizedSessionId = String(s.id || "").toLowerCase();
+                const sessionStats = sessionSalesMap.get(normalizedSessionId) || { sales: 0, tips: 0 };
 
                 return {
                     id: s.id,

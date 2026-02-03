@@ -183,19 +183,27 @@ export async function getSiteConfigForWallet(wallet?: string, brandKeyOverride?:
       if (brandKey) {
         try {
           const docId = getDocIdForBrand(brandKey);
-          // console.log("[site-config] step1 try", { docId, wallet });
+          console.log("[site-config] step1 try", { docId, wallet, brandKey });
           const { resource } = await c.item(docId, wallet).read<any>();
           if (resource) {
             const n = normalize(resource);
             const hasSplit = n.splitAddress || n.split?.address;
-            // console.log("[site-config] step1 found", { id: resource.id, brandKey: resource.brandKey, hasSplit, splitAddr: n.splitAddress });
+            console.log("[site-config] step1 found", {
+              id: resource.id,
+              brandKey: resource.brandKey,
+              hasSplit,
+              splitAddr: n.splitAddress,
+              hasSplitConfig: !!resource.splitConfig
+            });
             const normalizedBrand = (brandKey || "").toLowerCase();
             const isPlatform = normalizedBrand === "portalpay" || normalizedBrand === "basaltsurge";
             // Allow returning brand-scoped doc even for platform brands as we migrate to per-brand docs
             if (hasSplit || n.industryParams || !isPlatform || resource.id === "site:config:basaltsurge") return n;
             // platform brand without split in brand-scoped doc: continue to legacy/global search
           }
-        } catch { }
+        } catch (e: any) {
+          console.log("[site-config] step1 error", { error: e.message });
+        }
       }
       // 2) Fallback to legacy per-wallet doc ("site:config" partitioned by wallet)
       // IMPORTANT: Partner containers should NOT fall back to legacy docs to prevent cross-tenant data leakage

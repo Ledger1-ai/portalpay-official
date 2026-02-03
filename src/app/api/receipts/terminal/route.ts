@@ -95,7 +95,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch site config (processingFeePct, taxConfig, brandName, storeCurrency), and ensure split configured
-    const cfg = await getSiteConfigForWallet(wallet).catch(() => null as any);
+    // Pass brandKey from body if available to fetch correct brand-scoped config with splitConfig
+    const bodyBrandKey = typeof body?.brandKey === "string" ? body.brandKey.toLowerCase() : undefined;
+    let cfg = await getSiteConfigForWallet(wallet, bodyBrandKey).catch(() => null as any);
+
+    // Direct fetch of brand-scoped site config to ensure we get splitConfig
+    // The getSiteConfigForWallet may not preserve splitConfig properly
+    let directSplitConfig: any = null;
+    if (bodyBrandKey) {
+      try {
+        const container = await getContainer();
+        const docId = `site:config:${bodyBrandKey}`;
+        const { resource } = await container.item(docId, wallet).read<any>();
+        if (resource?.splitConfig) {
+          directSplitConfig = resource.splitConfig;
+        }
+      } catch { }
+    }
 
     // Fetch shop config for merchant's actual brand name (stored in type: "shop_config")
     let shopConfig: any = null;
@@ -221,8 +237,17 @@ export async function POST(req: NextRequest) {
     // basePlatformFeePct: combined platform + partner + agent fee from splitConfig (merchant-specific)
     let basePlatformFeePct: number | undefined = undefined;
 
-    // Priority 1: Use splitConfig from the merchant's site config (most accurate)
-    const splitCfg = (cfg as any)?.splitConfig;
+    // Priority 1: Use directly fetched splitConfig (most reliable), fallback to cfg.splitConfig
+    const splitCfg = directSplitConfig || (cfg as any)?.splitConfig;
+    console.log("[Terminal Receipt] Fee config resolution:", {
+      hasCfg: !!cfg,
+      cfgId: cfg?.id,
+      hasDirectSplitConfig: !!directSplitConfig,
+      hasSplitConfig: !!splitCfg,
+      splitCfg,
+      bodyBrandKey,
+      envBrandKey: process.env.BRAND_KEY || process.env.NEXT_PUBLIC_BRAND_KEY
+    });
     if (splitCfg && typeof splitCfg === "object") {
       const partnerBps = typeof splitCfg.partnerBps === "number" ? splitCfg.partnerBps : 0;
       const platformBps = typeof splitCfg.platformBps === "number" ? splitCfg.platformBps : 0;
@@ -230,6 +255,7 @@ export async function POST(req: NextRequest) {
         ? splitCfg.agents.reduce((s: number, a: any) => s + (Number(a.bps) || 0), 0)
         : 0;
       basePlatformFeePct = (partnerBps + platformBps + agentBps) / 100;
+      console.log("[Terminal Receipt] Using splitConfig fees:", { partnerBps, platformBps, agentBps, basePlatformFeePct });
     }
 
     // Priority 2: Use basePlatformFeePct if explicitly set in config
@@ -297,6 +323,9 @@ export async function POST(req: NextRequest) {
     const sessionId = typeof body?.sessionId === "string" ? body.sessionId : undefined;
     const sessionStartTime = typeof body?.sessionStartTime === "number" ? body.sessionStartTime : undefined;
 
+    // Tip amount - initialize to 0, will be updated when tip is added
+    const tipAmount = typeof body?.tipAmount === "number" ? Math.max(0, body.tipAmount) : 0;
+
     // Brand key for isolation (from body or derive from env)
     const brandKey = typeof body?.brandKey === "string"
       ? body.brandKey.toLowerCase()
@@ -323,6 +352,8 @@ export async function POST(req: NextRequest) {
       servedBy,
       sessionId,
       sessionStartTime,
+      // Initialize tipAmount (updated via /api/receipts/[id]/tip or /pay)
+      tipAmount,
       // Brand isolation
       brandKey,
       statusHistory: [{ status: "generated", ts }],

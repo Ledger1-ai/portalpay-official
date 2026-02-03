@@ -109,6 +109,26 @@ export default function HandheldSessionManager({ config, merchantWallet, items }
         return () => clearInterval(interval);
     }, [activeSession?.sessionId, merchantWallet]);
 
+    // Auto-end session on page close/refresh
+    useEffect(() => {
+        if (!activeSession?.sessionId || !merchantWallet) return;
+
+        const endSessionOnClose = () => {
+            // Use sendBeacon with Blob for reliable delivery during page unload
+            const payload = JSON.stringify({ sessionId: activeSession.sessionId, merchantWallet });
+            const blob = new Blob([payload], { type: "application/json" });
+            navigator.sendBeacon("/api/terminal/session", blob);
+        };
+
+        window.addEventListener("beforeunload", endSessionOnClose);
+        window.addEventListener("pagehide", endSessionOnClose);
+
+        return () => {
+            window.removeEventListener("beforeunload", endSessionOnClose);
+            window.removeEventListener("pagehide", endSessionOnClose);
+        };
+    }, [activeSession?.sessionId, merchantWallet]);
+
     const handleLogin = async () => {
         if (pin.length < 4) return;
         setLoading(true);
