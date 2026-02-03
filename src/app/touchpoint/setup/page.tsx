@@ -56,18 +56,30 @@ export default function TouchpointSetupPage() {
         // Preserve scale parameter from the APK's built-in URL
         const params = new URLSearchParams(window.location.search);
         const scale = params.get("scale");
-        const scaleQuery = scale ? `?scale=${scale}` : "";
+        let queryParams = new URLSearchParams();
+
+        if (scale) queryParams.set("scale", scale);
+
+        // Pass lockdown config in query params so Android app can detect it across navigation
+        if (cfg.lockdownMode && cfg.lockdownMode !== "none") {
+            queryParams.set("lockdownMode", cfg.lockdownMode);
+            if (cfg.unlockCodeHash) {
+                queryParams.set("unlockHash", cfg.unlockCodeHash);
+            }
+        }
+
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
 
         if (cfg.mode === "terminal") {
             // Wallet must be a path parameter for terminal to work without login
-            router.replace(`/terminal/${cfg.merchantWallet}${scaleQuery}`);
+            router.replace(`/terminal/${cfg.merchantWallet}${queryStr}`);
         } else if (cfg.mode === "handheld") {
             // Handheld mode uses dedicated handheld interface
-            router.replace(`/handheld/${cfg.merchantWallet}${scaleQuery}`);
+            router.replace(`/handheld/${cfg.merchantWallet}${queryStr}`);
         } else {
             // Kiosk mode uses shop with wallet as path and kiosk flag
-            const kioskQuery = scale ? `?kiosk=1&scale=${scale}` : "?kiosk=1";
-            router.replace(`/shop/${cfg.merchantWallet}${kioskQuery}`);
+            queryParams.set("kiosk", "1");
+            router.replace(`/shop/${cfg.merchantWallet}?${queryParams.toString()}`);
         }
     }
 
@@ -81,7 +93,12 @@ export default function TouchpointSetupPage() {
 
             if (cfg.configured) {
                 console.log("[Touchpoint] Device configured, redirecting...", cfg);
-                performRedirect(cfg);
+
+                // Signal Android app immediately via hash
+                window.location.hash = `lockdown:${cfg.lockdownMode || "none"}:${cfg.unlockCodeHash || ""}`;
+
+                // Small delay to ensure hash is processed before redirect
+                setTimeout(() => performRedirect(cfg), 500);
             }
         } catch (e) {
             console.error("[Touchpoint] Error checking configuration:", e);
@@ -110,7 +127,6 @@ export default function TouchpointSetupPage() {
             setLoading(false);
 
             // Expose config to Android app via JS bridge
-            // GeckoView can inject JS to read this global
             if (typeof window !== "undefined") {
                 (window as any).TOUCHPOINT_CONFIG = {
                     configured: cfg.configured,
@@ -121,12 +137,17 @@ export default function TouchpointSetupPage() {
                     lockdownMode: cfg.lockdownMode || "none",
                     unlockCodeHash: cfg.unlockCodeHash || null,
                 };
+
+                // Signal Android app via URL hash (for passive detection)
+                window.location.hash = `lockdown:${cfg.lockdownMode || "none"}:${cfg.unlockCodeHash || ""}`;
+
                 console.log("[Touchpoint] Exposed config to JS bridge:", (window as any).TOUCHPOINT_CONFIG);
             }
 
             if (cfg.configured) {
                 console.log("[Touchpoint] Device configured, redirecting...", cfg);
-                performRedirect(cfg);
+                // Delay redirect slightly to ensure hash change is detected
+                setTimeout(() => performRedirect(cfg), 1000);
             }
         }).catch(e => {
             console.error("[Touchpoint] Error fetching config:", e);

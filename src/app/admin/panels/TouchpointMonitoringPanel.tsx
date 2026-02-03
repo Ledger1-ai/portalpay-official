@@ -93,11 +93,36 @@ export default function TouchpointMonitoringPanel() {
 
     useEffect(() => {
         fetchDevices();
-        // Default build endpoint to current browser origin (custom domain support)
-        if (typeof window !== "undefined") {
-            setBuildEndpoint(window.location.origin);
-        }
     }, [fetchDevices]);
+
+    // Auto-calculate build endpoint based on brand key
+    useEffect(() => {
+        if (!buildBrandKey) {
+            // No brand selected - use current origin
+            if (typeof window !== "undefined") {
+                setBuildEndpoint(window.location.origin);
+            }
+            return;
+        }
+
+        const brand = buildBrandKey.toLowerCase().trim();
+
+        // Partner container - use current origin (since we're on the partner domain)
+        if (process.env.NEXT_PUBLIC_CONTAINER_TYPE === "partner") {
+            if (typeof window !== "undefined") {
+                setBuildEndpoint(window.location.origin);
+            }
+            return;
+        }
+
+        // Platform container - calculate based on brand
+        if (brand === "surge" || brand === "basaltsurge") {
+            setBuildEndpoint("https://surge.basalthq.com");
+        } else {
+            // Partner brands use their Azure domain
+            setBuildEndpoint(`https://${brand}.azurewebsites.net`);
+        }
+    }, [buildBrandKey]);
 
     async function handleProvision() {
         const wallet = provisionWallet.trim();
