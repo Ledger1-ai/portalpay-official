@@ -34,7 +34,22 @@ export async function POST(req: NextRequest) {
         // 2. Determine Tokens to watch
         const isNative = currency === "ETH";
         const tokens = (cfg as any)?.tokens || [];
-        const tokenConfig = tokens.find((t: any) => t.symbol === currency);
+        let tokenConfig = tokens.find((t: any) => t.symbol === currency);
+
+        // Fallback: use hardcoded Base mainnet token addresses if config doesn't have them
+        if (!tokenConfig && !isNative) {
+            const fallbackTokens: Record<string, { address: string; decimals: number }> = {
+                "USDC": { address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
+                "USDT": { address: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", decimals: 6 },
+                "cbBTC": { address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", decimals: 8 },
+                "cbXRP": { address: "0xcbB7C0000ab88B473b1f5AFd9ef808440EeD33bF", decimals: 6 },
+                "SOL": { address: "0x1C61629598e4a901136a81BC138E5828dc150d67", decimals: 9 },
+            };
+            const fallback = fallbackTokens[currency];
+            if (fallback) {
+                tokenConfig = { symbol: currency, ...fallback };
+            }
+        }
 
         let foundTx: any = null;
 
