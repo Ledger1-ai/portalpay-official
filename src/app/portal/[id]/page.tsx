@@ -2440,7 +2440,7 @@ export default function PortalReceiptPage() {
                             </div>
                           ) : (
                             <CheckoutWidget
-                              key={`${token}-${currency}-${ratesUpdatedAt ? ratesUpdatedAt.getTime() : 0}`}
+                              key={`${token}-${currency}`}
                               className="w-full"
                               client={client}
                               chain={chain}
@@ -2858,7 +2858,7 @@ export default function PortalReceiptPage() {
                           </div>
                         ) : (
                           <CheckoutWidget
-                            key={`${token}-${currency}-${ratesUpdatedAt ? ratesUpdatedAt.getTime() : 0}`}
+                            key={`${token}-${currency}`}
                             className="w-full"
                             client={client}
                             chain={base} // FORCE Base chain to align with hardcoded Base tokens
