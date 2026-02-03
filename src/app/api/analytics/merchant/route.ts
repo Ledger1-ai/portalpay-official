@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
           { status: 403, headers: { "x-correlation-id": correlationId } }
         );
       }
-    } catch {}
+    } catch { }
 
     const now = Date.now();
     const since24h = now - 24 * 60 * 60 * 1000;
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
       const cfg = await getSiteConfigForWallet(merchant);
       const v = Number((cfg as any)?.xpPerDollar);
       if (Number.isFinite(v) && v >= 0) xpPerDollar = Math.min(1000, v);
-    } catch {}
+    } catch { }
 
     // Purchases to this merchant (GMV and platform fee) - data source: type='purchase'
     // recipient = merchant, wallet = buyer
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
       } as any;
       const { resources: rAll } = await container.items.query(qAll).fetchAll();
       purchasesAll = Array.isArray(rAll) ? (rAll as any) : [];
-    } catch {}
+    } catch { }
     try {
       const q24 = {
         query: `
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
       } as any;
       const { resources: r24 } = await container.items.query(q24).fetchAll();
       purchases24h = Array.isArray(r24) ? (r24 as any) : [];
-    } catch {}
+    } catch { }
     try {
       if (sinceRange > 0) {
         const qR = {
@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
       } else {
         purchasesRange = purchasesAll;
       }
-    } catch {}
+    } catch { }
 
     const gmvAll = purchasesAll.reduce((s, p) => s + (Number(p.usd || 0) > 0 ? Number(p.usd || 0) : 0), 0);
     const feeAll = purchasesAll.reduce((s, p) => s + (Number(p.portalFeeUsd || 0) >= 0 ? Number(p.portalFeeUsd || 0) : 0), 0);
@@ -150,9 +150,12 @@ export async function GET(req: NextRequest) {
     for (const [_w, cnt] of buyerCounts) if (cnt >= 2) repeatCustomersCount++;
 
     // Receipts for this merchant (orders, time-series, items, refunds) - data source: type='receipt'
+    // Only count paid receipts (matching terminal reports status filter)
+    const PAID_STATUSES = "('paid', 'checkout_success', 'confirmed', 'tx_mined', 'reconciled', 'settled', 'completed')";
     type ReceiptRow = {
       receiptId?: string;
       totalUsd?: number;
+      tipAmount?: number;
       lineItems?: Array<{ label?: string; priceUsd?: number; qty?: number; itemId?: string; sku?: string }>;
       createdAt?: number;
       status?: string;
@@ -164,34 +167,34 @@ export async function GET(req: NextRequest) {
     try {
       const qAll = {
         query: `
-          SELECT c.receiptId, c.totalUsd, c.lineItems, c.createdAt, c.status, c.refunds
+          SELECT c.receiptId, c.totalUsd, c.tipAmount, c.lineItems, c.createdAt, c.status, c.refunds
           FROM c
-          WHERE c.type='receipt' AND c.wallet=@wallet
+          WHERE c.type='receipt' AND c.wallet=@wallet AND LOWER(c.status) IN ${PAID_STATUSES}
         `,
         parameters: [{ name: "@wallet", value: merchant }],
       } as any;
       const { resources } = await container.items.query(qAll).fetchAll();
       receiptsAll = Array.isArray(resources) ? (resources as any) : [];
-    } catch {}
+    } catch { }
     try {
       const q24 = {
         query: `
-          SELECT c.receiptId, c.totalUsd, c.lineItems, c.createdAt, c.status, c.refunds
+          SELECT c.receiptId, c.totalUsd, c.tipAmount, c.lineItems, c.createdAt, c.status, c.refunds
           FROM c
-          WHERE c.type='receipt' AND c.wallet=@wallet AND c.createdAt > @since
+          WHERE c.type='receipt' AND c.wallet=@wallet AND c.createdAt > @since AND LOWER(c.status) IN ${PAID_STATUSES}
         `,
         parameters: [{ name: "@wallet", value: merchant }, { name: "@since", value: since24h }],
       } as any;
       const { resources } = await container.items.query(q24).fetchAll();
       receipts24 = Array.isArray(resources) ? (resources as any) : [];
-    } catch {}
+    } catch { }
     try {
       if (sinceRange > 0) {
         const qR = {
           query: `
-            SELECT c.receiptId, c.totalUsd, c.lineItems, c.createdAt, c.status, c.refunds
+            SELECT c.receiptId, c.totalUsd, c.tipAmount, c.lineItems, c.createdAt, c.status, c.refunds
             FROM c
-            WHERE c.type='receipt' AND c.wallet=@wallet AND c.createdAt > @since
+            WHERE c.type='receipt' AND c.wallet=@wallet AND c.createdAt > @since AND LOWER(c.status) IN ${PAID_STATUSES}
           `,
           parameters: [{ name: "@wallet", value: merchant }, { name: "@since", value: sinceRange }],
         } as any;
@@ -200,11 +203,16 @@ export async function GET(req: NextRequest) {
       } else {
         receiptsRange = receiptsAll;
       }
-    } catch {}
+    } catch { }
 
     const ordersAll = receiptsAll.length;
     const orders24 = receipts24.length;
     const ordersRange = receiptsRange.length;
+
+    // Tips aggregation from receipts
+    const tipsAll = receiptsAll.reduce((s, r) => s + (Number(r.tipAmount || 0) > 0 ? Number(r.tipAmount || 0) : 0), 0);
+    const tips24 = receipts24.reduce((s, r) => s + (Number(r.tipAmount || 0) > 0 ? Number(r.tipAmount || 0) : 0), 0);
+    const tipsRange = receiptsRange.reduce((s, r) => s + (Number(r.tipAmount || 0) > 0 ? Number(r.tipAmount || 0) : 0), 0);
 
     // Refunds (all-time)
     let refundsUsd = 0;
@@ -214,13 +222,13 @@ export async function GET(req: NextRequest) {
         const arr = Array.isArray((r as any)?.refunds) ? (r as any).refunds : [];
         for (const rf of arr) {
           const v = Number((rf as any)?.usd || 0);
-            if (Number.isFinite(v) && v > 0) {
-              refundsUsd += v;
-              refundsCount += 1;
-            }
+          if (Number.isFinite(v) && v > 0) {
+            refundsUsd += v;
+            refundsCount += 1;
+          }
         }
       }
-    } catch {}
+    } catch { }
 
     // Time series daily from receipts (use range window for chart)
     type SeriesPoint = { date: string; gmvUsd: number; orders: number };
@@ -283,7 +291,7 @@ export async function GET(req: NextRequest) {
       } as any;
       const { resources } = await container.items.query(spec).fetchAll();
       ledgerRows = Array.isArray(resources) ? (resources as any) : [];
-    } catch {}
+    } catch { }
     const pointsIssued = ledgerRows.reduce((s, r) => s + (Number(r.xp || 0) > 0 ? Number(r.xp || 0) : 0), 0);
     const activeMembers30d = ledgerRows.filter((r) => Number(r.lastSeen || 0) > now - 30 * 24 * 60 * 60 * 1000).length;
     const topCustomers = ledgerRows
@@ -335,6 +343,10 @@ export async function GET(req: NextRequest) {
       aovUsdRange,
       refundsUsd: round2(refundsUsd),
       refundsCount,
+      // Tips
+      tipsUsd: round2(tipsAll),
+      tipsUsd24h: round2(tips24),
+      tipsUsdRange: round2(tipsRange),
       // Customers/Loyalty
       customersCount,
       repeatCustomersCount,

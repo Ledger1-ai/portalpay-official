@@ -289,11 +289,25 @@ export async function GET(req: NextRequest) {
                 parameters: sessionsParams
             }).fetchAll();
 
+            // Build a map of sessionId -> { totalSales, totalTips } from receipts
+            const sessionSalesMap = new Map<string, { sales: number; tips: number }>();
+            for (const r of receipts) {
+                if (r.sessionId) {
+                    const current = sessionSalesMap.get(r.sessionId) || { sales: 0, tips: 0 };
+                    current.sales += (r.totalUsd || 0);
+                    current.tips += (r.tipAmount || 0);
+                    sessionSalesMap.set(r.sessionId, current);
+                }
+            }
+
             detailedData.sessions = sess.map((s: any) => {
                 // Calculate duration in minutes
                 const duration = s.endTime
                     ? Math.round((s.endTime - s.startTime) / 60)
                     : Math.round((Math.floor(Date.now() / 1000) - s.startTime) / 60);
+
+                // Get aggregated sales from receipts with this sessionId
+                const sessionStats = sessionSalesMap.get(s.id) || { sales: 0, tips: 0 };
 
                 return {
                     id: s.id,
@@ -303,8 +317,8 @@ export async function GET(req: NextRequest) {
                     endTime: s.endTime,
                     duration, // minutes
                     durationFormatted: `${Math.floor(duration / 60)}h ${duration % 60}m`,
-                    totalSales: s.totalSales || 0,
-                    totalTips: s.totalTips || 0,
+                    totalSales: sessionStats.sales,
+                    totalTips: sessionStats.tips,
                     isActive: !s.endTime,
                     brandKey: s.brandKey
                 };

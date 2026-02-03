@@ -27,6 +27,10 @@ type MerchantMetrics = {
   aovUsdRange: number;
   refundsUsd: number;
   refundsCount: number;
+  // Tips
+  tipsUsd: number;
+  tipsUsd24h: number;
+  tipsUsdRange: number;
   // Customers/Loyalty
   customersCount: number;
   repeatCustomersCount: number;
@@ -94,10 +98,10 @@ function HBar({
   const rightText = noData
     ? '-'
     : Number.isFinite(value)
-    ? suffix === '$'
-      ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : `${value.toLocaleString()}${suffix && suffix !== '$' ? suffix : ''}`
-    : '0';
+      ? suffix === '$'
+        ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : `${value.toLocaleString()}${suffix && suffix !== '$' ? suffix : ''}`
+      : '0';
   return (
     <div className="mb-2">
       <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
@@ -184,6 +188,10 @@ export default function AnalyticsPage() {
     aovUsdRange: 0,
     refundsUsd: 0,
     refundsCount: 0,
+    // Tips
+    tipsUsd: 0,
+    tipsUsd24h: 0,
+    tipsUsdRange: 0,
     // Customers/Loyalty
     customersCount: 0,
     repeatCustomersCount: 0,
@@ -233,7 +241,7 @@ export default function AnalyticsPage() {
         let parsed: MetricsResponse | null = null;
         try {
           parsed = (await res.json()) as MetricsResponse;
-        } catch {}
+        } catch { }
         if (!res.ok) {
           const isUnauthorized = res.status === 401 || parsed?.error === 'unauthorized_or_invalid_merchant';
           if (isUnauthorized) {
@@ -278,6 +286,7 @@ export default function AnalyticsPage() {
       metrics.ordersCount, metrics.ordersCount24h, metrics.ordersCountRange,
       metrics.aovUsd, metrics.aovUsd24h, metrics.aovUsdRange,
       metrics.refundsUsd, metrics.refundsCount,
+      metrics.tipsUsd, metrics.tipsUsd24h, metrics.tipsUsdRange,
       metrics.customersCount, metrics.repeatCustomersCount,
       metrics.pointsIssued, metrics.activeMembers30d,
     ];
@@ -332,11 +341,10 @@ export default function AnalyticsPage() {
                 setRange(p.value);
                 setCustomSinceLocal(''); // clear custom when picking preset
               }}
-              className={`px-3 py-1.5 rounded-md border text-sm ${
-                range === p.value && !sinceMsCustom
-                  ? 'bg-[var(--pp-secondary)] text-white border-[var(--pp-secondary)]'
-                  : 'bg-transparent border-foreground/20 hover:bg-foreground/5'
-              }`}
+              className={`px-3 py-1.5 rounded-md border text-sm ${range === p.value && !sinceMsCustom
+                ? 'bg-[var(--pp-secondary)] text-white border-[var(--pp-secondary)]'
+                : 'bg-transparent border-foreground/20 hover:bg-foreground/5'
+                }`}
             >
               {p.label}
             </button>
@@ -404,11 +412,16 @@ export default function AnalyticsPage() {
               <HBar label="GMV (range)" value={metrics.gmvUsdRange || 0} max={maxGmv} suffix="$" noData={noData} />
               <HBar label="GMV (all-time)" value={metrics.gmvUsd || 0} max={maxGmv} suffix="$" noData={noData} />
               <HBar label="GMV (24h)" value={metrics.gmvUsd24h || 0} max={maxGmv} suffix="$" noData={noData} />
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatCard
                   title="Platform Fees (range)"
                   value={formatUsdOrDash(metrics.platformFeeUsdRange || 0, noData)}
                   sub={`All-time: ${formatUsdOrDash(metrics.platformFeeUsd || 0, noData)} • 24h: ${formatUsdOrDash(metrics.platformFeeUsd24h || 0, noData)}`}
+                />
+                <StatCard
+                  title="Tips (range)"
+                  value={formatUsdOrDash(metrics.tipsUsdRange || 0, noData)}
+                  sub={`All-time: ${formatUsdOrDash(metrics.tipsUsd || 0, noData)} • 24h: ${formatUsdOrDash(metrics.tipsUsd24h || 0, noData)}`}
                 />
                 <StatCard
                   title="Refunds (all-time)"
