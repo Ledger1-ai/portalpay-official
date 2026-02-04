@@ -310,6 +310,11 @@ class MainActivity : ComponentActivity() {
     private fun exitLockdownTemporarily() {
         try {
             stopLockTask()
+            // CRITICAL FIX: Disable local lockdown checks so onPause doesn't pull us back
+            // The next time the app loads the URL, it will re-read the config and re-lock if needed
+            val current = lockdownConfig.value
+            lockdownConfig.value = current.copy(lockdownMode = "none")
+            
             Toast.makeText(this, "Lockdown disabled temporarily", Toast.LENGTH_SHORT).show()
             Log.d(TAG, "Lock Task Mode stopped temporarily")
         } catch (e: Exception) {
