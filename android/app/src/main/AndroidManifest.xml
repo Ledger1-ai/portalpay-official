@@ -41,8 +41,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+        
+        <!-- Boot Service - Foreground service for reliable activity launch on Android 10+ -->
+        <service
+            android:name=".BootService"
+            android:enabled="true"
+            android:exported="false" />
         
         <!-- Device Admin Receiver - For Device Owner mode lockdown -->
         <receiver

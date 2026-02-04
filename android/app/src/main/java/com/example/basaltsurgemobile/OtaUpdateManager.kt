@@ -27,7 +27,9 @@ class OtaUpdateManager(private val context: Context) {
         private const val TAG = "OtaUpdateManager"
         private const val PREFS_NAME = "ota_update_prefs"
         private const val KEY_LAST_CHECK = "last_check_time"
-        private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
+        // Check interval: 5 minutes for testing (was 6 hours)
+        // In production, consider increasing to 1-2 hours
+        private const val CHECK_INTERVAL_MS = 5 * 60 * 1000L // 5 minutes
     }
     
     data class UpdateInfo(
@@ -48,6 +50,9 @@ class OtaUpdateManager(private val context: Context) {
                 .getPackageInfo(context.packageName, 0)
                 .longVersionCode.toInt()
             
+            Log.d(TAG, "Current APK versionCode: $currentVersionCode")
+            Log.d(TAG, "Checking URL: ${BuildConfig.BASE_DOMAIN}/api/touchpoint/version?currentVersion=$currentVersionCode")
+            
             val url = URL("${BuildConfig.BASE_DOMAIN}/api/touchpoint/version?currentVersion=$currentVersionCode")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
@@ -55,12 +60,16 @@ class OtaUpdateManager(private val context: Context) {
             connection.readTimeout = 10000
             
             val responseCode = connection.responseCode
+            Log.d(TAG, "API response code: $responseCode")
+            
             if (responseCode != 200) {
                 Log.e(TAG, "Version check failed with code: $responseCode")
                 return@withContext null
             }
             
             val response = connection.inputStream.bufferedReader().readText()
+            Log.d(TAG, "API response: $response")
+            
             val json = JSONObject(response)
             
             val updateInfo = UpdateInfo(
@@ -72,7 +81,7 @@ class OtaUpdateManager(private val context: Context) {
                 mandatory = json.optBoolean("mandatory", false)
             )
             
-            Log.d(TAG, "Update check result: $updateInfo")
+            Log.d(TAG, "Update check result: hasUpdate=${updateInfo.hasUpdate}, latestVersionCode=${updateInfo.latestVersionCode}, currentVersionCode=$currentVersionCode")
             return@withContext updateInfo
             
         } catch (e: Exception) {
