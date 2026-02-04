@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Smartphone, RefreshCw, Plus, Trash2, Check, X, Clock, Lock, Key, Upload, Globe, QrCode } from "lucide-react";
+import { Smartphone, RefreshCw, Plus, Trash2, Check, X, Clock, Lock, Key, Upload, Globe, QrCode, Download } from "lucide-react";
 
 interface TouchpointDevice {
     id: string;
@@ -576,6 +576,35 @@ export default function TouchpointMonitoringPanel() {
                                     </ol>
                                 </div>
                             )}
+
+                            {/* ADB Helper Script Download */}
+                            <div className="p-3 bg-neutral-900/50 rounded-md border border-white/10">
+                                <div className="flex justify-between items-center flex-wrap gap-2">
+                                    <div>
+                                        <h5 className="font-medium text-white text-sm">Internal Device Tool</h5>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            For TopWise/Internal devices (no QR scan needed)
+                                        </p>
+                                    </div>
+                                    <a
+                                        href="/setup-kiosk.bat"
+                                        download="setup-kiosk.bat"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs text-white transition-colors"
+                                    >
+                                        <Download size={14} /> Download Script
+                                    </a>
+                                </div>
+
+                                {/* Script Instructions */}
+                                <div className="text-[10px] text-muted-foreground border-t border-white/5 pt-2 mt-2">
+                                    <p className="font-medium mb-1 text-white/70">How to use:</p>
+                                    <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                                        <li>Enable <strong>USB Debugging</strong> on the device</li>
+                                        <li>Remove <strong>ALL accounts</strong> (Google, etc.) from Settings</li>
+                                        <li>Connect via USB and run the downloaded script</li>
+                                    </ol>
+                                </div>
+                            </div>
 
                             {/* APK URL Info */}
                             {deviceOwnerApkUrl && (

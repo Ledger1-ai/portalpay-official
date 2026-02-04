@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
         // Initialize OTA Update Manager
         otaUpdateManager = OtaUpdateManager(this)
         
+        // Check for overlay permission (required for auto-boot on Android 10+)
+        checkOverlayPermission()
+        
         runtime = GeckoRuntime.create(this)
         val session = GeckoSession()
         session.open(runtime!!)
@@ -166,6 +169,17 @@ class MainActivity : ComponentActivity() {
         })
     }
     
+    private fun checkOverlayPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName"))
+                startActivity(intent)
+                Toast.makeText(this, "Please grant 'Display over other apps' for auto-boot", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun pollLockdownConfig(session: GeckoSession) {
         // Monitor URL changes to detect lockdown configuration
         // The web app passes config via URL hash: #lockdown:mode:hash
