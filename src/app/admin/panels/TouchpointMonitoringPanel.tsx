@@ -6,7 +6,7 @@ import { Smartphone, RefreshCw, Plus, Trash2, Check, X, Clock, Lock, Key, Upload
 interface TouchpointDevice {
     id: string;
     installationId: string;
-    mode: "terminal" | "kiosk" | "handheld";
+    mode: "terminal" | "kiosk" | "handheld" | "kds";
     merchantWallet: string;
     brandKey: string;
     locked: boolean;
@@ -26,7 +26,7 @@ export default function TouchpointMonitoringPanel() {
     // Provision form state
     const [showProvisionForm, setShowProvisionForm] = useState(false);
     const [provisionInstallId, setProvisionInstallId] = useState("");
-    const [provisionMode, setProvisionMode] = useState<"terminal" | "kiosk" | "handheld">("terminal");
+    const [provisionMode, setProvisionMode] = useState<"terminal" | "kiosk" | "handheld" | "kds">("terminal");
     const [provisionWallet, setProvisionWallet] = useState("");
     const [provisionLockdownMode, setProvisionLockdownMode] = useState<"none" | "standard" | "device_owner">("none");
     const [provisionUnlockCode, setProvisionUnlockCode] = useState("");
@@ -660,7 +660,7 @@ export default function TouchpointMonitoringPanel() {
 
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Mode</label>
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-4 gap-2">
                                 <button
                                     onClick={() => setProvisionMode("terminal")}
                                     className={`h-9 px-3 rounded-md border text-sm flex items-center justify-center gap-2 ${provisionMode === "terminal"
@@ -687,6 +687,15 @@ export default function TouchpointMonitoringPanel() {
                                         }`}
                                 >
                                     Handheld
+                                </button>
+                                <button
+                                    onClick={() => setProvisionMode("kds")}
+                                    className={`h-9 px-3 rounded-md border text-sm flex items-center justify-center gap-2 ${provisionMode === "kds"
+                                        ? "bg-emerald-500/10 border-emerald-500 text-emerald-400"
+                                        : "bg-background hover:bg-foreground/5"
+                                        }`}
+                                >
+                                    Kitchen
                                 </button>
                             </div>
                         </div>

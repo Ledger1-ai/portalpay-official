@@ -76,6 +76,9 @@ export default function TouchpointSetupPage() {
         } else if (cfg.mode === "handheld") {
             // Handheld mode uses dedicated handheld interface
             router.replace(`/handheld/${cfg.merchantWallet}${queryStr}`);
+        } else if (cfg.mode === "kds") {
+            // Kitchen Display System mode
+            router.replace(`/kitchen/${cfg.merchantWallet}${queryStr}`);
         } else {
             // Kiosk mode uses shop with wallet as path and kiosk flag
             queryParams.set("kiosk", "1");
