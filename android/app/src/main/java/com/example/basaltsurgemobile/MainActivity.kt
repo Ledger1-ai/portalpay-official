@@ -112,13 +112,27 @@ class MainActivity : ComponentActivity() {
                         UpdateAvailableDialog(
                             info = updateInfo.value!!,
                             onDismiss = { showUpdateDialog.value = false },
-                            onUpdate = {
-                                updateInfo.value?.downloadUrl?.let { url ->
-                                    otaUpdateManager.downloadAndInstall(url)
-                                    Toast.makeText(this@MainActivity, "Downloading update...", Toast.LENGTH_LONG).show()
+                                onUpdate = {
+                                    updateInfo.value?.downloadUrl?.let { url ->
+                                        otaUpdateManager.downloadAndInstall(
+                                            downloadUrl = url,
+                                            onComplete = {
+                                                // Exit lockdown so the system installer can show
+                                                try {
+                                                    val mode = lockdownConfig.value.lockdownMode
+                                                    if (mode == "standard") {
+                                                        stopLockTask()
+                                                        Log.d(TAG, "Exited lock task mode for update installation")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Log.e(TAG, "Failed to stop lock task", e)
+                                                }
+                                            }
+                                        )
+                                        Toast.makeText(this@MainActivity, "Downloading update...", Toast.LENGTH_LONG).show()
+                                    }
+                                    showUpdateDialog.value = false
                                 }
-                                showUpdateDialog.value = false
-                            }
                         )
                     }
                 }
