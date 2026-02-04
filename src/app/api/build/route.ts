@@ -159,6 +159,8 @@ export async function POST(req: NextRequest) {
                     brandKey,
                     appName,
                     baseDomain,
+                    versionCode: String(body?.versionCode || "1"),
+                    versionName: String(body?.versionName || "1.0"),
                 },
             }),
         });

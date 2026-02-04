@@ -40,6 +40,8 @@ export default function TouchpointMonitoringPanel() {
             : ""
     );
     const [buildEndpoint, setBuildEndpoint] = useState("");
+    const [buildVersionCode, setBuildVersionCode] = useState("1");
+    const [buildVersionName, setBuildVersionName] = useState("1.0");
     const [building, setBuilding] = useState(false);
 
     // Build status tracking
@@ -235,6 +237,8 @@ export default function TouchpointMonitoringPanel() {
                 body: JSON.stringify({
                     brandKey: brand,
                     endpoint: buildEndpoint.trim() || undefined,
+                    versionCode: buildVersionCode,
+                    versionName: buildVersionName,
                 }),
             });
 
@@ -887,6 +891,29 @@ export default function TouchpointMonitoringPanel() {
                                 <p className="text-[10px] text-muted-foreground mt-1">
                                     APK will connect to this domain ({buildEndpoint})
                                 </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs text-muted-foreground block mb-1">Version Code (Integer)</label>
+                                    <input
+                                        type="number"
+                                        value={buildVersionCode}
+                                        onChange={(e) => setBuildVersionCode(e.target.value)}
+                                        className="w-full h-9 px-3 rounded-md bg-background border text-sm"
+                                        placeholder="e.g. 2"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-muted-foreground block mb-1">Version Name (String)</label>
+                                    <input
+                                        type="text"
+                                        value={buildVersionName}
+                                        onChange={(e) => setBuildVersionName(e.target.value)}
+                                        className="w-full h-9 px-3 rounded-md bg-background border text-sm"
+                                        placeholder="e.g. 1.1.0"
+                                    />
+                                </div>
                             </div>
 
                             <button

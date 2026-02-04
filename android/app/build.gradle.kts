@@ -11,8 +11,12 @@ android {
         applicationId = "com.example.basaltsurgemobile"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Read version from project properties (passed from CI/CD)
+        val vCode = (project.findProperty("VERSION_CODE") as? String)?.toIntOrNull() ?: 1
+        val vName = (project.findProperty("VERSION_NAME") as? String) ?: "1.0"
+        
+        versionCode = vCode
+        versionName = vName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

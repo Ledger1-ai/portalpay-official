@@ -12,6 +12,14 @@ on:
       baseDomain:
         description: "Client Domain (e.g., https://xoinpay.azurewebsites.net)"
         required: true
+      versionCode:
+        description: "Android Version Code (integer)"
+        required: false
+        default: "1"
+      versionName:
+        description: "Android Version Name (string)"
+        required: false
+        default: "1.0"
 
 jobs:
   build:
@@ -70,7 +78,9 @@ jobs:
           # Use environment variables to properly handle special characters like ?& in URLs
           ./gradlew assembleDebug \
             -PAPP_NAME="$APP_NAME_INPUT" \
-            -PBASE_DOMAIN="$BASE_DOMAIN_INPUT"
+            -PBASE_DOMAIN="$BASE_DOMAIN_INPUT" \
+            -PVERSION_CODE="${{ github.event.inputs.versionCode }}" \
+            -PVERSION_NAME="${{ github.event.inputs.versionName }}"
 
       - name: Upload to Azure Blob Storage
         uses: azure/CLI@v1
