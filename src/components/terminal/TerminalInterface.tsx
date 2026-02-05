@@ -218,8 +218,8 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
     const isManagerOrKeyholder = employeeRole === 'manager' || employeeRole === 'keyholder';
 
     return (
-        <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="h-[100dvh] flex flex-col overflow-hidden p-2 gap-2 md:h-auto md:overflow-visible md:max-w-4xl md:mx-auto md:p-4 md:p-6 md:space-y-6 md:gap-0">
+            <div className="flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-4">
                     {logoUrl && <img src={logoUrl} className="h-10 w-10 object-contain" />}
                     <div>
@@ -245,33 +245,33 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex-1 min-h-0 flex flex-col gap-1 md:grid md:grid-cols-2 md:gap-6 md:mt-0">
                 {/* Keypad */}
-                <div className="space-y-4">
-                    <div className="bg-muted/10 border rounded-xl p-6 text-center space-y-2">
+                <div className="space-y-1 md:space-y-4">
+                    <div className="bg-muted/10 border rounded-xl p-3 md:p-6 text-center space-y-2">
                         <div className="text-sm text-muted-foreground uppercase tracking-wider">Amount</div>
-                        <div className="text-4xl font-mono font-bold">{formatCurrency(baseUsd, terminalCurrency)}</div>
+                        <div className="text-2xl md:text-4xl font-mono font-bold">{formatCurrency(baseUsd, terminalCurrency)}</div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2 mt-2 md:mt-0">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, ".", 0, "⌫"].map((btn) => (
                             <button
                                 key={btn}
                                 onClick={() => { if (btn === "⌫") backspace(); else if (btn === ".") appendDigit("."); else appendDigit(String(btn)); }}
-                                className="h-16 rounded-xl border bg-background text-xl font-semibold hover:bg-muted/50 active:scale-95 transition-all"
+                                className="h-12 md:h-16 rounded-xl border bg-background text-lg md:text-xl font-semibold hover:bg-muted/50 active:scale-95 transition-all"
                             >
                                 {btn}
                             </button>
                         ))}
-                        <button onClick={clearAmount} className="col-span-3 h-12 rounded-xl border text-sm text-muted-foreground hover:bg-red-50 hover:text-red-500 hover:border-red-200">
+                        <button onClick={clearAmount} className="col-span-3 h-10 md:h-12 rounded-xl border text-sm text-muted-foreground hover:bg-red-50 hover:text-red-500 hover:border-red-200">
                             Clear
                         </button>
                     </div>
                 </div>
 
                 {/* Details & Action */}
-                <div className="space-y-4 flex flex-col">
-                    <div className="bg-background border rounded-xl p-4 flex-1 space-y-4">
+                <div className="space-y-1 md:space-y-4 flex flex-col mt-2 md:mt-0">
+                    <div className="bg-background border rounded-xl p-3 md:p-4 space-y-2 md:space-y-4 md:flex-1">
                         <div>
                             <label className="text-xs font-semibold uppercase text-muted-foreground">Currency</label>
                             <select
@@ -292,7 +292,7 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
                             />
                         </div>
 
-                        <div className="pt-4 border-t mt-auto">
+                        <div className="pt-2 md:pt-4 border-t mt-auto">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-muted-foreground">Total</span>
                                 <span className="text-xl font-bold">{formatCurrency(totalConverted, terminalCurrency)}</span>
@@ -306,12 +306,21 @@ export default function TerminalInterface({ merchantWallet, employeeId, employee
                         </div>
                     </div>
 
-                    {error && <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</div>}
-
+                    {/* Desktop-only Generate Button */}
                     <button
                         onClick={generateReceipt}
                         disabled={loading || baseUsd <= 0}
-                        className="w-full h-14 bg-primary text-primary-foreground rounded-xl font-bold text-lg shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                        className="hidden md:block w-full h-14 bg-primary text-primary-foreground rounded-xl font-bold text-lg shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                        {loading ? "Creating..." : "Generate Payment QR"}
+                    </button>
+
+                    {/* Mobile Generate Button */}
+                    {error && <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded md:hidden">{error}</div>}
+                    <button
+                        onClick={generateReceipt}
+                        disabled={loading || baseUsd <= 0}
+                        className="w-full h-12 mt-2 md:mt-0 bg-primary text-primary-foreground rounded-xl font-bold text-base shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none md:hidden"
                     >
                         {loading ? "Creating..." : "Generate Payment QR"}
                     </button>
