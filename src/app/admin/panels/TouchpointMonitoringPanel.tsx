@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Smartphone, RefreshCw, Plus, Trash2, Check, X, Clock, Lock, Key, Upload, Globe, QrCode, Download } from "lucide-react";
+import { Smartphone, RefreshCw, Plus, Trash2, Check, X, Clock, Lock, Key, Upload, Globe, QrCode, Download, MoreVertical, Unlock, AlertTriangle } from "lucide-react";
 
 interface TouchpointDevice {
     id: string;
@@ -73,6 +73,14 @@ export default function TouchpointMonitoringPanel() {
     const [deviceOwnerQrError, setDeviceOwnerQrError] = useState("");
     const [deviceOwnerInstructions, setDeviceOwnerInstructions] = useState<string[]>([]);
     const [deviceOwnerApkUrl, setDeviceOwnerApkUrl] = useState("");
+
+    // Device Actions state
+    const [showDeviceActionsModal, setShowDeviceActionsModal] = useState(false);
+    const [selectedDevice, setSelectedDevice] = useState<TouchpointDevice | null>(null);
+    const [newUnlockCode, setNewUnlockCode] = useState("");
+    const [deviceActionLoading, setDeviceActionLoading] = useState(false);
+    const [deviceActionMessage, setDeviceActionMessage] = useState("");
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const fetchDevices = useCallback(async () => {
         setLoading(true);
@@ -519,6 +527,87 @@ export default function TouchpointMonitoringPanel() {
         setDeviceOwnerQrError("");
         setDeviceOwnerInstructions([]);
         setDeviceOwnerApkUrl("");
+    }
+
+    // Device Actions handlers
+    async function handleUpdateUnlockCode() {
+        if (!selectedDevice || !newUnlockCode) return;
+
+        if (newUnlockCode.length < 4 || newUnlockCode.length > 8) {
+            setDeviceActionMessage("Unlock code must be 4-8 digits");
+            return;
+        }
+
+        setDeviceActionLoading(true);
+        setDeviceActionMessage("");
+        try {
+            const res = await fetch("/api/touchpoint/unlock-code", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    installationId: selectedDevice.installationId,
+                    unlockCode: newUnlockCode
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || "Failed to update unlock code");
+
+            setDeviceActionMessage("✓ Unlock code updated. Device will sync on next poll (~60s).");
+            setNewUnlockCode("");
+            setTimeout(() => {
+                setShowDeviceActionsModal(false);
+                setDeviceActionMessage("");
+            }, 2000);
+        } catch (e: any) {
+            setDeviceActionMessage(`✗ ${e?.message || "Failed to update unlock code"}`);
+        } finally {
+            setDeviceActionLoading(false);
+        }
+    }
+
+    async function handleDeviceCommand(command: "clearDeviceOwner" | "wipeDevice") {
+        if (!selectedDevice) return;
+
+        const confirmMessage = command === "wipeDevice"
+            ? "⚠️ FACTORY RESET: This will ERASE ALL DATA on the device. This action CANNOT be undone. Are you absolutely sure?"
+            : "This will remove device owner mode but keep device data. The device will return to normal Android operation. Continue?";
+
+        if (!window.confirm(confirmMessage)) return;
+        if (command === "wipeDevice" && !window.confirm("FINAL WARNING: The device will be completely wiped. Confirm again to proceed.")) return;
+
+        setDeviceActionLoading(true);
+        setDeviceActionMessage("");
+        try {
+            const res = await fetch("/api/touchpoint/config", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    installationId: selectedDevice.installationId,
+                    [command]: true
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || `Failed to send ${command} command`);
+
+            setDeviceActionMessage(`✓ ${command === "wipeDevice" ? "Factory reset" : "Remove device owner"} command queued. Device will execute on next poll (~60s).`);
+            setOpenDropdownId(null);
+            setTimeout(() => {
+                setShowDeviceActionsModal(false);
+                setDeviceActionMessage("");
+            }, 3000);
+        } catch (e: any) {
+            setDeviceActionMessage(`✗ ${e?.message || `Failed to send ${command} command`}`);
+        } finally {
+            setDeviceActionLoading(false);
+        }
+    }
+
+    function resetDeviceActionsModal() {
+        setShowDeviceActionsModal(false);
+        setSelectedDevice(null);
+        setNewUnlockCode("");
+        setDeviceActionMessage("");
+        setOpenDropdownId(null);
     }
 
     return (
@@ -1290,14 +1379,78 @@ export default function TouchpointMonitoringPanel() {
                                             {formatTimeSince(device.lastSeen)}
                                         </td>
                                         <td className="p-3 text-xs text-muted-foreground">{formatDate(device.configuredAt)}</td>
-                                        <td className="p-3 text-center">
-                                            <button
-                                                onClick={() => handleDelete(device.installationId)}
-                                                className="h-7 w-7 rounded-md hover:bg-red-500/10 flex items-center justify-center mx-auto text-red-400 hover:text-red-300"
-                                                title="Reset device"
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
+                                        <td className="p-3 text-center relative">
+                                            <div className="relative inline-block">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedDevice(device);
+                                                        setOpenDropdownId(openDropdownId === device.id ? null : device.id);
+                                                    }}
+                                                    className="h-7 px-2 rounded-md hover:bg-foreground/10 flex items-center justify-center gap-1 text-xs"
+                                                    title="Device Actions"
+                                                >
+                                                    <MoreVertical className="h-4 w-4" />
+                                                    {(device.clearDeviceOwner || device.wipeDevice) && (
+                                                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-yellow-500" title="Command pending" />
+                                                    )}
+                                                </button>
+
+                                                {openDropdownId === device.id && (
+                                                    <div className="absolute right-0 mt-1 w-48 rounded-md shadow-lg bg-neutral-800 border z-50">
+                                                        <div className="py-1">
+                                                            {/* Update Unlock Code */}
+                                                            {device.lockdownMode !== "none" && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setShowDeviceActionsModal(true);
+                                                                        setOpenDropdownId(null);
+                                                                    }}
+                                                                    className="w-full px-3 py-2 text-left text-sm hover:bg-foreground/10 flex items-center gap-2"
+                                                                >
+                                                                    <Key className="h-3.5 w-3.5" />
+                                                                    Update Unlock Code
+                                                                </button>
+                                                            )}
+
+                                                            {/* Remove Device Owner */}
+                                                            {device.lockdownMode === "device_owner" && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handleDeviceCommand("clearDeviceOwner")}
+                                                                        disabled={deviceActionLoading}
+                                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-foreground/10 flex items-center gap-2 text-yellow-400"
+                                                                    >
+                                                                        <Unlock className="h-3.5 w-3.5" />
+                                                                        Remove Device Owner
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeviceCommand("wipeDevice")}
+                                                                        disabled={deviceActionLoading}
+                                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-foreground/10 flex items-center gap-2 text-red-400"
+                                                                    >
+                                                                        <AlertTriangle className="h-3.5 w-3.5" />
+                                                                        Factory Reset
+                                                                    </button>
+                                                                </>
+                                                            )}
+
+                                                            <div className="border-t my-1" />
+
+                                                            {/* Delete */}
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleDelete(device.installationId);
+                                                                    setOpenDropdownId(null);
+                                                                }}
+                                                                className="w-full px-3 py-2 text-left text-sm hover:bg-red-500/10 flex items-center gap-2 text-red-400"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                Reset Device
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -1311,6 +1464,56 @@ export default function TouchpointMonitoringPanel() {
             {!loading && devices.length > 0 && (
                 <div className="text-xs text-muted-foreground">
                     Showing {devices.length} of {total} device{total !== 1 ? "s" : ""}
+                </div>
+            )}
+
+            {/* Unlock Code Update Modal */}
+            {showDeviceActionsModal && selectedDevice && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => resetDeviceActionsModal()}>
+                    <div className="bg-neutral-800 rounded-lg p-6 w-full max-w-sm border shadow-xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h4 className="font-semibold flex items-center gap-2">
+                                <Key className="h-4 w-4" />
+                                Update Unlock Code
+                            </h4>
+                            <button onClick={() => resetDeviceActionsModal()} className="h-6 w-6 rounded hover:bg-foreground/10 flex items-center justify-center">
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground mb-3">
+                            Device: {selectedDevice.installationId.slice(0, 16)}...
+                        </p>
+
+                        <div className="space-y-3">
+                            <input
+                                type="password"
+                                value={newUnlockCode}
+                                onChange={(e) => setNewUnlockCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                                placeholder="Enter new 4-8 digit PIN"
+                                className="w-full h-10 px-3 rounded-md border bg-background text-center text-lg tracking-widest font-mono"
+                                maxLength={8}
+                            />
+
+                            {deviceActionMessage && (
+                                <p className={`text-xs ${deviceActionMessage.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+                                    {deviceActionMessage}
+                                </p>
+                            )}
+
+                            <button
+                                onClick={handleUpdateUnlockCode}
+                                disabled={deviceActionLoading || newUnlockCode.length < 4}
+                                className="w-full h-9 px-3 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium"
+                            >
+                                {deviceActionLoading ? "Updating..." : "Update Unlock Code"}
+                            </button>
+
+                            <p className="text-[10px] text-muted-foreground text-center">
+                                Device will sync the new code on next poll (~60s)
+                            </p>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -29,12 +30,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.lifecycleScope
 import com.example.basaltsurgemobile.ui.theme.BasaltSurgeMobileTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
+import java.net.HttpURLConnection
+import java.net.URL
 import java.security.MessageDigest
 
 /**
@@ -56,6 +63,9 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val UNLOCK_SALT = "touchpoint_unlock_v1:"
+        private const val CONFIG_POLL_INTERVAL_MS = 60_000L  // 60 seconds
+        private const val PREFS_NAME = "touchpoint_prefs"
+        private const val PREF_INSTALLATION_ID = "installation_id"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -147,6 +157,9 @@ class MainActivity : ComponentActivity() {
         
         // Poll for lockdown config from JS bridge
         pollLockdownConfig(session)
+        
+        // Start periodic config polling for remote commands (unlock code update, device owner removal)
+        startConfigPolling()
     }
     
     private fun checkForUpdates() {
@@ -170,8 +183,109 @@ class MainActivity : ComponentActivity() {
                         Log.d(TAG, "Auto-installing mandatory update (Device Owner mode)")
                         otaUpdateManager.downloadAndInstall(info.downloadUrl)
                     }
+            }
+        }
+    }
+    
+    /**
+     * Periodically poll the platform API for config updates and remote commands.
+     * This enables:
+     * - Dynamic unlock code updates without re-provisioning
+     * - Remote device owner removal
+     * - Remote factory reset
+     */
+    private fun startConfigPolling() {
+        lifecycleScope.launch {
+            while (true) {
+                delay(CONFIG_POLL_INTERVAL_MS)
+                
+                try {
+                    val installationId = getInstallationId() ?: continue
+                    val config = fetchRemoteConfig(installationId) ?: continue
+                    
+                    // Handle remote commands
+                    val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+                    val componentName = ComponentName(this@MainActivity, AppDeviceAdminReceiver::class.java)
+                    
+                    // Command: wipeDevice (factory reset) - check first as it's most destructive
+                    if (config.optBoolean("wipeDevice", false) && dpm.isDeviceOwnerApp(packageName)) {
+                        Log.w(TAG, "Remote wipeDevice command received - initiating factory reset")
+                        Toast.makeText(this@MainActivity, "Remote wipe initiated...", Toast.LENGTH_LONG).show()
+                        dpm.wipeDevice(0)
+                        return@launch // Won't reach here after wipe
+                    }
+                    
+                    // Command: clearDeviceOwner (remove device owner, keep data)
+                    if (config.optBoolean("clearDeviceOwner", false) && dpm.isDeviceOwnerApp(packageName)) {
+                        Log.w(TAG, "Remote clearDeviceOwner command received - removing device owner")
+                        Toast.makeText(this@MainActivity, "Removing device owner mode...", Toast.LENGTH_LONG).show()
+                        dpm.clearDeviceOwnerApp(packageName)
+                        // Update local config to exit lockdown
+                        lockdownConfig.value = LockdownConfig(lockdownMode = "none", unlockCodeHash = null)
+                        try { stopLockTask() } catch (e: Exception) { Log.e(TAG, "Failed to stop lock task", e) }
+                        continue
+                    }
+                    
+                    // Dynamic unlock code update
+                    val remoteUnlockHash = config.optString("unlockCodeHash", null)
+                    val remoteLockdownMode = config.optString("lockdownMode", "none")
+                    val currentConfig = lockdownConfig.value
+                    
+                    if (remoteUnlockHash != null && remoteUnlockHash != currentConfig.unlockCodeHash) {
+                        Log.d(TAG, "Remote unlock code hash updated")
+                        lockdownConfig.value = currentConfig.copy(
+                            unlockCodeHash = remoteUnlockHash,
+                            lockdownMode = remoteLockdownMode
+                        )
+                    } else if (remoteLockdownMode != currentConfig.lockdownMode) {
+                        Log.d(TAG, "Remote lockdown mode updated: $remoteLockdownMode")
+                        lockdownConfig.value = currentConfig.copy(lockdownMode = remoteLockdownMode)
+                    }
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Config polling error: ${e.message}")
                 }
             }
+        }
+    }
+    
+    /**
+     * Get stored installation ID from SharedPreferences
+     */
+    private fun getInstallationId(): String? {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(PREF_INSTALLATION_ID, null)
+    }
+    
+    /**
+     * Store installation ID to SharedPreferences (called from web page)
+     */
+    private fun storeInstallationId(id: String) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(PREF_INSTALLATION_ID, id).apply()
+    }
+    
+    /**
+     * Fetch remote config from API
+     */
+    private suspend fun fetchRemoteConfig(installationId: String): JSONObject? = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("${BuildConfig.BASE_DOMAIN}/api/touchpoint/config?installationId=$installationId")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 10_000
+            
+            if (conn.responseCode == 200) {
+                val response = conn.inputStream.bufferedReader().readText()
+                JSONObject(response)
+            } else {
+                Log.w(TAG, "Config fetch failed: ${conn.responseCode}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Config fetch error: ${e.message}")
+            null
         }
     }
     
@@ -259,6 +373,20 @@ class MainActivity : ComponentActivity() {
                         } catch (e: Exception) {
                             Log.e(TAG, "Error parsing lockdown config from query: ${e.message}")
                         }
+                    }
+                    
+                    // Capture installation ID for config polling
+                    // The setup page passes it via query param or can be extracted from URL pattern
+                    try {
+                        val uri = android.net.Uri.parse(currentUrl)
+                        val installId = uri.getQueryParameter("installationId") 
+                            ?: uri.getQueryParameter("installId")
+                        if (!installId.isNullOrBlank()) {
+                            storeInstallationId(installId)
+                            Log.d(TAG, "Stored installation ID: $installId")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error extracting installation ID: ${e.message}")
                     }
                 }
             }

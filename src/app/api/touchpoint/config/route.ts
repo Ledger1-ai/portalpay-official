@@ -99,6 +99,9 @@ export async function GET(req: NextRequest) {
                 // Lockdown settings for Android app
                 lockdownMode: resource.lockdownMode || "none",
                 unlockCodeHash: resource.unlockCodeHash || null,
+                // Remote commands for Android app polling
+                clearDeviceOwner: resource.clearDeviceOwner || false,
+                wipeDevice: resource.wipeDevice || false,
             });
         } catch {
             // Document doesn't exist = not configured
@@ -158,5 +161,98 @@ export async function DELETE(req: NextRequest) {
     } catch (e: any) {
         console.error("[touchpoint/config] Delete error:", e);
         return json({ error: "delete_failed", message: e?.message || String(e) }, { status: 500 });
+    }
+}
+
+/**
+ * PATCH /api/touchpoint/config
+ * 
+ * Admin-only endpoint to update device config or set remote commands.
+ * 
+ * Body:
+ * {
+ *   "installationId": "uuid-v4",
+ *   "lockdownMode"?: "none" | "standard" | "device_owner",
+ *   "clearDeviceOwner"?: boolean,  // Signal device to remove device owner
+ *   "wipeDevice"?: boolean         // Signal device to factory reset
+ * }
+ */
+export async function PATCH(req: NextRequest) {
+    try {
+        // Auth: Admin or Superadmin only
+        const { requireThirdwebAuth } = await import("@/lib/auth");
+        const caller = await requireThirdwebAuth(req).catch(() => null as any);
+        const roles = Array.isArray(caller?.roles) ? caller.roles : [];
+        if (!roles.includes("admin") && !roles.includes("superadmin")) {
+            return json({ error: "forbidden" }, { status: 403 });
+        }
+
+        const body = await req.json().catch(() => ({} as any));
+
+        const installationId = String(body?.installationId || "").trim();
+        if (!installationId) {
+            return json({ error: "installation_id_required" }, { status: 400 });
+        }
+
+        // Create deterministic ID
+        const hash = crypto.createHash("sha256").update(installationId).digest("hex").slice(0, 48);
+        const id = `touchpoint_${hash}`;
+        const wallet = `touchpoint:${hash}`;
+
+        const dbId = String(process.env.COSMOS_PAYPORTAL_DB_ID || "payportal");
+        const containerId = "payportal_events";
+        const container = await getContainer(dbId, containerId);
+
+        // Fetch existing document
+        const { resource } = await container.item(id, wallet).read();
+
+        if (!resource || resource.type !== "touchpoint_device") {
+            return json({
+                error: "device_not_found",
+                message: "Device not configured. Provision device first."
+            }, { status: 404 });
+        }
+
+        // Build update object with only provided fields
+        const updates: Record<string, any> = {
+            updatedAt: new Date().toISOString(),
+            updatedBy: caller.wallet,
+        };
+
+        if (body.lockdownMode !== undefined) {
+            const validModes = ["none", "standard", "device_owner"];
+            if (!validModes.includes(body.lockdownMode)) {
+                return json({ error: "invalid_lockdown_mode" }, { status: 400 });
+            }
+            updates.lockdownMode = body.lockdownMode;
+        }
+
+        if (body.clearDeviceOwner !== undefined) {
+            updates.clearDeviceOwner = Boolean(body.clearDeviceOwner);
+        }
+
+        if (body.wipeDevice !== undefined) {
+            updates.wipeDevice = Boolean(body.wipeDevice);
+        }
+
+        // Apply updates
+        const updated = { ...resource, ...updates };
+        await container.item(id, wallet).replace(updated as any);
+
+        const commands: string[] = [];
+        if (updates.clearDeviceOwner) commands.push("clearDeviceOwner");
+        if (updates.wipeDevice) commands.push("wipeDevice");
+
+        return json({
+            ok: true,
+            installationId,
+            message: commands.length > 0
+                ? `Commands queued: ${commands.join(", ")}. Device will execute on next poll.`
+                : "Device config updated successfully",
+            pendingCommands: commands,
+        });
+    } catch (e: any) {
+        console.error("[touchpoint/config] PATCH error:", e);
+        return json({ error: "update_failed", message: e?.message || String(e) }, { status: 500 });
     }
 }
