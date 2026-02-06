@@ -27,9 +27,12 @@ export async function GET(req: NextRequest) {
 
         // Build the APK download URL
         // This will be a public-ish URL that the script can download from
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : "https://portalpay.app";
+        const baseUrl = (
+            process.env.NEXT_PUBLIC_APP_URL ||
+            process.env.NEXT_PUBLIC_BASE_URL ||
+            (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+            "https://portalpay.app"
+        ).replace(/\/$/, "");
 
         const apkUrl = `${baseUrl}/api/touchpoint/apk-download?brandKey=${brandKey}`;
 
