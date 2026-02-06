@@ -39,10 +39,11 @@ export async function GET(req: NextRequest) {
 
         // Generate the appropriate script based on OS
         if (os === "macos" || os === "linux" || os === "sh") {
-            const scriptContent = generateMacOSSetupScript(brandKey, apkUrl);
+            // Ensure Unix line endings (LF only, no CRLF)
+            const scriptContent = generateMacOSSetupScript(brandKey, apkUrl).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             return new Response(scriptContent, {
                 headers: {
-                    "Content-Type": "application/x-sh",
+                    "Content-Type": "application/x-sh; charset=utf-8",
                     "Content-Disposition": `attachment; filename="setup-${brandKey}-owner-mode.sh"`,
                     "Cache-Control": "no-store",
                 },
@@ -200,6 +201,8 @@ pause
 }
 
 function generateMacOSSetupScript(brandKey: string, apkUrl: string): string {
+    // Note: Shell variables use $ directly - don't escape them in template literals
+    // Only TypeScript template variables ${brandKey} and ${apkUrl} use curly braces
     return `#!/bin/bash
 # ===================================================
 #   Owner Mode Setup Script
@@ -233,8 +236,8 @@ fi
 echo "Checking for connected device..."
 adb devices
 echo ""
-read -p "Is your device listed above? (y/n): " CONTINUE
-if [[ ! "\\$CONTINUE" =~ ^[Yy]$ ]]; then
+read -p "Is your device listed above? (y/n): " USER_RESPONSE
+if [[ ! "$` + `USER_RESPONSE" =~ ^[Yy]$ ]]; then
     echo "Please connect device and enable USB Debugging."
     exit 1
 fi
@@ -250,15 +253,15 @@ echo "Downloading from server..."
 TEMP_APK="/tmp/${brandKey}-touchpoint.apk"
 
 if command -v curl &> /dev/null; then
-    curl -f -L -o "\\$TEMP_APK" "${apkUrl}"
+    curl -f -L -o "$` + `TEMP_APK" "${apkUrl}"
 elif command -v wget &> /dev/null; then
-    wget -O "\\$TEMP_APK" "${apkUrl}"
+    wget -O "$` + `TEMP_APK" "${apkUrl}"
 else
     echo "[ERROR] Neither curl nor wget found. Please install one."
     exit 1
 fi
 
-if [ ! -f "\\$TEMP_APK" ]; then
+if [ ! -f "$` + `TEMP_APK" ]; then
     echo "[ERROR] Failed to download APK."
     echo "Please check your internet connection or contact support."
     exit 1
@@ -272,8 +275,8 @@ echo "==================================================="
 echo "  Step 2: Installing APK"
 echo "==================================================="
 echo ""
-echo "Installing \\$TEMP_APK..."
-if ! adb install -r -g "\\$TEMP_APK"; then
+echo "Installing $` + `TEMP_APK..."
+if ! adb install -r -g "$` + `TEMP_APK"; then
     echo ""
     echo "[ERROR] APK installation failed."
     echo "Try: adb uninstall com.example.basaltsurgemobile"
@@ -300,11 +303,12 @@ echo "[OK] App is installed."
 
 # Check for existing Device Owner
 echo "Checking for existing Device Owner..."
-EXISTING_OWNER=\\$(adb shell dumpsys device_policy 2>/dev/null | grep -i "Device Owner")
-if [ -n "\\$EXISTING_OWNER" ]; then
+# Look for actual device owner package (not just "Device Owner Type: -1" which means none)
+EXISTING_OWNER=$` + `(adb shell dumpsys device_policy 2>/dev/null | grep -E "Device Owner.*admin=ComponentInfo" | head -1)
+if [ -n "$` + `EXISTING_OWNER" ]; then
     echo ""
     echo "[WARNING] Device already has a Device Owner set!"
-    echo "Current owner: \\$EXISTING_OWNER"
+    echo "Current owner: $` + `EXISTING_OWNER"
     echo ""
     echo "Please factory reset the device or remove the existing owner first."
     exit 1
@@ -370,3 +374,4 @@ echo "For batch provisioning, run this script on each device."
 echo ""
 `;
 }
+

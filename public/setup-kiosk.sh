@@ -151,7 +151,8 @@ echo "[OK] App is installed."
 
 # Check for existing Device Owner
 echo "Checking for existing Device Owner..."
-EXISTING_OWNER=$(adb shell dumpsys device_policy 2>/dev/null | grep -i "Device Owner")
+# Look for actual device owner package (not just "Device Owner Type: -1" which means none)
+EXISTING_OWNER=$(adb shell dumpsys device_policy 2>/dev/null | grep -E "Device Owner.*admin=ComponentInfo" | head -1)
 if [ -n "$EXISTING_OWNER" ]; then
     echo ""
     echo "[WARNING] Device already has a Device Owner set!"

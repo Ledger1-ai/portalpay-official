@@ -878,7 +878,16 @@ export default function TouchpointMonitoringPanel() {
                                         <li>Remove <strong className="text-white">ALL accounts</strong> from device</li>
                                         <li>Connect via USB and run the downloaded script</li>
                                     </ol>
-                                    <p className="text-[10px] text-red-300/60">
+                                    <div className="mt-2 p-2 bg-orange-900/30 rounded border border-orange-500/30">
+                                        <p className="text-[10px] text-orange-300 font-medium mb-1">📱 macOS Instructions:</p>
+                                        <code className="text-[9px] text-orange-200/80 block">
+                                            bash ~/Downloads/setup-{scriptBrandKey || 'brand'}-owner-mode.sh
+                                        </code>
+                                        <p className="text-[9px] text-orange-200/60 mt-1">
+                                            If bash doesn&apos;t work: <code className="bg-black/30 px-1 rounded">chmod +x ~/Downloads/setup-*.sh</code> then <code className="bg-black/30 px-1 rounded">./setup-*.sh</code>
+                                        </p>
+                                    </div>
+                                    <p className="text-[10px] text-red-300/60 mt-2">
                                         Enter partner brand key above, then download. Script auto-downloads their APK.
                                     </p>
                                 </div>

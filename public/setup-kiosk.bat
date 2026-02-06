@@ -144,8 +144,9 @@ if %ERRORLEVEL% neq 0 (
 echo [OK] App is installed.
 
 REM Check if there's already a device owner
+REM Look for actual device owner (ComponentInfo), not just "Device Owner Type: -1" which means none
 echo Checking for existing Device Owner...
-for /f "tokens=*" %%a in ('adb shell dumpsys device_policy 2^>nul ^| findstr /i "Device Owner"') do set EXISTING_OWNER=%%a
+for /f "tokens=*" %%a in ('adb shell dumpsys device_policy 2^>nul ^| findstr /c:"admin=ComponentInfo"') do set EXISTING_OWNER=%%a
 if defined EXISTING_OWNER (
     echo.
     echo [WARNING] Device already has a Device Owner set!
