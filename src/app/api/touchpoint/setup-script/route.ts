@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
 
         const { searchParams } = new URL(req.url);
         const brandKey = searchParams.get("brandKey")?.trim().toLowerCase();
+        const os = searchParams.get("os")?.trim().toLowerCase();
 
         if (!brandKey) {
             return NextResponse.json({ error: "brandKey_required" }, { status: 400 });
@@ -36,17 +37,27 @@ export async function GET(req: NextRequest) {
 
         const apkUrl = `${baseUrl}/api/touchpoint/apk-download?brandKey=${brandKey}`;
 
-        // Generate the script content
-        const scriptContent = generateSetupScript(brandKey, apkUrl);
-
-        // Return as downloadable .bat file
-        return new Response(scriptContent, {
-            headers: {
-                "Content-Type": "application/x-bat",
-                "Content-Disposition": `attachment; filename="setup-${brandKey}-owner-mode.bat"`,
-                "Cache-Control": "no-store",
-            },
-        });
+        // Generate the appropriate script based on OS
+        if (os === "macos" || os === "linux" || os === "sh") {
+            // Ensure Unix line endings (LF only, no CRLF)
+            const scriptContent = generateMacOSSetupScript(brandKey, apkUrl).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            return new Response(scriptContent, {
+                headers: {
+                    "Content-Type": "application/x-sh; charset=utf-8",
+                    "Content-Disposition": `attachment; filename="setup-${brandKey}-owner-mode.sh"`,
+                    "Cache-Control": "no-store",
+                },
+            });
+        } else {
+            const scriptContent = generateSetupScript(brandKey, apkUrl);
+            return new Response(scriptContent, {
+                headers: {
+                    "Content-Type": "application/x-bat",
+                    "Content-Disposition": `attachment; filename="setup-${brandKey}-owner-mode.bat"`,
+                    "Cache-Control": "no-store",
+                },
+            });
+        }
     } catch (e: any) {
         console.error("[touchpoint/setup-script] Error:", e);
         return NextResponse.json({ error: "script_generation_failed" }, { status: 500 });
@@ -188,3 +199,179 @@ echo.
 pause
 `;
 }
+
+function generateMacOSSetupScript(brandKey: string, apkUrl: string): string {
+    // Note: Shell variables use $ directly - don't escape them in template literals
+    // Only TypeScript template variables ${brandKey} and ${apkUrl} use curly braces
+    return `#!/bin/bash
+# ===================================================
+#   Owner Mode Setup Script
+#   Brand: ${brandKey.toUpperCase()}
+# ===================================================
+
+echo "==================================================="
+echo "  Owner Mode Setup Script"
+echo "  Brand: ${brandKey.toUpperCase()}"
+echo "==================================================="
+echo ""
+echo "This script sets up Android devices with Device Owner mode."
+echo ""
+echo "PREREQUISITES:"
+echo "1. Android device connected via USB"
+echo "2. Developer Options + USB Debugging enabled"
+echo "3. NO Google Accounts on device (remove ALL accounts first)"
+echo "4. 'adb' command available in PATH"
+echo ""
+
+# Check for ADB
+if ! command -v adb &> /dev/null; then
+    echo "[ERROR] adb command not found!"
+    echo "Please install Android SDK Platform Tools:"
+    echo "  brew install android-platform-tools"
+    echo "  or download from: https://developer.android.com/studio/releases/platform-tools"
+    exit 1
+fi
+
+# Check for connected device
+echo "Checking for connected device..."
+adb devices
+echo ""
+read -p "Is your device listed above? (y/n): " USER_RESPONSE
+if [[ ! "$` + `USER_RESPONSE" =~ ^[Yy]$ ]]; then
+    echo "Please connect device and enable USB Debugging."
+    exit 1
+fi
+
+# Step 1: Download APK
+echo ""
+echo "==================================================="
+echo "  Step 1: Downloading APK"
+echo "==================================================="
+echo ""
+echo "Brand: ${brandKey}"
+echo "Downloading from server..."
+TEMP_APK="/tmp/${brandKey}-touchpoint.apk"
+
+if command -v curl &> /dev/null; then
+    curl -f -L -o "$` + `TEMP_APK" "${apkUrl}"
+elif command -v wget &> /dev/null; then
+    wget -O "$` + `TEMP_APK" "${apkUrl}"
+else
+    echo "[ERROR] Neither curl nor wget found. Please install one."
+    exit 1
+fi
+
+if [ ! -f "$` + `TEMP_APK" ]; then
+    echo "[ERROR] Failed to download APK."
+    echo "Please check your internet connection or contact support."
+    exit 1
+fi
+
+echo "[SUCCESS] APK downloaded!"
+
+# Step 2: Install APK
+echo ""
+echo "==================================================="
+echo "  Step 2: Installing APK"
+echo "==================================================="
+echo ""
+echo "Installing $` + `TEMP_APK..."
+if ! adb install -r -g "$` + `TEMP_APK"; then
+    echo ""
+    echo "[ERROR] APK installation failed."
+    echo "Try: adb uninstall com.example.basaltsurgemobile"
+    echo "Then run this script again."
+    exit 1
+fi
+echo "[SUCCESS] APK installed!"
+
+# Step 3: Set Device Owner
+echo ""
+echo "==================================================="
+echo "  Step 3: Setting Device Owner Mode"
+echo "==================================================="
+echo ""
+
+# Check if app is installed
+echo "Checking if app is installed..."
+if ! adb shell pm list packages | grep -qi "com.example.basaltsurgemobile"; then
+    echo ""
+    echo "[ERROR] App is NOT installed on the device!"
+    exit 1
+fi
+echo "[OK] App is installed."
+
+# Check for existing Device Owner
+echo "Checking for existing Device Owner..."
+# Look for actual device owner package (not just "Device Owner Type: -1" which means none)
+EXISTING_OWNER=$` + `(adb shell dumpsys device_policy 2>/dev/null | grep -E "Device Owner.*admin=ComponentInfo" | head -1)
+if [ -n "$` + `EXISTING_OWNER" ]; then
+    echo ""
+    echo "[WARNING] Device already has a Device Owner set!"
+    echo "Current owner: $` + `EXISTING_OWNER"
+    echo ""
+    echo "Please factory reset the device or remove the existing owner first."
+    exit 1
+fi
+
+# Check for accounts
+echo "Checking for Google accounts..."
+if adb shell dumpsys account 2>/dev/null | grep -qi "Account {"; then
+    echo ""
+    echo "[WARNING] Accounts detected on device!"
+    echo "Device Owner cannot be set while accounts exist."
+    echo "Please remove ALL accounts first."
+    exit 1
+fi
+echo "[OK] No accounts detected."
+
+# Set Device Owner
+echo ""
+echo "Setting Device Owner..."
+if ! adb shell dpm set-device-owner com.example.basaltsurgemobile/.AppDeviceAdminReceiver 2>&1; then
+    echo ""
+    echo "[ERROR] Failed to set Device Owner."
+    echo "Please try factory reset if problem persists."
+    exit 1
+fi
+
+echo ""
+echo "[SUCCESS] Device Owner mode set!"
+
+# Step 4: Grant Permissions
+echo ""
+echo "==================================================="
+echo "  Step 4: Granting Permissions"
+echo "==================================================="
+echo ""
+adb shell appops set com.example.basaltsurgemobile SYSTEM_ALERT_WINDOW allow
+echo "Permissions granted."
+
+# Step 5: Start App
+echo ""
+echo "==================================================="
+echo "  Step 5: Starting App"
+echo "==================================================="
+echo ""
+adb shell am start -n com.example.basaltsurgemobile/.MainActivity
+
+echo ""
+echo "==================================================="
+echo "  SETUP COMPLETE!"
+echo "==================================================="
+echo ""
+echo "Brand: ${brandKey}"
+echo "Mode:  Device Owner (Full Lockdown)"
+echo ""
+echo "Next steps:"
+echo "  1. Open Admin Panel > Touchpoints"
+echo "  2. Click 'Provision Device'"
+echo "  3. Enter Installation ID from device screen"
+echo "  4. Select mode and lockdown settings"
+echo "  5. Click Provision"
+echo ""
+echo "For batch provisioning, run this script on each device."
+echo ""
+`;
+}
+

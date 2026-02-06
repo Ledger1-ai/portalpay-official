@@ -835,19 +835,41 @@ export default function TouchpointMonitoringPanel() {
                                     </div>
 
                                     <div className="flex flex-wrap gap-2">
+                                        {/* Windows Scripts */}
                                         <a
                                             href={`/api/touchpoint/setup-script?brandKey=${scriptBrandKey || 'basaltsurge'}`}
                                             download={`setup-${scriptBrandKey || 'basaltsurge'}-owner-mode.bat`}
                                             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 hover:bg-red-500 rounded text-[10px] text-white font-medium transition-colors"
+                                            title="Windows Script"
                                         >
-                                            <Download size={12} /> Download Setup Script ({scriptBrandKey || 'basaltsurge'})
+                                            <Download size={12} /> Windows ({scriptBrandKey || 'basaltsurge'})
                                         </a>
                                         <a
                                             href="/setup-kiosk.bat"
                                             download="setup-kiosk.bat"
                                             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-600 hover:bg-neutral-500 rounded text-[10px] text-white font-medium transition-colors"
+                                            title="Windows Generic Script"
                                         >
-                                            <Download size={12} /> Generic Script (Manual)
+                                            <Download size={12} /> Windows (Generic)
+                                        </a>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {/* macOS/Linux Scripts */}
+                                        <a
+                                            href={`/api/touchpoint/setup-script?brandKey=${scriptBrandKey || 'basaltsurge'}&os=macos`}
+                                            download={`setup-${scriptBrandKey || 'basaltsurge'}-owner-mode.sh`}
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-600 hover:bg-orange-500 rounded text-[10px] text-white font-medium transition-colors"
+                                            title="macOS/Linux Script"
+                                        >
+                                            <Download size={12} /> macOS ({scriptBrandKey || 'basaltsurge'})
+                                        </a>
+                                        <a
+                                            href="/setup-kiosk.sh"
+                                            download="setup-kiosk.sh"
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-600 hover:bg-neutral-500 rounded text-[10px] text-white font-medium transition-colors"
+                                            title="macOS/Linux Generic Script"
+                                        >
+                                            <Download size={12} /> macOS (Generic)
                                         </a>
                                     </div>
 
@@ -856,7 +878,16 @@ export default function TouchpointMonitoringPanel() {
                                         <li>Remove <strong className="text-white">ALL accounts</strong> from device</li>
                                         <li>Connect via USB and run the downloaded script</li>
                                     </ol>
-                                    <p className="text-[10px] text-red-300/60">
+                                    <div className="mt-2 p-2 bg-orange-900/30 rounded border border-orange-500/30">
+                                        <p className="text-[10px] text-orange-300 font-medium mb-1">📱 macOS Instructions:</p>
+                                        <code className="text-[9px] text-orange-200/80 block">
+                                            bash ~/Downloads/setup-{scriptBrandKey || 'brand'}-owner-mode.sh
+                                        </code>
+                                        <p className="text-[9px] text-orange-200/60 mt-1">
+                                            If bash doesn&apos;t work: <code className="bg-black/30 px-1 rounded">chmod +x ~/Downloads/setup-*.sh</code> then <code className="bg-black/30 px-1 rounded">./setup-*.sh</code>
+                                        </p>
+                                    </div>
+                                    <p className="text-[10px] text-red-300/60 mt-2">
                                         Enter partner brand key above, then download. Script auto-downloads their APK.
                                     </p>
                                 </div>

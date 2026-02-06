@@ -96,12 +96,9 @@ export default function TouchpointSetupPage() {
 
             if (cfg.configured) {
                 console.log("[Touchpoint] Device configured, redirecting...", cfg);
-
-                // Signal Android app immediately via hash
-                window.location.hash = `lockdown:${cfg.lockdownMode || "none"}:${cfg.unlockCodeHash || ""}`;
-
-                // Small delay to ensure hash is processed before redirect
-                setTimeout(() => performRedirect(cfg), 500);
+                // Redirect immediately - lockdown config passed via query params
+                // Note: Hash signal removed to prevent device_owner lockdown from blocking navigation
+                performRedirect(cfg);
             }
         } catch (e) {
             console.error("[Touchpoint] Error checking configuration:", e);
@@ -141,16 +138,14 @@ export default function TouchpointSetupPage() {
                     unlockCodeHash: cfg.unlockCodeHash || null,
                 };
 
-                // Signal Android app via URL hash (for passive detection)
-                window.location.hash = `lockdown:${cfg.lockdownMode || "none"}:${cfg.unlockCodeHash || ""}`;
-
                 console.log("[Touchpoint] Exposed config to JS bridge:", (window as any).TOUCHPOINT_CONFIG);
             }
 
             if (cfg.configured) {
                 console.log("[Touchpoint] Device configured, redirecting...", cfg);
-                // Delay redirect slightly to ensure hash change is detected
-                setTimeout(() => performRedirect(cfg), 1000);
+                // Redirect immediately - lockdown config passed via query params
+                // Note: Hash signal removed to prevent device_owner lockdown from blocking navigation
+                performRedirect(cfg);
             }
         }).catch(e => {
             console.error("[Touchpoint] Error fetching config:", e);
