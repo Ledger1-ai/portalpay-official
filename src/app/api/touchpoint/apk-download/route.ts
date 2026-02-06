@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         }
 
         // Get APK from Azure Blob Storage
-        const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || "").trim();
+        const conn = String(process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_BLOB_CONNECTION_STRING || "").trim();
         const container = String(process.env.PP_APK_CONTAINER || "apks").trim();
 
         if (!conn) {
