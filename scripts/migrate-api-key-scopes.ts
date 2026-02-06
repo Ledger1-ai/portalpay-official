@@ -1,3 +1,8 @@
+// Load environment variables from .env.local or .env
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+dotenv.config({ path: ".env" });
+
 import { getContainer } from "@/lib/cosmos";
 
 /**
@@ -30,6 +35,7 @@ async function migrateApiKeyScopes() {
 
     let updated = 0;
     let skipped = 0;
+    let errors = 0;
 
     for (const key of keys) {
         const currentScopes = Array.isArray(key.scopes) ? key.scopes : [];
@@ -37,6 +43,7 @@ async function migrateApiKeyScopes() {
 
         if (missingScopes.length === 0) {
             skipped++;
+            console.log(`⏭️  Skipped ${key.id} (already has all scopes)`);
             continue;
         }
 
@@ -50,17 +57,20 @@ async function migrateApiKeyScopes() {
         };
 
         try {
-            await container.item(key.id, key.ownerWallet).replace(updatedKey);
+            // Use upsert instead of replace - works regardless of partition key
+            await container.items.upsert(updatedKey);
             updated++;
-            console.log(`✅ Updated key ${key.id} (${key.label || "unnamed"}) - added: ${missingScopes.join(", ")}`);
+            console.log(`✅ Updated ${key.id} (${key.label || "unnamed"}) - added: ${missingScopes.join(", ")}`);
         } catch (e: any) {
-            console.error(`❌ Failed to update key ${key.id}: ${e?.message}`);
+            errors++;
+            console.error(`❌ Failed to update ${key.id}: ${e?.message?.substring(0, 100)}`);
         }
     }
 
     console.log("\n📊 Migration Summary:");
     console.log(`   Updated: ${updated}`);
     console.log(`   Skipped (already had all scopes): ${skipped}`);
+    console.log(`   Errors: ${errors}`);
     console.log(`   Total: ${keys.length}`);
 }
 
